@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragoperationsquery expose jobprogresscommand readtaskpage operatordiagnostics jobstatuscommand jobplancommand jobeventscommand taskinventorycommand
+namespace ragoperationsquery expose jobprogresscommand readtaskpage operatordiagnostics jobstatuscommand jobplancommand jobeventscommand taskinventorycommand jobinspectcommand joblistcommand
 
 import ragallowance
 import ragbacklog
@@ -11,6 +11,7 @@ import raglifecycle
 import ragrepository
 import ragsupervision
 import rxjson
+import rxhash
 import ragcommand
 import ragcommandutil
 import ragsqlsupport
@@ -109,10 +110,10 @@ operatordiagnostics: procedure = .ragcommandresult
   operation=request.operation();error=""
   if commandhasaccess(request,"read")\=1 then return commandfailure(operation,4,"operator inspection requires read access")
   allowed="id cursor limit state"
-  if operation="job.items" then allowed=allowed || " uncertainty"
-  if operation="job.attempts" then allowed="id item cursor limit"
+  if operation="job.items" then allowed=allowed || " uncertainty all task type model prompt outcome error since until"
+  if operation="job.attempts" then allowed="id item task cursor limit"
   if operation="maintain.workflows" then allowed="id subject concept state cursor limit"
-  if commandoptions(request,allowed,error)\=0 then return commandfailure(operation,2,error)
+  if commandworkeroptions(request,allowed,"all",error)\=0 then return commandfailure(operation,2,error)
   id=commandid(request,error)
   if error\="" then return commandfailure(operation,2,error)
   cursor=commandoption(request,"cursor",error);count_text=commandoption(request,"limit",error)
@@ -127,11 +128,19 @@ operatordiagnostics: procedure = .ragcommandresult
   if operation="job.items" & state\="" then if wordpos(state,"queued running processed skipped dead_letter cancelled cancel_requested")=0 then return commandfailure(operation,2,"unknown job item state")
   if uncertainty\="" then if wordpos(uncertainty,"all active held")=0 then return commandfailure(operation,2,"uncertainty must be all, active or held")
   if operation="maintain.workflows" & state\="" then if wordpos(state,"migrating waiting complete")=0 then return commandfailure(operation,2,"unknown workflow state")
-  if left(operation,4)="job." & id="" then return commandfailure(operation,2,"job inspection requires one job id")
+  all_jobs=commandoption(request,"all",error)
+  if all_jobs="true" & (operation<>"job.items" | id<>"") then return commandfailure(operation,2,"choose one job id or --all")
+  if left(operation,4)="job." & id="" & all_jobs<>"true" then return commandfailure(operation,2,"job inspection requires one job id or explicit --all")
+  example_filter="";attempt_filter=""
+  if operation="job.items" then example_filter=_examplefilter(request,error,attempt_filter)
+  task_filter=commandoption(request,"task",error)
+  if length(task_filter)>512 | pos("00"x,task_filter)>0 then return commandfailure(operation,2,"invalid task filter")
+  if error<>"" then return commandfailure(operation,2,error)
   view=.ragreadsnapshot
   if beginreadsnapshot(request.library(),view,error)\=0 then return commandopenfailure(operation,error)
   database=view.database()
-  if left(operation,4)="job." then do
+  if _validtimes(database,request,error)<>0 then do;ignored="";call closereadsnapshot view,ignored;return commandfailure(operation,2,error);end
+  if left(operation,4)="job." & id<>"" then do
     found=_jobexists(database,id,error)
     if found\=1 then do
       ignored="";call closereadsnapshot view,ignored
@@ -142,14 +151,17 @@ operatordiagnostics: procedure = .ragcommandresult
   filter="";sql="";kind=""
   if operation="job.items" then do
     kind="job-item"
-    if uncertainty\="" then filter=" AND " || uncertainitem("i.item_id")
+    scope="i.job_id=?1";if all_jobs="true" then scope="?1=''"
+    filter=example_filter
+    if uncertainty\="" then filter=filter || " AND " || uncertainitem("i.item_id")
     if uncertainty="active" then filter=filter || " AND i.state IN('running','cancel_requested')"
     if uncertainty="held" then filter=filter || " AND i.state NOT IN('running','cancel_requested')"
-    sql="SELECT i.item_id,json_object('item_id',i.item_id,'job_id',i.job_id,'item_type',i.item_type,'state',i.state,'worker_id',i.worker_id,'fence',i.fence,'lease_until',i.lease_until,'retry_at',i.retry_at,'input_hash',i.input_hash,'created_at',i.created_at,'updated_at',i.updated_at,'attempts',(SELECT count(*) FROM attempts a WHERE a.item_id=i.item_id),'task_id',(SELECT task_id FROM maintenance_task_items t WHERE t.item_id=i.item_id)) FROM job_items i WHERE i.job_id=?1 AND i.item_id>?2 AND (?3='' OR i.state=?3)" || filter || " ORDER BY i.item_id LIMIT ?4"
+    sql="SELECT i.item_id,json_object('item_id',i.item_id,'job_id',i.job_id,'item_type',i.item_type,'state',i.state,'worker_id',i.worker_id,'fence',i.fence,'lease_until',i.lease_until,'retry_at',i.retry_at,'input_hash',i.input_hash,'created_at',i.created_at,'updated_at',i.updated_at,'attempts',(SELECT count(*) FROM attempts a WHERE a.item_id=i.item_id),'task_id',coalesce((SELECT task_id FROM maintenance_task_items t WHERE t.item_id=i.item_id),(SELECT json_extract(e.message,'$.task_id') FROM job_events e WHERE e.item_id=i.item_id AND e.event_type='extraction-review-required' LIMIT 1)),'attempt_id',(SELECT a.attempt_id FROM attempts a WHERE a.item_id=i.item_id" || attempt_filter || " ORDER BY a.fence DESC,a.attempt_id DESC LIMIT 1),'inspect_operation','job.inspect','model',json_extract(CASE WHEN json_valid(i.input_json) THEN i.input_json ELSE '{}' END,'$.model'),'role',json_extract(CASE WHEN json_valid(i.input_json) THEN i.input_json ELSE '{}' END,'$.role')) FROM job_items i WHERE " || scope || " AND i.item_id>?2 AND (?3='' OR i.state=?3)" || filter || " ORDER BY i.item_id LIMIT ?4"
   end
   if operation="job.attempts" then do
     kind="job-attempt"
-    sql="SELECT a.attempt_id,json_object('attempt_id',a.attempt_id,'item_id',a.item_id,'job_id',i.job_id,'worker_id',a.worker_id,'fence',a.fence,'input_hash',a.input_hash,'output_hash',a.output_hash,'provider_run_id',a.provider_run_id,'validation_state',a.validation_state,'outcome',a.outcome,'started_at',a.started_at,'completed_at',a.completed_at) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND a.attempt_id>?2 AND (?3='' OR a.item_id=?3) ORDER BY a.attempt_id LIMIT ?4"
+    if task_filter<>"" then filter=" AND " || _taskitempredicate(sqlquote(task_filter))
+    sql="SELECT a.attempt_id,json_object('attempt_id',a.attempt_id,'item_id',a.item_id,'job_id',i.job_id,'worker_id',a.worker_id,'fence',a.fence,'input_hash',a.input_hash,'output_hash',a.output_hash,'provider_run_id',a.provider_run_id,'validation_state',a.validation_state,'outcome',a.outcome,'started_at',a.started_at,'completed_at',a.completed_at) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND a.attempt_id>?2 AND (?3='' OR a.item_id=?3)" || filter || " ORDER BY a.attempt_id LIMIT ?4"
     state=item
   end
   if operation="maintain.workflows" then do
@@ -209,7 +221,7 @@ jobstatuscommand: procedure = .ragcommandresult
   arg request = .ragcommandrequest
   operation = request.operation(); error = ""
   if commandhasaccess(request, "read") \= 1 then return commandfailure(operation, 4, "job status requires read access")
-  if commandoptions(request, "id seconds", error) \= 0 then return commandfailure(operation, 2, error)
+  if commandworkeroptions(request, "id seconds diagnostics", "diagnostics", error) \= 0 then return commandfailure(operation, 2, error)
   job_id = commandid(request, error)
   if error \= "" | job_id = "" then return commandfailure(operation, 2, "job status requires one job id")
   seconds_text=commandoption(request,"seconds",error)
@@ -228,6 +240,8 @@ jobstatuscommand: procedure = .ragcommandresult
   interval=jobintervaljson(view.database(),job_id,observed,seconds)
   if usage="" | interval="" then do;error="cannot read job usage or observation interval";read_status=-1;end
   allowance=joballowancejson(view.database(),job_id)
+  diagnostics=""
+  if commandoption(request,"diagnostics",error)="true" then diagnostics=_jobdiagnostics(view.database(),job_id)
   ignored = ""; close_status = closereadsnapshot(view, ignored)
   if read_status = -2 then return commandfailure(operation, 5, "job was not found")
   if read_status \= 0 | close_status \= 0 then return commandfailure(operation, 7, error)
@@ -279,6 +293,7 @@ jobstatuscommand: procedure = .ragcommandresult
   fields[fields.0+1]=.ragresultfield("observed_at","string",observed_at)
   fields[fields.0+1]=.ragresultfield("processed_per_minute","string",(processed as .float)*60.0/(seconds as .float))
   fields[fields.0+1]=.ragresultfield("usage_basis","string","recorded provider runs; unknown outcomes and unpriced usage remain explicit")
+  if diagnostics<>"" then fields[fields.0+1]=.ragresultfield("diagnostics","string",diagnostics)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-status", fields)
   return .ragcommandresult(operation, "ok", 0, "bounded durable job status", records)
 jobplancommand: procedure = .ragcommandresult
@@ -336,6 +351,18 @@ jobeventscommand: procedure = .ragcommandresult
     fields[5] = .ragresultfield("event_type","string",event_type)
     fields[6] = .ragresultfield("message","string",message)
     fields[7] = .ragresultfield("occurred_at","string",occurred)
+    if length(message)>8192 then do
+      fields[6]=.ragresultfield("message","string",left(message,1024) || " [preview; full retained message omitted from event list]")
+      fields[8]=.ragresultfield("message_truncated","boolean","true")
+      fields[9]=.ragresultfield("message_characters","integer",length(message))
+      fields[10]=.ragresultfield("message_bytes","integer",binlength(message as .binary))
+      fields[11]=.ragresultfield("message_sha256","string",rxhash..sha256hex(message as .binary))
+      section="";if event_type="provider-request" then section="request"
+      if event_type="provider-response" | event_type="provider-diagnostic" then section="response"
+      inspection="";if item_id<>"" & attempt_id<>"" & section<>"" then inspection="job.inspect"
+      fields[12]=.ragresultfield("inspect_operation","string",inspection)
+      fields[13]=.ragresultfield("inspect_section","string",section)
+    end
     records[records.0+1] = .ragresultrecord("job-event",fields); last_event = event_id
   end
   call sqlitefinalize prepared
@@ -431,3 +458,147 @@ _itemrecovery: procedure = .string
   if request="" then request="null"
   if task<>"" then facts=taskretryfacts(database,task,"")
   return sqlreadtext(database,"SELECT json_object('source_id',s.source_id,'source_title',s.observed_title,'revision_chunk_id',c.revision_chunk_id,'task_policy',json(" || sqlquote(facts) || "),'retry_request',json(" || sqlquote(request) || "),'uncertain_outcome',CASE WHEN " || uncertainitem("i.item_id") || " THEN 1 ELSE 0 END,'last_attempt_reason',(SELECT validation_state FROM attempts a WHERE a.item_id=i.item_id ORDER BY a.fence DESC LIMIT 1),'original_attempt_limit',(SELECT json_extract(message,'$.maximum_attempts') FROM job_events WHERE job_id=i.job_id AND event_type='budget-policy' ORDER BY event_id DESC LIMIT 1),'next_action',CASE WHEN i.state IN('running','cancel_requested') THEN 'worker status; wait for active work or drain before changing ownership' WHEN i.state IN('processed','skipped') OR json_extract(" || sqlquote(facts) || ",'$.disposition')='already-complete' THEN 'complete; no retry call needed' WHEN i.state='queued' AND i.retry_at>unixepoch() THEN 'wait until retry_at; inspect provider status' WHEN i.state='queued' THEN 'job continue JOB; retain the current allowance' WHEN " || sqlquote(task) || "<>'' THEN 'maintain inspect TASK; maintain retry TASK --reason REASON retains an explicit request' ELSE 'job retry JOB --item ITEM --reason REASON; job continue JOB; inspect any retained hold' END) FROM job_items i LEFT JOIN revision_chunks c ON c.revision_chunk_id=json_extract(CASE WHEN json_valid(i.input_json) THEN i.input_json ELSE '{}' END,'$.revision_chunk_id') LEFT JOIN source_revisions v ON v.revision_id=c.revision_id LEFT JOIN sources s ON s.source_id=v.source_id" || selector)
+
+/* Filter metadata before pagination; large request/response bodies stay lazy. */
+_examplefilter: procedure = .string
+  arg request=.ragcommandrequest,expose error=.string,expose attempt_filter=.string
+  error="";filter="";attempt_filter=""
+  names="task type model prompt outcome error since until"
+  do k=1 to words(names)
+    name=word(names,k);value=commandoption(request,name,error)
+    if value="" then iterate
+    if length(value)>512 | pos("00"x,value)>0 then do;error="example filters must be at most 512 characters without NUL";return "";end
+    literal=sqlquote(value)
+    input="CASE WHEN json_valid(i.input_json) THEN i.input_json ELSE '{}' END"
+    if name="task" then filter=filter || " AND " || _taskitempredicate(literal)
+    if name="type" then filter=filter || " AND i.item_type=" || literal
+    if name="model" then filter=filter || " AND json_extract(" || input || ",'$.model')=" || literal
+    if name="prompt" then filter=filter || " AND (json_extract(" || input || ",'$.prompt_sha256')=" || literal || " OR EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=i.item_id AND e.event_type='provider-request' AND json_extract(e.message,'$.prompt_sha256')=" || literal || "))"
+    if name="since" | name="until" then do
+      if length(value)<10 | length(value)>32 then do;error="time filters require ISO-8601 timestamps";return "";end
+      comparison=">=";if name="until" then comparison="<"
+      attempt_filter=attempt_filter || " AND julianday(a.started_at)" || comparison || "julianday(" || literal || ")"
+    end
+    if name="outcome" then do
+      if wordpos(value,"succeeded failed dead_letter running cancelled expired skipped no-change applied correction-success correction-failed")=0 then do;error="unknown example outcome";return "";end
+      if value="no-change" | value="applied" then do
+        condition="d.disposition IN('no-change:resolved','no-change:review:accept')"
+        if value="applied" then condition="d.applied_generation IS NOT NULL AND json_extract(d.response_json,'$.action') NOT IN('retain','investigate','no-change','defer')"
+        filter=filter || " AND EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.item_id=i.item_id AND " || condition || ")"
+      end
+      else if left(value,11)="correction-" then do
+        state="a.outcome IN('succeeded','processed')";if value="correction-failed" then state="a.outcome IN('failed','dead_letter')"
+        attempt_filter=attempt_filter || " AND " || state || " AND EXISTS(SELECT 1 FROM job_events e JOIN attempts original ON original.attempt_id=e.attempt_id WHERE e.item_id=i.item_id AND e.event_type='citation-correction-requested' AND original.fence<a.fence)"
+      end
+      else if value="failed" then attempt_filter=attempt_filter || " AND a.outcome IN('failed','dead_letter')"
+      else attempt_filter=attempt_filter || " AND a.outcome=" || literal
+    end
+    if name="error" then do
+      if wordpos(value,"authentication timeout grounding schema contention transport storage unknown")=0 then do;error="unknown error category";return "";end
+      attempt_filter=attempt_filter || " AND a.outcome IN('failed','dead_letter','expired','cancelled') AND " || _errorcategory("a.validation_state") || "=" || literal
+    end
+  end
+  if attempt_filter<>"" then filter=filter || " AND EXISTS(SELECT 1 FROM attempts a WHERE a.item_id=i.item_id" || attempt_filter || ")"
+  return filter
+
+_errorcategory: procedure = .string
+  arg expression=.string
+  reason="lower(coalesce(" || expression || ",''))"
+  return "CASE WHEN " || reason || " LIKE '%authentication%' OR " || reason || " LIKE '%unauthorized%' OR " || reason || " LIKE '%credential%' THEN 'authentication' WHEN " || reason || " LIKE '%database is locked%' OR " || reason || " LIKE '%sqlite=5,%' THEN 'contention' WHEN " || reason || " LIKE '%timeout%' OR " || reason || " LIKE '%response deadline%' OR " || reason || " LIKE '%byte operation deadline exceeded%' OR " || reason || " LIKE '%timed out%' THEN 'timeout' WHEN " || reason || " LIKE '%quotation%' OR " || reason || " LIKE '%ground%' THEN 'grounding' WHEN " || reason || " LIKE '%schema%' OR " || reason || " LIKE '%malformed%' OR " || reason || " LIKE '%not valid json%' THEN 'schema' WHEN " || reason || " LIKE '%transport%' OR " || reason || " LIKE '%connection%' OR " || reason || " LIKE '%closed stdout%' OR " || reason || " LIKE '%stdout failed%' THEN 'transport' WHEN " || reason || " LIKE '%storage%' OR " || reason || " LIKE '%sqlite%' THEN 'storage' ELSE 'unknown' END"
+
+/* Exact retained sections, never reconstructed from today's prompt/config. */
+jobinspectcommand: procedure = .ragcommandresult
+  arg request=.ragcommandrequest
+  operation=request.operation();error=""
+  if commandhasaccess(request,"read")<>1 then return commandfailure(operation,4,"work inspection requires read access")
+  if commandoptions(request,"id attempt section cursor limit",error)<>0 then return commandfailure(operation,2,error)
+  id=commandid(request,error);attempt=commandoption(request,"attempt",error);section=commandoption(request,"section",error)
+  cursor=commandoption(request,"cursor",error);limit_text=commandoption(request,"limit",error)
+  if id="" | error<>"" | length(id)>512 | length(attempt)>512 | pos("00"x,id || attempt)>0 then return commandfailure(operation,2,"inspection requires a valid item id")
+  if section="" then section="summary"
+  if wordpos(section,"summary request response validation timing decision input")=0 then return commandfailure(operation,2,"unknown inspection section")
+  if cursor="" then cursor="0"
+  if limit_text="" then limit_text="8192"
+  if commandunsigned(cursor)<>1 | length(cursor)>9 | commandunsigned(limit_text)<>1 | length(limit_text)>4 then return commandfailure(operation,2,"invalid detail page")
+  offset=cursor as .int;limit=limit_text as .int
+  if limit<1 | limit>8192 then return commandfailure(operation,2,"detail page limit must be 1 through 8192")
+  view=.ragreadsnapshot
+  if beginreadsnapshot(request.library(),view,error)<>0 then return commandopenfailure(operation,error)
+  db=view.database();item_sql="SELECT item_id FROM job_items WHERE item_id=" || sqlquote(id)
+  exists=sqlreadtext(db,item_sql)
+  if exists="" then do;call closereadsnapshot view,error;return commandfailure(operation,5,"work item was not found");end
+  if attempt<>"" then do
+    exists=sqlreadtext(db,"SELECT attempt_id FROM attempts WHERE item_id=" || sqlquote(id) || " AND attempt_id=" || sqlquote(attempt))
+    if exists="" then do;call closereadsnapshot view,error;return commandfailure(operation,5,"attempt does not belong to item");end
+  end
+  else attempt=sqlreadtext(db,"SELECT attempt_id FROM attempts WHERE item_id=" || sqlquote(id) || " ORDER BY fence DESC,attempt_id DESC LIMIT 1")
+  selected="item_id=" || sqlquote(id) || " AND attempt_id=" || sqlquote(attempt)
+  body="";availability="retained"
+  if section="input" then body=sqlreadtext(db,"SELECT input_json FROM job_items WHERE item_id=" || sqlquote(id))
+  if section="request" then body=sqlreadtext(db,"SELECT message FROM job_events WHERE " || selected || " AND event_type='provider-request' ORDER BY event_id LIMIT 1")
+  if section="response" then body=sqlreadtext(db,"SELECT message FROM job_events WHERE " || selected || " AND event_type IN('provider-diagnostic','provider-response') ORDER BY CASE event_type WHEN 'provider-diagnostic' THEN 0 ELSE 1 END,event_id LIMIT 1")
+  if section="response" & body="" then body=sqlreadtext(db,"SELECT p.recovery_json FROM attempts a JOIN provider_runs p ON p.provider_run_id=a.provider_run_id WHERE a.attempt_id=" || sqlquote(attempt) || " AND p.recovery_json<>''")
+  if section="validation" then body=sqlreadtext(db,"SELECT json_object('outcome',outcome,'message',validation_state,'category'," || _errorcategory("validation_state") || ",'category_basis','message classification','correction',json((SELECT coalesce(json_group_array(json_object('type',event_type,'message',message)),'[]') FROM job_events e WHERE e.attempt_id=a.attempt_id AND event_type='citation-correction-requested'))) FROM attempts a WHERE attempt_id=" || sqlquote(attempt))
+  if section="decision" then body=sqlreadtext(db,"SELECT json_object('decision_id',decision_id,'response',json(response_json),'grounding',json(grounding_json),'disposition',disposition,'applied_generation',applied_generation) FROM maintenance_decisions WHERE item_id=" || sqlquote(id) || " ORDER BY created_epoch DESC LIMIT 1")
+  if section="timing" then body=sqlreadtext(db,"SELECT json_object('started_at',a.started_at,'completed_at',a.completed_at,'provider_duration_ms',p.duration_ms,'provider_elapsed_ms',max(0,p.duration_ms-coalesce((SELECT wait_ms FROM provider_admissions WHERE attempt_id=a.attempt_id LIMIT 1),0)),'usage_complete',coalesce((SELECT json_extract(CASE WHEN json_valid(e.message) THEN e.message ELSE '{}' END,'$.usage_complete') FROM job_events e WHERE e.attempt_id=a.attempt_id AND e.event_type IN('provider-observed','provider-reconciled') ORDER BY e.event_id DESC LIMIT 1),json_extract(nullif(p.recovery_json,''),'$.usage_complete')),'input_tokens',p.input_tokens,'output_tokens',p.output_tokens,'cost_microunits',p.cost_microunits,'provider_run_id',a.provider_run_id,'provider',p.provider_id,'model',p.model,'thread_id',p.external_thread_id,'turn_id',p.external_turn_id,'admission_wait_ms',(SELECT wait_ms FROM provider_admissions WHERE attempt_id=a.attempt_id LIMIT 1),'transactions',json((SELECT coalesce(json_group_array(json_object('occurred_at',e.occurred_at,'measurement',json(e.message))),'[]') FROM job_events e WHERE e.attempt_id=a.attempt_id AND e.event_type='transaction-timing'))) FROM attempts a LEFT JOIN provider_runs p ON p.provider_run_id=a.provider_run_id WHERE a.attempt_id=" || sqlquote(attempt))
+  if section="summary" then body=sqlreadtext(db,"SELECT json_object('item_id',i.item_id,'job_id',i.job_id,'state',i.state,'task_id',coalesce(m.task_id,(SELECT json_extract(e.message,'$.task_id') FROM job_events e WHERE e.item_id=i.item_id AND e.event_type='extraction-review-required' LIMIT 1)),'parent_task_id',t.parent_task_id,'attempt_id'," || sqlquote(attempt) || ",'reused_from_attempt',(SELECT message FROM job_events WHERE attempt_id=" || sqlquote(attempt) || " AND event_type='provider-receipt-reused' LIMIT 1),'attempts_operation','job.attempts','inspect_operation','job.inspect','model',json_extract(CASE WHEN json_valid(i.input_json) THEN i.input_json ELSE '{}' END,'$.model'),'role',json_extract(CASE WHEN json_valid(i.input_json) THEN i.input_json ELSE '{}' END,'$.role'),'input_hash',i.input_hash) FROM job_items i LEFT JOIN maintenance_task_items m ON m.item_id=i.item_id LEFT JOIN maintenance_tasks t ON t.task_id=m.task_id WHERE i.item_id=" || sqlquote(id))
+  if body="" then availability="unavailable"
+  total=length(body);next=""
+  if offset>total then do;call closereadsnapshot view,error;return commandfailure(operation,2,"detail cursor exceeds section length");end
+  if offset+limit<total then next=offset+limit
+  fields=.ragresultfield[]
+  fields[1]=.ragresultfield("item_id","string",id);fields[2]=.ragresultfield("attempt_id","string",attempt);fields[3]=.ragresultfield("section","string",section)
+  fields[4]=.ragresultfield("availability","string",availability);fields[5]=.ragresultfield("text","string",substr(body,offset+1,min(limit,total-offset)));fields[6]=.ragresultfield("total_characters","integer",total)
+  fields[7]=.ragresultfield("sha256","string",rxhash..sha256hex(body as .binary));fields[8]=.ragresultfield("next_cursor","string",next);fields[9]=.ragresultfield("complete","boolean",commandboolean(next=""));fields[10]=.ragresultfield("provider_calls","integer",0)
+  records=.ragresultrecord[];records[1]=.ragresultrecord("work-inspection",fields)
+  call closereadsnapshot view,error
+  if error<>"" then return commandfailure(operation,7,error)
+  return .ragcommandresult(operation,"ok",0,"retained work section; unavailable history is not reconstructed",records)
+
+_validtimes: procedure = .int
+  arg database=.binary,request=.ragcommandrequest,expose error=.string
+  do k=1 to 2
+    name=word("since until",k);value=commandoption(request,name,error)
+    if value="" then iterate
+    if length(value)<10 | length(value)>32 | substr(value,5,1)<>"-" | substr(value,8,1)<>"-" then do;error="time filters require ISO-8601 timestamps";return -1;end
+    if sqlreadint(database,"SELECT julianday(" || sqlquote(value) || ") IS NOT NULL")<>1 then do;error="invalid time filter";return -1;end
+  end
+  return 0
+
+joblistcommand: procedure = .ragcommandresult
+  arg request=.ragcommandrequest
+  error="";operation=request.operation()
+  if commandhasaccess(request,"read")<>1 then return commandfailure(operation,4,"job list requires read access")
+  if commandoptions(request,"cursor limit task type model prompt outcome error since until",error)<>0 then return commandfailure(operation,2,error)
+  positionals=request.positionals()
+  if positionals.0>0 then return commandfailure(operation,2,"job list accepts filters, not positional IDs")
+  cursor=commandoption(request,"cursor",error);limit_text=commandoption(request,"limit",error)
+  if limit_text="" then limit_text="20"
+  if commandunsigned(limit_text)<>1 | length(limit_text)>3 | length(cursor)>512 | pos("00"x,cursor)>0 then return commandfailure(operation,2,"invalid job page")
+  limit=limit_text as .int
+  if limit<1 | limit>100 then return commandfailure(operation,2,"job page limit must be 1 through 100")
+  attempt_filter="";filter=_examplefilter(request,error,attempt_filter)
+  if error<>"" then return commandfailure(operation,2,error)
+  if filter<>"" then filter=" AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=jobs.job_id" || filter || ")"
+  view=.ragreadsnapshot
+  if beginreadsnapshot(request.library(),view,error)<>0 then return commandopenfailure(operation,error)
+  if _validtimes(view.database(),request,error)<>0 then do;ignored="";call closereadsnapshot view,ignored;return commandfailure(operation,2,error);end
+  page=.ragrepositorypage
+  status=pagerepository(view,"jobs",cursor,limit,page,error,"",filter)
+  ignored="";closed=closereadsnapshot(view,ignored)
+  if status<>0 | closed<>0 then return commandfailure(operation,7,error || ignored)
+  metadata=.string[];records=repositoryresultrecords(page,metadata,"",limit)
+  return .ragcommandresult(operation,"ok",0,"jobs filtered by retained examples before pagination",records)
+
+_jobdiagnostics: procedure = .string
+  arg database=.binary,job_id=.string
+  job=sqlquote(job_id)
+  category=_errorcategory("a.validation_state")
+  errors=sqlreadtext(database,"SELECT coalesce(json_group_array(json(row)),'[]') FROM (SELECT json_object('category'," || category || ",'attempts',count(*),'example_item_id',min(a.item_id),'items_operation','job.items','inspect_operation','job.inspect') row FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=" || job || " AND (a.outcome IN('failed','dead_letter') OR (a.outcome='cancelled' AND " || category || "<>'unknown')) GROUP BY " || category || " ORDER BY count(*) DESC)")
+  return sqlreadtext(database,"SELECT json_object('task_count',(SELECT count(DISTINCT m.task_id) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE i.job_id=" || job || "),'attempts',count(*),'failed_attempts',coalesce(sum(a.outcome IN('failed','dead_letter')),0),'successful_attempts',coalesce(sum(a.outcome='succeeded'),0),'attempts_without_request',coalesce(sum(NOT EXISTS(SELECT 1 FROM job_events e WHERE e.attempt_id=a.attempt_id AND e.event_type='provider-request')),0),'errors',json(" || sqlquote(errors) || "),'category_basis','message classification; inspect original error','controllers_recorded',(SELECT count(*) FROM runtime_instances WHERE kind='controller' AND job_filter=" || job || "),'worker_failures',(SELECT count(*) FROM runtime_instances WHERE kind='worker' AND job_filter=" || job || " AND state='failed'),'workers_operation','worker.list','events_operation','job.events','timing_basis','provider duration includes admission wait; transaction timings only where recorded') FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=" || job)
+
+/* An advanced review can originate in ingestion, before any maintenance-window
+ * item exists. The event is the existing authoritative lineage in that case. */
+_taskitempredicate: procedure = .string
+  arg task_literal=.string
+  return "(EXISTS(SELECT 1 FROM maintenance_task_items m WHERE m.item_id=i.item_id AND m.task_id=" || task_literal || ") OR EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=i.item_id AND e.event_type='extraction-review-required' AND json_extract(e.message,'$.task_id')=" || task_literal || "))"

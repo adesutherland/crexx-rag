@@ -263,8 +263,8 @@ _deferuncalledclaim: procedure = .int
 /* The event ledger retains the original provider envelope before application
  * validation. Intent without a response is uncertain, never an automatic retry. */
 beginproviderrequest: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, request_id = .string, expose error = .string
-  return ragreceipts..beginproviderrequest(store,claim,request_id,error)
+  arg store = .ragstorehandle, claim = .ragworkclaim, request_id = .string, expose error = .string, request_body = ""
+  return ragreceipts..beginproviderrequest(store,claim,request_id,error,request_body)
 
 recordproviderresponse: procedure = .int
   arg store = .ragstorehandle, claim = .ragworkclaim, body = .string, expose error = .string, observation = ""
@@ -285,8 +285,8 @@ _recoverprovideraccounting: procedure = .int
   return ragusage..recoverprovideraccounting(store,claim,original_attempt,result,provider_run_id,error)
 
 beginexternalrun: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, provider_id = .string, model = .string, request_id = .string, charging_basis = .string, thread_id = .string, allowance_before = .int, expose provider_run_id = .string, expose error = .string
-  return ragreceipts..beginexternalrun(store,claim,provider_id,model,request_id,charging_basis,thread_id,allowance_before,provider_run_id,error)
+  arg store = .ragstorehandle, claim = .ragworkclaim, provider_id = .string, model = .string, request_id = .string, charging_basis = .string, thread_id = .string, allowance_before = .int, expose provider_run_id = .string, expose error = .string, request_body = ""
+  return ragreceipts..beginexternalrun(store,claim,provider_id,model,request_id,charging_basis,thread_id,allowance_before,provider_run_id,error,request_body)
 
 updateexternalrunturn: procedure = .int
   arg store = .ragstorehandle, provider_run_id = .string, thread_id = .string, turn_id = .string, expose error = .string
@@ -648,7 +648,9 @@ runworkeronce: procedure = .int
     /* The last worker may stop at its item allowance without another poll. */
     if status >= 0 & _boundcount(store.database(),"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND state<>'active'",claim.job_id()) > 0 then do
       reconciliation_error = ""
-      if tickbacklogwindow(store,claim.job_id(),reconciliation_error) < 0 then do; error = reconciliation_error; return -3; end
+      if tickbacklogwindow(store,claim.job_id(),reconciliation_error,worker_id)<0 then do
+        if sqlitebusyerror(reconciliation_error)=0 then do;error=reconciliation_error;return -3;end
+      end
     end
   end
   return status
@@ -658,7 +660,13 @@ _runworkeronce: procedure = .int
   /* The pre-claim checkpoint can fail. Its caller still inspects claimed(),
    * so every return must expose a valid empty claim until claimnext sets it. */
   disposition = "idle"; error = ""; claim = .ragworkclaim(1,"","","","",worker_id,0,"",0,"")
-  if tickbacklogwindow(store, job_filter, error) < 0 then return -3
+  if tickbacklogwindow(store,job_filter,error,worker_id)<0 then do
+    /* Only failed BEGIN is retryable here: there is no claim, transaction
+     * body or provider call to replay. The worker's existing poll/stop bounds
+     * govern the next attempt; the failed lock diagnostic remains visible. */
+    if sqlitebusyerror(error)=1 then do;disposition="checkpoint-busy";return 1;end
+    return -3
+  end
   claim_status = claimnext(store, job_filter, worker_id, lease_seconds, maximum_attempts, claim, error, 1, parent_instance_id)
   if claim_status = 1 then return 1
   if claim_status \= 0 then return claim_status

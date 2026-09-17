@@ -16,7 +16,7 @@ import ragenvironment
 reserveworkerreplacement: procedure = .int
   arg store = .ragstorehandle, controller_id = .string, previous_id = .string, maximum = .int, initial_backoff_ms = .int, expose replacement_id = .string, expose delay_ms = .int, expose error = .string, window_seconds = 3600, now_epoch = 0
   replacement_id = ""; delay_ms = 0; error = ""
-  if maximum < 0 | maximum > 10 | window_seconds < 1 | window_seconds > 86400 | now_epoch < 0 | initial_backoff_ms < 10 | initial_backoff_ms > 60000 then do; error = "worker replacement bounds are invalid"; return -1; end
+  if workerinrange("max_restarts",maximum)=0 | workerinrange("restart_window_seconds",window_seconds)=0 | now_epoch<0 | workerinrange("restart_backoff_ms",initial_backoff_ms)=0 then do; error = "worker replacement bounds are invalid"; return -1; end
   database = store.database()
   if beginwritetransaction(database,"begin worker replacement",error) \= 0 then return -2
   if now_epoch = 0 then now_epoch = _scalarint(database,"SELECT unixepoch()",error)

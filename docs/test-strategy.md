@@ -38,7 +38,7 @@ journey, rather than running every component after each edit.
 
 | Change owner / concern | First relevant selection | Wider coverage when stable |
 | --- | --- | --- |
-| Backlog routing, deferral, evidence, finality | `durable_backlog_escalation`, `durable_backlog` | Relevant `durable_backlog_provider_*`, task reset, prompt/configuration; full gate |
+| Backlog routing, deferral, evidence, finality | `durable_backlog_budget`, `durable_backlog_escalation`, `durable_backlog` | Relevant `durable_backlog_provider_*`, task reset, prompt/configuration; full gate |
 | Prompt/configuration | `regression_prompt_inspection`, `configuration_contract` | Prompt captures, provider route, native policy; full gate |
 | Receipt reuse, attempts, recovery | Named `worker_recovery_*` case plus positive control | `controller_recovery_*`, native receipt/publication and process matrices; full gate |
 | Codex transport | One `codex_protocol_<mode>_<VM>` case | All four variants, native Codex journey; separate turnover scale lane |

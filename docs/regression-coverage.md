@@ -1,5 +1,97 @@
 # Regression coverage baseline — REG-01
 
+## Advanced-call accounting — ESC-OPS-02, 17 September 2026
+
+New isolated `durable_backlog_budget` covers ordinary escalation followed by
+three or five advanced calls, with search/read, a final decision, per-step
+remaining allowance, independent provider/token totals, source/graph invariants
+and released reservations. A direct ordinary conclusion is its passing control;
+the unmodified product fails before the final advanced call. Existing escalation,
+native correction/advanced, reset and prompt cases retain related boundaries.
+All 126 required local cases pass, including the three/five-call sequences on
+both VMs and retained-failed-state reconsideration without reset.
+[Delivery, timings and receipt audit](advanced-call-budget-delivery-20260917.md).
+
+## Maintenance references and quotation handling — locally qualified, 17 September 2026
+
+The [seven approved criteria and regression-first record](resolution-references-delivery-20260917.md)
+cover version-5 short references, readable context, specific correction feedback
+and the exact-only newline fallback after normal overlap matching fails.
+`regression_prompt_inspection` covers mapping/expansion, unknown/wrong-kind and
+legacy controls; `quotation_grounding` covers positive/negative matching on both
+VMs and optimization modes. `durable_backlog` proves canonical candidate
+eligibility and retirement checks still apply after expansion. Native
+`durable_backlog_provider_{valid,correction,correction-failed}` assert raw
+responses, canonical decisions and stable correction maps. New
+`durable_backlog_provider_receipt-recovery` proves replay after settlement
+failure with no repeated call or accounting/publication loss. The combined
+gate retains existing concurrency, Gemini smoke, malformed/secret-redaction,
+advanced finality, task reset, external proposals and installed CLI/MCP coverage.
+Final qualification is **125/125 required exact-input passes**, including two
+retained passes, with no disabled/failed/not-run cases. The delivery record
+retains the first stopped gate, the repair and the final 8m 58s selection. The combined
+gate also requires `regression_operator_diagnostics` and `observability_providers`
+to classify byte-operation deadlines as timeout while preserving genuine
+closed-stdout transport failures; the deterministic regression failed before
+the shared classifier repair.
+
+## Approved maintenance follow-up — locally qualified and installed, 17 September
+
+The [approved criteria](maintenance-follow-up-plan-20260917.md) map to the
+following required cases; [delivery](maintenance-follow-up-delivery-20260917.md)
+records red-first evidence, fixture corrections, timings and final audit.
+
+| Criterion | Executable coverage |
+| --- | --- |
+| 1. Explicit 24, 25 rejection, old omission | `configuration_contract`, `regression_policy_file`, `regression_supervision`, `native_supervision_outage24`; installed public policy/config checks |
+| 2. Whole-job pool recovery and limiting | `regression_supervision` exercises 24/25 concurrent reservations, capped backoff, restart, expiry, cancel and deadline with fake time. `native_supervision_outage24` recovers five of eight processes after two recorded replacements; fixture clock expiry keeps process testing short. Existing outage/cancel/receipt journeys remain required. |
+| 3. Checkpoint contention | `regression_supervision`: independent writer, persistent failure, worker rescheduling, eight opened connections and 160 polls, unchanged state/attempts/calls. Backlog and provider concurrency/receipt suites retain budget, final settlement and publication checks. |
+| 4. Honest diagnosis | `observability_providers`: slow success, timeout followed by confirmed interruption, disconnect separately classified, full elapsed step, incomplete usage, no retained reservation or repeated call. `regression_supervision` verifies UTC lock diagnostics. |
+| 5. Large events | `regression_operator_diagnostics`: 70,011-character Unicode request, preview/hash/reference, exact page cursor, human/JSON/NDJSON/MCP rendering, full inspection reconstruction, unchanged database dumps and existing redaction controls. |
+| 6. Identity freshness | `durable_backlog`: active positive, already-inactive migration parent excluded with lifecycle visible, mid-call retirement rejected with supported refresh action; existing bounded retry/refresh/task reset history controls. |
+| 7. Prompt convergence | `regression_prompt_inspection` initial/correction split and OCR examples; `lifecycle_methodology` duplicate-parent rejection and valid split; `quotation_grounding` literal newline/backslash and normalized OCR controls on both VMs and optimization modes; existing selected-span and advanced finality cases. |
+| 8. Delivery | 124/124 required exact-input passes audited; installed artifact hashes match. Public 24/hour set/plan/apply, doctor/integrity, CLI and fresh MCP checks pass at unchanged generation 28,711. All ten previously unreadable corpus events render with original hashes. Scale and hosted live calls remain separate. |
+
+## Prompt and selected-quotation follow-up — 17 September 2026
+
+See [the delivery record](prompt-grounding-delivery-20260917.md) for compiled
+pre-repair failures and final gate results. `regression_prompt_inspection`
+covers reuse/no-change field mapping, valid JSON example, ordinary/advanced
+initial and correction instructions, legacy question guidance, extraction
+correction preservation, the separate provenance assessment envelope and
+selected Unicode context. `durable_backlog`
+reproduces a second repeated occurrence through the shared validator, asserts
+source-relative offsets and unchanged corpus generation/provider count, and
+retains contextual-quote and wrong-occurrence rejection controls.
+`quotation_grounding` exercises exact/casefold/whitespace overlap matching,
+expanding Unicode folds and invalid spans on both VMs, optimized and unoptimized.
+Existing escalation, provider, receipt, correction and publication cases remain
+in the full gate. The user-authorized bounded model/effort comparison uses a
+1% account allowance floor; synthetic passes do not establish improved model accuracy.
+The final receipt audit accounts for 123 required passes. Ten bounded live
+response replays additionally cover four ordinary cases at Low/Medium and two
+advanced cases at Sol Medium. One Medium quote selects the wrong occurrence
+and is correctly rejected by the rebuilt grounding owner. These response checks
+do not replace task-application or wider corpus-quality qualification.
+
+## Essential observability — local gate passed, 16 September 2026
+
+See [delivery and baseline receipts](observability-delivery-20260916.md).
+`regression_operator_diagnostics` covers filtered job/item search, CLI/MCP parity,
+explicit historical gaps, exact Unicode detail paging and unchanged database
+dumps. `native_receipts` checks capture once across receipt replay;
+`gemini_extraction_validation` checks original failed requests, retained malformed
+output and secret redaction. `observability_providers` adds isolated synthetic
+authentication, slow success and rejected Codex output. `regression_supervision`
+adds independent-writer contention at the two observed maintenance boundaries.
+Correction-history acceptance extends the two existing citation recovery cases.
+The full local gate accounts for 123 passes (121 fresh and two exact-input
+retained); the receipt audit reports no missing or disabled functional cases.
+Corpus-sized reads and synthetic recording measurements passed. The approved
+bounded corpus-copy run completed in 10m54s with 267 provider calls, stopped
+workers and one clean verification. All called attempts retained original input
+and output; see the delivery record for limits and remaining operational defects.
+
 ## Lease validation follow-up — 16 September 2026
 
 `configuration_contract` covers typed/file lease bounds at 1, 86,400, 0 and

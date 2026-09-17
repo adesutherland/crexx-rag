@@ -240,7 +240,7 @@ crexxrag_add_test(NAME regression_supervision
 set_tests_properties(regression_supervision PROPERTIES
     TIMEOUT 150 LABELS "regression;worker;recovery;zero-outbound")
 
-foreach(case IN ITEMS positive aged replenish cancel outage bad-task)
+foreach(case IN ITEMS positive aged replenish cancel outage outage24 bad-task)
 crexxrag_add_test(NAME native_supervision_${case}
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -648,6 +648,24 @@ crexxrag_add_test(NAME durable_backlog_escalation
 set_tests_properties(durable_backlog_escalation PROPERTIES
     TIMEOUT 300 LABELS "maintenance;lifecycle;split;merge;retirement;atomic;sqlite")
 
+crexxrag_add_test(NAME durable_backlog_budget
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/backlog_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-durable-backlog"
+        -DCPRAG_CASE=budget
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DurableBacklog.cmake")
+set_tests_properties(durable_backlog_budget PROPERTIES
+    TIMEOUT 300 LABELS "maintenance;lifecycle;split;merge;retirement;atomic;sqlite")
+
 crexxrag_add_test(NAME task_reset
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -657,7 +675,7 @@ crexxrag_add_test(NAME task_reset
 set_tests_properties(task_reset PROPERTIES
     TIMEOUT 150 LABELS "regression;maintenance;recovery;surface;zero-outbound")
 
-foreach(case IN ITEMS valid advanced malformed rejected manual concurrent budget continuation item-limit correction correction-failed correction-budget)
+foreach(case IN ITEMS valid receipt-recovery advanced malformed rejected manual concurrent budget continuation item-limit correction correction-failed correction-budget)
 crexxrag_add_test(NAME durable_backlog_provider_${case}
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -933,4 +951,12 @@ set_tests_properties(qa_execution PROPERTIES TIMEOUT 30 LABELS "harness;isolatio
 crexxrag_add_test(NAME qa_fixture_lifetime COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/qa/fixture_lifetime.py" "$<TARGET_FILE:crexxrag_provider_fixture>")
 set_tests_properties(qa_fixture_lifetime PROPERTIES TIMEOUT 30 LABELS "harness;timing;loopback;zero-outbound")
+crexxrag_add_test(NAME observability_providers
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-observability-providers"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ObservabilityProviders.cmake")
+set_tests_properties(observability_providers PROPERTIES TIMEOUT 90 LABELS "provider;codex;inspection;zero-outbound")
 include("${CMAKE_CURRENT_LIST_DIR}/CrexxRagTestSuites.cmake")

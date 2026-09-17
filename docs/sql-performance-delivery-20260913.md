@@ -1,5 +1,20 @@
 # SQL performance repair delivery — 13 September 2026
 
+## Essential observability follow-up — 16 September 2026, locally qualified
+
+Job/item example filters are composed before keyset paging. Correlated lookups
+use existing item/attempt, task-item and event-type indexes; full bodies are returned
+only by explicit section inspection. JSON metadata is extracted within SQLite. Job-list projection stays shared with the
+repository. Request capture joins the existing intent transaction and failure
+diagnostics join settlement/uncertainty transactions. Slow checkpoint timing and
+claim-context timing join their existing transactions; no per-statement trace or
+idle-poll event is added. Failed BEGIN emits through the existing safe operator
+sink. On the 4.04 GB isolated copy, existing reads showed no material regression;
+new summary/item search medians were 269–314 ms and filtered job search 584 ms
+(with a 5.59 s first sample). Synthetic recording median increased by about 7 ms;
+runtime differences prevent attributing that delta solely to capture. Raw samples
+and limitations are in the [observability record](observability-delivery-20260916.md).
+
 ISSUE-01 worker replenishment (15 September): exit eligibility still uses the
 `runtime_instances` primary key; only its exit-code predicate changes. Process
 finish adds the shared `BEGIN IMMEDIATE` acquisition around its single keyed
@@ -257,3 +272,32 @@ existing 1000-concept/packet-byte envelopes. Relevant-evidence refresh happens
 once before freezing a dispatched item, with provider receipts left immutable.
 The existing scale, publication, source-scope and durable backlog fixtures form
 the final regression gate; no performance result is claimed before that gate.
+
+## Checkpoint follow-up — 17 September 2026
+
+The approved repair moves the active-funded-batch decision before the checkpoint
+writer transaction. It reuses `jobusagevalues` and the existing route budget
+policy; individual claim/admission transactions remain authoritative. Global
+outcome reconciliation and discovery run when needed at drain/closure, rather
+than on every worker poll with queued work. No indexes or schema changed.
+Failed BEGIN preserves its original SQLite boundary and emits UTC diagnostics;
+only that unstarted checkpoint can be deferred to an existing worker poll.
+
+Eight opened connections and a deliberately held writer reproduce 160 failed
+checkpoint acquisitions in the installed baseline owner. The repaired guard
+avoids all 160 acquisitions without changing state or provider/accounting rows.
+See [measured results and limits](maintenance-follow-up-delivery-20260917.md).
+The actual competing writer in the Scottish soak remains unidentified, and
+local polling throughput is not live provider/task throughput. Full qualification
+and future live validation retain their separate status in the master register.
+
+## ESC-OPS-02 route-count correlation (17 September 2026)
+
+The inner capability lookup in `ragbacklog._routecallcount` now aliases its
+`maintenance_tasks` table, preserving the caller's outer task key in set-based
+selection and exhaustion. It remains one primary-key lookup per existing task
+projection; capability-specific DISTINCT provider counting and reset indexes
+are unchanged. No extra query, loop, transaction, schema or index. The
+[isolated regression](advanced-call-budget-delivery-20260917.md) reproduces an
+ordinary first row incorrectly classifying another advanced task, and checks
+three/five-call worker sequences with independent usage/source assertions.

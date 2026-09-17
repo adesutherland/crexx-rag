@@ -88,7 +88,11 @@ industrialprovider: class implements .provider
     else result = _parse_gemini_generation(request, response)
     if result.status() \= 0 | structured = 0 then return result
     structured_error = validatestructuredresponse(result.content(), request.schema())
-    if structured_error.code() \= 0 then return _failed(request, structured_error, result.usage(), result.latency_us())
+    if structured_error.code() \= 0 then do
+      failed=_failed(request,structured_error,result.usage(),result.latency_us())
+      call failed.set_diagnostic_content(result.content())
+      return failed
+    end
     return result
 
   _embed: method = .providerresult

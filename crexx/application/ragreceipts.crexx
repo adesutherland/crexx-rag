@@ -15,7 +15,7 @@ import ragusage
  * Provider-specific transport/validation stays in its adapter. Accounting is
  * composed through ragusage; no provider is called and no graph is published. */
 beginproviderrequest: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, request_id = .string, expose error = .string
+  arg store = .ragstorehandle, claim = .ragworkclaim, request_id = .string, expose error = .string, request_body = ""
   database = store.database(); error = ""
   if beginwritetransaction(database,"begin provider intent",error) \= 0 then return -3
   if _activefence(database,claim) \= 1 then return _rollback(database,"provider intent fence is stale",error)
@@ -23,6 +23,7 @@ beginproviderrequest: procedure = .int
   previous = _boundscalartext(database,"SELECT message FROM job_events WHERE attempt_id=?1 AND event_type='provider-intent'",claim.attempt_id())
   if previous \= "" & previous \= body then return _rollback(database,"provider request conflicts with its durable intent",error)
   if previous = "" then if _event(database,claim.job_id(),claim.item_id(),claim.attempt_id(),"provider-intent",body) \= 0 then return _rollback(database,"cannot retain provider intent",error)
+  if _retainrequest(database,claim,request_body,error) \= 0 then return _rollback(database,error,error)
   if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit provider intent",error)
   return 0
 
@@ -82,7 +83,7 @@ citationcorrectioncontext: procedure = .int
   return 1
 
 beginexternalrun: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, provider_id = .string, model = .string, request_id = .string, charging_basis = .string, thread_id = .string, allowance_before = .int, expose provider_run_id = .string, expose error = .string
+  arg store = .ragstorehandle, claim = .ragworkclaim, provider_id = .string, model = .string, request_id = .string, charging_basis = .string, thread_id = .string, allowance_before = .int, expose provider_run_id = .string, expose error = .string, request_body = ""
   provider_run_id = ""; error = ""
   if store.writable() \= 1 | claim.claimed() \= 1 | provider_id = "" | model = "" | request_id = "" | charging_basis = "" | thread_id = "" then do; error = "external provider run inputs are invalid"; return -1; end
   database = store.database()
@@ -105,6 +106,7 @@ beginexternalrun: procedure = .int
   if binds \= 0 | step \= 101 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot link external provider run", error)
   intent = '{"input_hash":' || jsonquote(claim.input_hash()) || ',"config_snapshot_id":' || jsonquote(claim.config_snapshot_id()) || ',"request_id":' || jsonquote(request_id) || '}'
   if _event(database,claim.job_id(),claim.item_id(),claim.attempt_id(),"provider-intent",intent) \= 0 then return _rollback(database,"cannot retain external provider intent",error)
+  if _retainrequest(database,claim,request_body,error) \= 0 then return _rollback(database,error,error)
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit external provider run", error)
   return 0
 
@@ -278,3 +280,15 @@ _rollback: procedure = .int
   arg database = .binary, message = .string, expose error = .string
   call sqliteexec database, "ROLLBACK"; error = message
   return -3
+
+/* Called within the existing intent transaction. Replays cannot replace the
+ * original request, and omitted historical bodies are never reconstructed. */
+_retainrequest: procedure = .int
+  arg database=.binary,claim=.ragworkclaim,body=.string,expose error=.string
+  if body="" then return 0
+  document=.jsondocument(body)
+  if document.valid()<>1 then do;error="provider request capture is invalid";return -1;end
+  previous=_boundscalartext(database,"SELECT message FROM job_events WHERE attempt_id=?1 AND event_type='provider-request'",claim.attempt_id())
+  if previous<>"" & previous<>body then do;error="provider request capture conflicts with original";return -1;end
+  if previous="" then if _event(database,claim.job_id(),claim.item_id(),claim.attempt_id(),"provider-request",body)<>0 then do;error="cannot retain original provider request";return -1;end
+  return 0

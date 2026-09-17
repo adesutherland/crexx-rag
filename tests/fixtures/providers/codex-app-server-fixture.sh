@@ -48,6 +48,10 @@ while IFS= read -r line; do
       ;;
     *'"method":"account/read"'*)
       log_method account/read
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-auth" ]; then
+        printf '{"id":%s,"error":{"message":"authentication session expired"}}\n' "$id"
+        continue
+      fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "optional-refresh" ] && [ "${finished_turn:-0}" = 1 ]; then sleep 4; exit 70; fi
       if [ "$cleanup_fault" = 1 ]; then sleep 4; exit 70; fi
       case "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" in
@@ -87,7 +91,7 @@ while IFS= read -r line; do
       fi
       case "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" in
         worker-kill|worker-write-error) hold_worker_loss ;;
-        supervision-outage)
+        supervision-outage|supervision-outage24)
           n=1
           while [ "$n" -le 8 ]; do
             if mkdir "${CREXXRAG_CODEX_FIXTURE_SYNC:?}/initial-$n" 2>/dev/null; then
@@ -97,6 +101,7 @@ while IFS= read -r line; do
                 if [ "$tries" -ge 400 ]; then exit 71; fi
                 sleep 0.025
               done
+              if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = supervision-outage24 ] && [ "$n" -gt 5 ]; then break; fi
               log_method outage-preflight-failed
               exit 70
             fi
@@ -215,6 +220,14 @@ while IFS= read -r line; do
         printf '{"method":"item/completed","params":{"threadId":"%s","turnId":"fixture-turn","item":{"type":"agentMessage","text":"{\\"mentions\\":[],\\"relationships\\":[],\\"notes\\":[]}"}}}\n' "$thread_id"
         printf '{"method":"thread/tokenUsage/updated","params":{"threadId":"%s","turnId":"fixture-turn","tokenUsage":{"last":{"inputTokens":7,"outputTokens":4}}}}\n' "$thread_id"
         printf '{"method":"turn/completed","params":{"threadId":"%s","turn":{"id":"fixture-turn","status":"completed"}}}\n' "$thread_id"
+        continue
+      fi
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-slow" ]; then sleep 0.25; fi
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-timeout" ]; then sleep 2; continue; fi
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-disconnect" ]; then sleep 0.25; exit 70; fi
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-malformed" ]; then
+        printf '%s\n' '{"method":"item/completed","params":{"threadId":"fixture-thread","turnId":"fixture-turn","item":{"type":"agentMessage","text":"{broken original output"}}}'
+        printf '%s\n' '{"method":"turn/completed","params":{"threadId":"fixture-thread","turn":{"id":"fixture-turn","status":"completed"}}}'
         continue
       fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "turn-noise" ]; then

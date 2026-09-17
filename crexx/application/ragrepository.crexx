@@ -181,7 +181,7 @@ repositorynames: procedure = .string[]
   return names
 
 pagerepository: procedure = .int
-  arg read_snapshot = .ragreadsnapshot, repository = .string, cursor = .string, limit = .int, expose page = .ragrepositorypage, expose error = .string, identity = ""
+  arg read_snapshot = .ragreadsnapshot, repository = .string, cursor = .string, limit = .int, expose page = .ragrepositorypage, expose error = .string, identity = "", selection = ""
   records = .ragrepositoryrecord[]
   page = .ragrepositorypage(repository, 0, records, "")
   error = ""
@@ -256,7 +256,7 @@ pagerepository: procedure = .int
     return _page(read_snapshot, repository, sql, cursor, limit, page, error)
   end
   if repository = "jobs" then do
-    sql = "SELECT job_id,job_id,config_snapshot_id,'',plan_digest,'job',state,'',json_object('plan_characters',length(canonical_plan),'item_budget',item_budget,'model_call_budget',model_call_budget,'input_token_budget',input_token_budget,'output_token_budget',output_token_budget,'cost_budget',cost_budget,'reserved_calls',reserved_calls,'reserved_tokens',reserved_tokens,'reserved_cost',reserved_cost,'created_at',created_at,'updated_at',updated_at)," || empty_blob || ",item_budget,model_call_budget,0,0 FROM jobs WHERE job_id>?1 ORDER BY job_id LIMIT ?2"
+    sql = "SELECT job_id,job_id,config_snapshot_id,'',plan_digest,'job',state,'',json_object('plan_characters',length(canonical_plan),'item_budget',item_budget,'model_call_budget',model_call_budget,'input_token_budget',input_token_budget,'output_token_budget',output_token_budget,'cost_budget',cost_budget,'reserved_calls',reserved_calls,'reserved_tokens',reserved_tokens,'reserved_cost',reserved_cost,'created_at',created_at,'updated_at',updated_at)," || empty_blob || ",item_budget,model_call_budget,0,0 FROM jobs WHERE job_id>?1" || selection || " ORDER BY job_id LIMIT ?2"
     return _page(read_snapshot, repository, sql, cursor, limit, page, error)
   end
   if repository = "job-items" then do

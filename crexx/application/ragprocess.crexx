@@ -17,6 +17,7 @@ import ragwork
 import ragworktypes
 import ragtrace
 import ragapplicationprovider
+import ragworkerdefaults
 import ragsupervision
 
 /* Durable process coordination for the enduring application.  Runtime rows are
@@ -655,7 +656,7 @@ _startworkerprocesses: procedure = .int expose _shutdown_signal
   arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, progress = .string, format = .string, expose result = .ragprocessstartresult, expose error = .string, maximum_items = 0, max_restarts = 2, restart_backoff_ms = 5000, restart_window_seconds = 3600
   result = .ragprocessstartresult("", count, 0, count); error = ""
   if count < 1 | count > 32 | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 | _validtext(job_filter, 256, 1) \= 1 then do; error = "controller bounds are invalid"; return -1; end
-  if restart_window_seconds < 1 | restart_window_seconds > 86400 | max_restarts < 0 | max_restarts > 10 | restart_backoff_ms < 10 | restart_backoff_ms > 60000 then do; error = "worker replacement policy is invalid"; return -1; end
+  if workerinrange("restart_window_seconds",restart_window_seconds)=0 | workerinrange("max_restarts",max_restarts)=0 | workerinrange("restart_backoff_ms",restart_backoff_ms)=0 then do; error = "worker replacement policy is invalid"; return -1; end
   runtime = getenv("CREXXRAG_RUNTIME"); image = getenv("CREXXRAG_IMAGE"); load_path = getenv("CREXXRAG_LOAD_PATH"); self_executable = getenv("CREXXRAG_SELF")
   if runtime = "" & self_executable = "" then self_executable = rxfs..loadpath() || "/crexxrag"
   if runtime \= "" & (image = "" | load_path = "") then do; error = "linked application runtime metadata is incomplete"; return -2; end

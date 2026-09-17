@@ -4,6 +4,11 @@ import raggrounding
 
 main: procedure = .int
   errors = 0
+  errors=errors+expect("An-" || "0A"x || "other","An-" || "0A"x || "other",0,9)
+  errors=errors+expect("An-" || "0A"x || "other","Another",-1,-1)
+  errors=errors+expect("An-" || "0A"x || "other",'An-\nother',-1,-1)
+  errors=errors+expect('An-\nother',"An-" || "0A"x || "other",-1,-1)
+  errors=errors+expect('An-\nother','An-\nother',0,10)
   errors = errors + expect("Mary met Mary.", "Mary", 0, 4)
   errors = errors + expect("MARY met Mary.", "Mary", 9, 13)
   errors = errors + expect("MARY met MARY.", "mary", 0, 4)
@@ -39,9 +44,34 @@ main: procedure = .int
   errors = errors + expect(whitespace_capture, 'East India Company', 176, 194)
   grounder = .raggrounding("Mary left. James met MARY."); first = -1; last = -1
   errors = errors + check(grounder.find("Mary", first, last, 11, 26) = 1 & first = 21 & last = 25, "relationship endpoint resolves within its supporting quote")
+  errors=errors+overlap("Écosse: Dundee left. At Dundee, Mary waited. Dundee.","Dundee",25,31,25,31)
+  errors=errors+overlap("Écosse: Dundee left. At Dundee, Mary waited. Dundee.","At Dundee, Mary waited.",25,31,22,45)
+  errors=errors+overlap("Écosse: Dundee left. At Dundee, Mary waited. Dundee.","Dundee left.",25,31,-1,-1)
+  errors=errors+overlap("MARY left. Mary waited. MARY.","MARY",11,15,11,15)
+  errors=errors+overlap("STRASSE left. Straße waited.","STRASSE",14,21,14,21)
+  errors=errors+overlap("Mary met James. Mary" || "0A"x || " met  James.","Mary met James",16,20,16,32)
+  errors=errors+overlap("Dundee left. Dundee waited.","Glasgow",13,19,-1,-1)
+  errors=errors+overlap("Dundee left. Dundee waited.","Dundee",-1,6,-1,-1)
+  errors=errors+overlap("Dundee left. Dundee waited.","Dundee",13,99,-1,-1)
+  /* Maintenance-only, one-pass escaped-LF fallback after normal matching. */
+  errors=errors+overlap("É: made " || "0A"x || "Argyle waited.",'made \nArgyle',10,16,4,16)
+  errors=errors+overlap("An-" || "0A"x || "other",'An-\nother',0,9,0,9)
+  errors=errors+overlap('An-\nother',"An-" || "0A"x || "other",0,10,-1,-1)
+  errors=errors+overlap('An-\nother','An-\nother',0,10,0,10)
+  errors=errors+overlap("An-" || "0A"x || "other",'An-\\nother',0,9,-1,-1)
+  errors=errors+overlap("An-" || "0A"x || "other",'AN-\nOTHER',0,9,-1,-1)
+  errors=errors+overlap("An-" || "0A"x || "other",'An-\tother',0,9,-1,-1)
+  errors=errors+overlap("made " || "0A"x || "Argyle left. Argyle waited.",'made \nArgyle',19,25,-1,-1)
   if errors > 0 then return 1
   say "GROUNDING_OK exact_first repeated_first unicode_casefold utf8_offsets scoped_endpoints no_fuzzy_matching"
   return 0
+
+overlap: procedure = .int
+  arg body=.string,quotation=.string,required_start=.int,required_end=.int,expected_start=.int,expected_end=.int
+  grounder=.raggrounding(body);first=-1;last=-1
+  found=grounder.findoverlap(quotation,first,last,required_start,required_end)
+  expected=1;if expected_start<0 then expected=0
+  return check(found=expected & first=expected_start & last=expected_end,"selected overlap " || quotation || " got " || first || ":" || last)
 
 expect: procedure = .int
   arg body = .string, quotation = .string, expected_start = .int, expected_end = .int

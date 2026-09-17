@@ -60,6 +60,45 @@ SELECT 'review-'||printf('%03d',n),'external-proposal','proposal-'||n,'pending',
 WITH RECURSIVE seq(n) AS(SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<125)
 INSERT INTO sources(source_id,connector_type,stable_key,lifecycle_state,observed_uri,observed_title,visible_from_generation)
 SELECT 'source-'||printf('%03d',n),'folder:fixture','file-'||n,'active','file:fixture-'||n,'Fixture '||n,(SELECT published_generation FROM library_meta) FROM seq;
+-- Frozen original request/response is independent of current configuration.
+UPDATE job_items SET input_json='{"model":"fixture-sol","role":"advanced-resolver","prompt_sha256":"prompt-one"}' WHERE item_id='z-item-103';
+UPDATE attempts SET validation_state='resolution quotation does not ground the selected connection' WHERE attempt_id='attempt-z-item-103';
+UPDATE attempts SET validation_state='Codex App Server closed stdout; confirmed Codex turn interrupted' WHERE attempt_id='attempt-z-item-099';
+UPDATE attempts SET validation_state='Codex App Server stdout failed: byte operation deadline exceeded; confirmed Codex turn interrupted' WHERE attempt_id='attempt-z-item-098';
+UPDATE attempts SET validation_state='Codex response deadline exceeded' WHERE attempt_id='attempt-z-item-097';
+UPDATE attempts SET validation_state='Codex provider timed out' WHERE attempt_id='attempt-z-item-096';
+INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES
+('job-target','z-item-103','attempt-z-item-103','provider-request','{"model":"fixture-sol","reasoning_effort":"medium","messages":[{"role":"system","content":"Original Dùn prompt"}],"schema":"{}","prompt_sha256":"prompt-one"}','2026-09-12'),
+('job-target','z-item-103','attempt-z-item-103','provider-diagnostic','{"content":"{broken output","error_category":"validation","error_message":"bad quotation","availability":"retained"}','2026-09-12');
+-- Separate successful advanced examples and a retained-but-unchanged control.
+INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at)
+SELECT 'job-decisions','decision-plan','{}',config_snapshot_id,'completed',3,3,100,100,0,'2026-09-16','2026-09-16' FROM config_snapshots LIMIT 1;
+WITH seq(n) AS(VALUES(1),(2),(3))
+INSERT INTO job_items(item_id,job_id,item_type,state,priority,worker_id,fence,idempotency_key,input_hash,input_json,created_at,updated_at)
+SELECT 'decision-item-'||n,'job-decisions','maintenance-resolution','processed',1,'worker-fixture',1,'decision-key-'||n,'decision-input','{"model":"fixture-advanced","role":"advanced-resolver"}','2026-09-16','2026-09-16' FROM seq;
+WITH seq(n) AS(VALUES(1),(2),(3))
+INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,started_at,completed_at)
+SELECT 'decision-provider-'||n,config_snapshot_id,'fixture','fixture-advanced','hash','succeeded','2026-09-16','2026-09-16' FROM seq CROSS JOIN config_snapshots;
+WITH seq(n) AS(VALUES(1),(2),(3))
+INSERT INTO attempts(attempt_id,item_id,worker_id,fence,input_hash,provider_run_id,validation_state,outcome,started_at,completed_at)
+SELECT 'decision-attempt-'||n,'decision-item-'||n,'worker-fixture',1,'decision-input','decision-provider-'||n,'validated','succeeded','2026-09-16','2026-09-16' FROM seq;
+WITH seq(n) AS(VALUES(1),(2),(3))
+INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,required_capability)
+SELECT 'decision-task-'||n,'fixture','concept','concept-noise','decision-evidence-'||n,'policy','{}','decision','resolved',1,1,1,'advanced-reasoning' FROM seq;
+INSERT INTO maintenance_runs(run_id,expected_generation,config_snapshot_id,mode,state,plan_digest,canonical_plan,created_at)
+SELECT 'decision-run',1,config_snapshot_id,'automatic','complete','decision-plan','{}','2026-09-16' FROM config_snapshots LIMIT 1;
+INSERT INTO maintenance_windows(window_id,run_id,job_id,state,deadline_epoch,policy_json,policy_fingerprint,created_epoch)
+VALUES('decision-window','decision-run','job-decisions','complete',1,'{}','policy',1);
+WITH seq(n) AS(VALUES(1),(2),(3))
+INSERT INTO maintenance_task_items(item_id,task_id,window_id,attempt_number)
+SELECT 'decision-item-'||n,'decision-task-'||n,'decision-window',1 FROM seq;
+INSERT INTO maintenance_decisions(decision_id,task_id,item_id,provider_run_id,response_json,grounding_json,disposition,applied_generation,created_epoch) VALUES
+('decision-1','decision-task-1','decision-item-1','decision-provider-1','{"action":"no-change"}','{}','no-change:resolved',NULL,1),
+('decision-2','decision-task-2','decision-item-2','decision-provider-2','{"action":"merge"}','{}','applied',1,1),
+('decision-3','decision-task-3','decision-item-3','decision-provider-3','{"action":"retain"}','{}','retained',1,1);
+INSERT INTO job_events(event_id,job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES
+(1000001,'job-target','z-item-100','attempt-z-item-100','provider-request',json_object('text',replace(hex(zeroblob(35000)),'0','é')),'2026-09-17T12:00:00Z'),
+(1000002,'job-target','z-item-100','attempt-z-item-100','fixture-small','ordinary unchanged message','2026-09-17T12:00:01Z');
 ]=])
 file(WRITE "${CPRAG_WORK_DIR}/seed.sql" "${seed}")
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" -bail "${database}" INPUT_FILE "${CPRAG_WORK_DIR}/seed.sql"
@@ -77,6 +116,24 @@ function(read_command expected)
     endif()
     set(response "${out}" PARENT_SCOPE)
 endfunction()
+# All actual timeout wordings must be searchable, while a genuine disconnect
+# remains transport. Exercise the deterministic classifier before longer reads.
+read_command(0 job items job-target --error transport)
+string(JSON transport_count LENGTH "${response}" records)
+if(NOT response MATCHES "z-item-099")
+    message(FATAL_ERROR "Transport positive control disappeared")
+endif()
+read_command(0 job items job-target --error timeout)
+string(JSON timeout_count LENGTH "${response}" records)
+if(NOT timeout_count EQUAL 3 OR NOT response MATCHES "z-item-098" OR NOT transport_count EQUAL 1)
+    message(FATAL_ERROR "Timeout variants must share a category without losing transport: ${response}")
+endif()
+read_command(0 job inspect z-item-098 --section validation)
+string(JSON deadline_validation GET "${response}" records 0 fields text)
+string(JSON deadline_category GET "${deadline_validation}" category)
+if(NOT deadline_category STREQUAL "timeout")
+    message(FATAL_ERROR "Timeout item filter and detailed inspection disagree")
+endif()
 # Existing positive control is required before checking the missing interface.
 read_command(0 job status job-target)
 # Exact show must find records beyond every list page. The first record is
@@ -294,6 +351,145 @@ string(JSON actual_held_records GET "${response}" result structuredContent recor
 if(NOT actual_held_records STREQUAL expected_held_records)
     message(FATAL_ERROR "CLI/MCP held-outcome selection differs: ${response}")
 endif()
+# Essential observability: filters select the original failure before paging.
+read_command(0 job items --all --model fixture-sol --error grounding --limit 1)
+string(JSON selected GET "${response}" records 0 fields id)
+if(NOT selected STREQUAL "z-item-103")
+    message(FATAL_ERROR "Example filters did not select the exact failed work")
+endif()
+read_command(0 job inspect z-item-103 --attempt attempt-z-item-103 --section request)
+string(JSON text GET "${response}" records 0 fields text)
+if(NOT text MATCHES "Original Dùn prompt" OR NOT text MATCHES "medium")
+    message(FATAL_ERROR "Stored original request/effort is unavailable: ${response}")
+endif()
+read_command(0 job inspect z-item-103 --attempt attempt-z-item-103 --section response)
+string(JSON text GET "${response}" records 0 fields text)
+if(NOT text MATCHES "broken output")
+    message(FATAL_ERROR "Failed returned output cannot be inspected")
+endif()
+read_command(0 job inspect z-item-102 --section request)
+string(JSON available GET "${response}" records 0 fields availability)
+if(NOT available STREQUAL "unavailable")
+    message(FATAL_ERROR "Old request was fabricated from current configuration")
+endif()
+read_command(0 job items --all --model "fixture-sol' OR 1=1--")
+string(JSON count LENGTH "${response}" records)
+if(NOT count EQUAL 0)
+    message(FATAL_ERROR "Filter text changed SQL meaning")
+endif()
+# Job selection shares item filters and must filter before paging.
+read_command(0 job list --model fixture-sol --error grounding --limit 1)
+string(JSON selected_job GET "${response}" records 0 fields identity)
+if(NOT selected_job STREQUAL "job-target")
+    message(FATAL_ERROR "Filtered jobs did not select the matching example's job")
+endif()
+read_command(0 job items --all --since 2026-09-12 --until 2026-09-13 --prompt prompt-one)
+string(JSON selected GET "${response}" records 0 fields id)
+if(NOT selected STREQUAL "z-item-103")
+    message(FATAL_ERROR "Prompt/time filters failed")
+endif()
+read_command(2 job items --all --since not-a-date)
+read_command(0 job status job-target --diagnostics)
+string(JSON report GET "${response}" records 0 fields diagnostics)
+string(JSON failures GET "${report}" failed_attempts)
+string(JSON unknown_requests GET "${report}" attempts_without_request)
+if(NOT failures EQUAL 103 OR NOT unknown_requests EQUAL 101)
+    message(FATAL_ERROR "Summary counts disagree with retained fixture examples: ${report}")
+endif()
+# Reassemble character pages including the accented original prompt.
+read_command(0 job inspect z-item-103 --section request)
+string(JSON whole GET "${response}" records 0 fields text)
+set(reassembled "")
+set(page_cursor 0)
+foreach(page RANGE 1 100)
+    read_command(0 job inspect z-item-103 --section request --cursor "${page_cursor}" --limit 17)
+    string(JSON text GET "${response}" records 0 fields text)
+    string(APPEND reassembled "${text}")
+    string(JSON page_cursor GET "${response}" records 0 fields next_cursor)
+    if(page_cursor STREQUAL "")
+        break()
+    endif()
+endforeach()
+if(NOT reassembled STREQUAL whole)
+    message(FATAL_ERROR "Detail pagination changed the original Unicode content")
+endif()
+# New MCP routes use the same read-only services.
+file(WRITE "${CPRAG_WORK_DIR}/inspection-mcp.jsonl"
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_job_items\",\"arguments\":{\"all\":true,\"model\":\"fixture-sol\",\"error\":\"grounding\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_job_inspect\",\"arguments\":{\"id\":\"z-item-103\",\"section\":\"request\"}}}\n")
+execute_process(COMMAND ${base} --access read serve mcp INPUT_FILE "${CPRAG_WORK_DIR}/inspection-mcp.jsonl"
+    OUTPUT_FILE "${CPRAG_WORK_DIR}/inspection-mcp.out" COMMAND_ERROR_IS_FATAL ANY TIMEOUT 30)
+file(STRINGS "${CPRAG_WORK_DIR}/inspection-mcp.out" inspection_responses ENCODING UTF-8)
+list(GET inspection_responses 0 selected_response)
+string(JSON selected GET "${selected_response}" result structuredContent records 0 fields id)
+list(GET inspection_responses 1 inspected_response)
+string(JSON inspected GET "${inspected_response}" result structuredContent records 0 fields text)
+if(NOT selected STREQUAL "z-item-103" OR NOT inspected STREQUAL whole)
+    message(FATAL_ERROR "CLI/MCP filtered inspection differs")
+endif()
+foreach(outcome IN ITEMS no-change applied)
+    set(expected decision-item-1)
+    if(outcome STREQUAL "applied")
+        set(expected decision-item-2)
+    endif()
+    read_command(0 job items --all --model fixture-advanced --outcome "${outcome}")
+    string(JSON count LENGTH "${response}" records)
+    string(JSON selected GET "${response}" records 0 fields id)
+    string(JSON detail GET "${response}" records 0 fields detail)
+    string(JSON attempt GET "${detail}" attempt_id)
+    if(NOT count EQUAL 1 OR NOT selected STREQUAL expected OR attempt STREQUAL "")
+        message(FATAL_ERROR "Advanced outcome search included retained work as a change or lost the attempt")
+    endif()
+endforeach()
+# A large event must never block the cursor. Complete retained bytes remain in inspection.
+read_command(0 job events job-target --cursor 1000000 --limit 1)
+string(JSON truncated GET "${response}" records 0 fields message_truncated)
+string(JSON digest GET "${response}" records 0 fields message_sha256)
+string(JSON total GET "${response}" records 0 fields message_characters)
+string(JSON operation GET "${response}" records 0 fields inspect_operation)
+string(JSON section GET "${response}" records 0 fields inspect_section)
+if(NOT truncated OR NOT total EQUAL 70011 OR NOT operation STREQUAL "job.inspect" OR NOT section STREQUAL "request")
+    message(FATAL_ERROR "Oversized event lacks explicit bounded detail reference")
+endif()
+string(JSON cursor GET "${response}" records 1 fields next_cursor)
+if(NOT cursor STREQUAL "1000001")
+    message(FATAL_ERROR "Oversized event returned the wrong continuation cursor")
+endif()
+read_command(0 job events job-target --cursor "${cursor}" --limit 1)
+string(JSON small GET "${response}" records 0 fields message)
+if(NOT small STREQUAL "ordinary unchanged message")
+    message(FATAL_ERROR "Event cursor skipped or changed the following small message")
+endif()
+set(restored "")
+set(cursor 0)
+while(NOT cursor STREQUAL "")
+    read_command(0 job inspect z-item-100 --attempt attempt-z-item-100 --section request --cursor "${cursor}")
+    string(JSON part GET "${response}" records 0 fields text)
+    string(JSON cursor GET "${response}" records 0 fields next_cursor)
+    string(APPEND restored "${part}")
+endwhile()
+string(SHA256 actual "${restored}")
+string(REPEAT "é" 70000 payload)
+if(NOT actual STREQUAL digest OR NOT restored STREQUAL "{\"text\":\"${payload}\"}")
+    message(FATAL_ERROR "Oversized retained request did not reconstruct exactly")
+endif()
+foreach(format human ndjson)
+    execute_process(COMMAND "${CPRAG_NATIVE_APPLICATION}" --library "${library}" --config-file "${CPRAG_CONFIG_FIXTURE}" --profile it-architecture-profile --format "${format}" --access read job events job-target --cursor 1000000 --limit 2
+        RESULT_VARIABLE status OUTPUT_VARIABLE rendered ERROR_VARIABLE render_error TIMEOUT 20)
+    if(NOT status EQUAL 0 OR NOT rendered MATCHES "ordinary unchanged message")
+        message(FATAL_ERROR "Large event ${format} page failed: ${render_error}")
+    endif()
+endforeach()
+file(WRITE "${CPRAG_WORK_DIR}/large-event.jsonl" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_job_events\",\"arguments\":{\"id\":\"job-target\",\"cursor\":\"1000000\",\"limit\":2}}}\n")
+execute_process(COMMAND ${base} --access read serve mcp INPUT_FILE "${CPRAG_WORK_DIR}/large-event.jsonl" OUTPUT_VARIABLE rendered COMMAND_ERROR_IS_FATAL ANY TIMEOUT 20)
+string(JSON mcp_digest GET "${rendered}" result structuredContent records 0 fields message_sha256)
+if(NOT mcp_digest STREQUAL digest OR NOT rendered MATCHES "ordinary unchanged message")
+    message(FATAL_ERROR "MCP large event parity failed")
+endif()
+read_command(2 job items)
+read_command(2 job items job-target --all)
+read_command(5 job inspect no-such-item)
+read_command(5 job inspect z-item-103 --attempt attempt-a-item-001)
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" -readonly "${database}" .dump OUTPUT_VARIABLE after)
 if(NOT before STREQUAL after)
     message(FATAL_ERROR "Read-only operator diagnostics changed the library")

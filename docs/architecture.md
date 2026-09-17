@@ -50,7 +50,8 @@ and subsequent owners. Operator settings still enter through `crexxrag.conf`.
 | --- | --- |
 | `ragpromptdefaults` | Compatibility role objectives for older config formats; consumed by `ragconfigfile`. Explicit operator objectives remain config data. |
 | `ragextractioncontract` | Effective extraction messages, profile-shaped schema and optional assessment extension; consumed by `ragapplicationprovider` and prompt inspection. |
-| `ragresolutioncontract` | Effective resolution messages, selected-span excerpts, ordinary/final-route controls, bounded search/read/extraction requests, schema and subject/workflow action vocabulary. Both `ragapplicationprovider` and `ragbacklog` validation consume this vocabulary. |
+| `ragresolutioncontract` | Effective resolution messages, selected-span context, action field examples, shared initial/correction ordinary/final-route controls, bounded search/read/extraction requests, schema and subject/workflow action vocabulary. Both `ragapplicationprovider` and `ragbacklog` validation consume this vocabulary. |
+| `ragresolutionreferences` | Versioned model-facing subject/concept/evidence references from one frozen resolution input. The message builder projects IDs; the provider boundary retains the map and expands response fields before normal backlog validation. |
 | `ragquotationcontract` | Shared literal-quotation instructions and bounded correction feedback; normal `raggrounding` validation remains independent and authoritative. |
 | `raganswercontract` / `ragreportcontract` | Answer and advisory-report message/schema pairs; consumed by `ragqueryprovider`. |
 | `ragpromptinspection` | Public projection of those same builders, including exact system/schema hashes; no provider or library access. |
@@ -62,10 +63,57 @@ evidence validation and transactional lifecycle application. Its search/read
 steps compose `ragretrieval` and `ragevidence`; the coordinator retains worker
 fences and immutable receipts. Queue/status and public controls delegate to the
 same owner. `raglifecycle` owns total and capability-specific reset baselines.
+Actual advanced provider runs (including search/read and failed or corrected
+responses) count through that shared capability-specific ledger. The ordinary
+handoff remains in total usage without consuming the advanced route's allowance.
+`ragbacklog._routecallcount` is used by selection, exhaustion, inspection,
+frozen remaining-call instructions and validation; its inner task lookup uses
+an explicit alias so outer task expressions stay correlated. All calls also
+consume the existing job call/token/cost limits. See the
+[ESC-OPS-02 regression and repair](advanced-call-budget-delivery-20260917.md).
 `ragassessment` and `ragenrich` retain their specialized provenance contracts.
+
+Work observability follows these owners. `ragapplicationprovider` serializes
+the original application request and redacts diagnostic text. `ragreceipts`
+retains that request within the existing provider-intent transaction; recovery
+receipts retain their existing validation contract. Provider adapters expose
+rejected text through a separate diagnostic property, never as validated content.
+`ragusage` composes diagnostic events into existing settlement/uncertainty
+transactions. `ragoperationsquery` owns filtered example reads, paged inspection
+and the optional job summary; `ragrepository` retains the shared job projection.
+`ragbacklog` measures its checkpoint and claim-context transaction boundaries,
+using `ragtrace` for failed-lock output when database writes are unavailable.
+Diagnostic error formatting preserves the earlier worker exit classification.
+No new schema, provider call, retry policy or prompt is part of inspection.
+See [the bounded delivery record](observability-delivery-20260916.md).
 Domain contract modules do not import the product dispatcher or provider
 execution adapters. The optional extraction schema extension uses SQLite JSON
 functions but changes no persistent data.
+
+Resolution contract version 5 presents `S1` for the subject, `C1…` for concepts
+and `E1…` for selected evidence. The mapping is deterministic for the immutable
+input, reused by its single correction and retained-response recovery. It is
+recorded as `resolution_references` in the original provider-request event,
+outside the model request body. Raw model responses remain unchanged in receipts;
+accepted decisions contain expanded canonical IDs. Projection/expansion changes
+only structural reference fields, never source text, labels or reasons. Unknown
+or wrong-kind references fail before ordinary validation; knowing a reference
+does not confer candidate eligibility or override lifecycle freshness. `read`
+still uses the exact corpus citation. External proposals retain canonical IDs;
+version 4 inputs and specialized provenance extraction retain their earlier
+full-ID representation. No persistent identity or schema changes.
+
+```mermaid
+flowchart LR
+  A[Frozen task input and canonical IDs] --> B[Short references and readable excerpts]
+  B --> C[Ordinary or advanced model]
+  C --> D[Retain original response]
+  D --> E[Expand reference fields]
+  E --> F[Validate evidence, eligibility and lifecycle]
+  F --> G[Apply canonical decision]
+  F --> H[One bounded correction with the same map]
+  H --> C
+```
 
 Use `config prompt` to find the effective prompt, not just its configurable
 objective. Runtime source context and correction history remain request data.
@@ -79,7 +127,7 @@ identities are preserved by this refactor.
 
 | Owner | Responsibility and callers |
 | --- | --- |
-| `ragworkerdefaults` | Default, minimum and maximum for worker lease, poll, guided deadline, replacement count, replacement backoff and rolling window. Typed validation, file parsing, lease claim/heartbeat checks and canonical default omission consume the same specification. |
+| `ragworkerdefaults` | Default, minimum and maximum for worker lease, poll, guided deadline, replacement count, replacement backoff and rolling window. Typed validation, file parsing, process-controller and supervision bounds, lease claim/heartbeat checks and canonical default omission consume the same specification. |
 | `ragconfigfile` | Bounded declarative parsing, relative paths and complete typed configuration construction. It owns no publication or command access. |
 | `ragpolicyfile` | `config show/set/replace`, whole-candidate and referenced-profile validation, prompt-source pair edits, selected-file registry loading and `refreshpolicyrequest` for file-bound transports. CLI, dispatcher, MCP and ADDRESS compose it. |
 | `ragpolicypublication` | Bounded file reads/hashes, serialized edit ownership, verified sibling staging and rename publication. It accepts already validated candidate bytes and opens only an adjacent coordination database. |
@@ -101,7 +149,7 @@ new work under current policy. These are separate operations, not duplicate
 configuration rules.
 
 Worker defaults stay byte-compatible: poll 100 ms (10–60000), guided deadline
-0 seconds (0–604800), two replacements (0–10), 5000 ms backoff (10–60000), and a
+0 seconds (0–604800), two replacements (0–24), 5000 ms backoff (10–60000), and a
 3600-second rolling window (1–86400). Explicit invalid typed values are rejected,
 not converted to defaults. The wider budget/provider/retrieval default families
 remain in their existing owners; this stage consolidates one bounded family.
@@ -552,6 +600,23 @@ Punctuation and Unicode normalization remain exact. Repeated quotations choose
 the first occurrence; relationship endpoint labels are resolved inside that
 relationship's supporting quotation. Missing quotations, missing endpoints,
 invalid types and canonical identity conflicts remain validation failures.
+Maintenance resolution already identifies a selected source span. Its shared
+provider/external-response validator uses `raggrounding.findoverlap` to choose
+the first match overlapping that span, with the same exact/casefold/whitespace
+precedence. An earlier identical quotation outside the selected span cannot
+mask the intended occurrence. Supporting quotations may include surrounding
+context; containment inside the selected span is not required. Resolution
+prompts expose the selected byte bounds and up to 64 source characters on each
+side. [Regression evidence](prompt-grounding-delivery-20260917.md) covers
+repeats, contextual quotes, Unicode offsets and rejected wrong occurrences.
+Only after those normal maintenance matching passes fail, `findoverlap` may
+interpret literal backslash-plus-`n` as LF once. The interpreted quote must be an
+exact byte substring overlapping the selected occurrence; it receives no
+casefold or whitespace repair. Doubled backslashes disable this fallback, and
+normal literal-backslash matches take precedence. Extraction's `find` remains
+unchanged. The original quote and original source offsets remain available;
+this is representation handling, not OCR correction or evidence invention.
+See [reference and quotation acceptance](resolution-references-delivery-20260917.md).
 Bounded, redacted product-rejected JSON is retained with failed provider runs
 for diagnosis; oversized or malformed content is omitted with its digest.
 
@@ -1068,3 +1133,20 @@ by file/typed validation, query execution, core retrieval and the MCP schema.
 The default remains 12, with candidate/diversity/byte limits independent of the
 requested count. Agent-side evidence filtering is the ordinary broad-net
 workflow; a useful passage ranking fourth is not itself a defect.
+
+### Maintenance follow-up, 17 September 2026
+
+See the [approved plan](maintenance-follow-up-plan-20260917.md) and
+[delivery evidence](maintenance-follow-up-delivery-20260917.md). An active funded
+batch with queued/running items uses a read-only checkpoint guard; admission
+retains its transactional bounds. Drain/closure, stop and budget paths reconcile
+through the existing writer. Only checkpoint BEGIN contention can be scheduled
+for another worker poll; a transaction body is never replayed. The checkpoint
+API still returns the failed acquisition with its SQLite boundary, wait and UTC
+timestamp. No new schema or restart/recovery protocol is introduced.
+
+Alias-resolution subject candidates require active lifecycle state and expose
+that state explicitly. Migration parents remain historical/contextual evidence.
+Shared initial/correction instructions explain split-parent identity and literal
+OCR escapes; final no-change remains a supported conclusion. Old frozen prompt
+identities retain their normal refusal and explicit refresh/reset path.

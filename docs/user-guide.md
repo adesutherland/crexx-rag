@@ -379,6 +379,44 @@ prompt, response schema and their hashes. They need no library, credentials or
 provider calls. MCP exposes the same view as `rag_config_prompt`. JSON/MCP
 return complete text; human output is a preview.
 
+Cognitive resolution instructions define the fields for each decision. For alias reuse,
+`object_id` identifies the alias issue and `target_concept_id` selects a supplied
+candidate concept. A final `no-change` leaves both fields and other unused
+mutation fields empty and explains the conclusion in `reason`. Ordinary work
+can escalate uncertainty; advanced work must conclude a supported change or
+final no-change, except when the existing policy permits deferral for realistically
+expected new evidence. These rules also apply to citation-correction requests.
+
+Each advanced model call is counted, including a call requesting search or
+read and any failed/correction call. The ordinary escalation stays in total job
+usage; the advanced route has its own configured allowance. For example, three
+advanced calls can cover search, read and conclusion after the ordinary handoff.
+Larger configured allowances use the same counting. All routes also consume the
+shared job call, token and cost budgets; evidence gathering is not free.
+Older task questions describing uncertainty do not authorize an endless
+unresolved outcome.
+
+Each selected quotation includes its UTF-8 byte bounds and a short source
+context with actual line breaks. New automatic resolution requests use `S1`
+for the subject, `C1…` for supplied concepts and `E1…` for evidence. These are
+local to that frozen input; the correction uses the same references. Copy them
+from the current request. The application expands them to the original IDs
+before validation; a concept reference is eligible for reuse only when it is
+also a supplied identity candidate. `read` continues to use the exact corpus
+citation. Public task inspection and external proposals retain canonical IDs.
+`job inspect ITEM_ID --section request` exposes the original request and its
+`resolution_references` map; `--section response` retains the original model
+output. Accepted decisions use canonical IDs.
+
+The validator matches within the selected occurrence, allowing a quote
+to extend around it. Repeated names elsewhere cannot displace that selection;
+OCR spelling and punctuation must still match. If normal matching fails, it
+can interpret literal `\n` as a newline once, accepting it only as an exact
+source match at that selected occurrence. It never repeatedly unescapes text
+or repairs OCR; genuine literal-backslash matches take precedence. These changes do not
+change configured models or reasoning effort. See the
+[reference and quotation delivery record](resolution-references-delivery-20260917.md).
+
 You can change role objectives with `role.ROLE.system_prompt` or its selected
 `system_prompt_file`, and resolution objectives with
 `maintenance.resolution_prompt`, in the one selected `crexxrag.conf` policy.
@@ -481,7 +519,7 @@ claiming and settling an uncalled attempt every second.
 For `worker start --job JOB_ID` and `job run JOB_ID`, an unhealthy provider
 transport stops its worker after preserving the current item's outcome. Once
 that process exits, the controller can replace it in the same slot.
-`worker.max_restarts` permits 0..10 automatic replacements per rolling window,
+`worker.max_restarts` permits 0..24 automatic replacements per rolling window,
 defaulting to two; zero disables replacement. `worker.restart_window_seconds`
 accepts 1..86400 seconds and defaults to 3600 (one hour).
 `worker.restart_backoff_ms` accepts 10..60000, defaulting to 5000. Its delay
@@ -764,6 +802,77 @@ storage errors remain operational recovery work.
 
 ## Dead letters and replay
 
+### Find and inspect work examples
+
+Use the same filters on `job list` and `job items`. Item searches require a job
+ID or explicit `--all` to search this library across jobs:
+
+```sh
+crexxrag job list --error grounding --model gpt-5.6-sol
+crexxrag job items --all --error grounding --since 2026-09-16
+crexxrag job items JOB_ID --outcome correction-success
+crexxrag job items JOB_ID --outcome correction-failed
+crexxrag job items --all --model gpt-5.6-sol --outcome no-change
+crexxrag job items --all --task TASK_ID
+crexxrag job attempts JOB_ID --item ITEM_ID
+crexxrag job inspect ITEM_ID --attempt ATTEMPT_ID --section request
+crexxrag job inspect ITEM_ID --attempt ATTEMPT_ID --section response
+crexxrag job inspect ITEM_ID --attempt ATTEMPT_ID --section validation
+crexxrag job inspect ITEM_ID --attempt ATTEMPT_ID --section timing
+crexxrag job status JOB_ID --diagnostics
+```
+
+Other filters are `--type`, `--prompt` (system-prompt SHA-256), `--until`
+(exclusive; `--since` is inclusive), and `--outcome applied`. Times select
+attempt start timestamps. Error categories are `authentication`, `timeout`,
+`grounding`, `schema`, `contention`, `transport`, `storage` and `unknown`.
+Categories classify recorded messages; inspect the original error before
+inferring a cause. A matching old failure remains searchable after a correction
+succeeds. Follow `job attempts` to choose the original or corrected attempt.
+
+Lists contain compact metadata, never full prompt or response bodies. Filters
+apply before the usual `--cursor`/`--limit` paging. `job inspect` defaults to the
+latest attempt's `summary`; choose `request`, `response`, `validation`, `timing`,
+`decision` or immutable `input`. It returns a paged `text` section, character
+count, SHA-256 and `complete`/`next_cursor`. Follow the cursor for the same item,
+attempt and section, up to 8,192 characters per page. Selecting an attempt
+explicitly keeps the history stable while workers continue.
+
+New requests retain application-visible messages, evidence, response schema,
+model, effort and prompt identity at provider intent. Response envelopes keep
+validated recovery content separate from untrusted `returned_text`. Their
+availability fields identify retained, redacted, oversized or unavailable bodies;
+unsafe malformed escaping with a configured credential is omitted. A missing
+historical request is never regenerated from the current configuration. Receipt
+reuse points back to the original attempt rather than inventing another call.
+
+All these commands need `read` access, make no provider calls and do not alter
+work. MCP uses `rag_job_list`, `rag_job_items`, `rag_job_attempts`,
+`rag_job_inspect` and `rag_job_status` with the same arguments. These local reads
+are separate from `job reconcile`, which can inspect external App Server history.
+
+The optional job diagnostic summary counts tasks and attempts separately from
+the existing unique provider-run totals, groups common failure messages (including
+known preflight errors on cancelled attempts),
+links to example items and flags missing request history. Provider duration
+includes admission wait; inspection exposes that wait separately where retained.
+Transaction measurements cover claim-context checks and maintenance checkpoints
+taking at least 100ms. `transaction_body_ms` ends before commit; missing commit
+timing is explicit. Failed lock acquisition emits a diagnostic on worker stderr
+even if SQLite cannot accept a write. These observations establish sequence,
+not an automatic causal conclusion.
+
+```mermaid
+flowchart LR
+    A[Filtered jobs or items] --> B[Task and item IDs]
+    B --> C[Attempt history]
+    C --> D[Original request and evidence]
+    C --> E[Response and validation]
+    E --> F[Correction or advanced task]
+    C --> G[Timing and usage]
+    H[Job diagnostic summary] --> A
+```
+
 Inspect a terminal job before deciding what to replay:
 
 ```sh
@@ -1010,12 +1119,16 @@ validation and accounting outcomes.
 
 Citation validation gives extraction and maintenance resolution responses one
 immediate correction attempt when a quotation, literal mention label, relationship
-endpoint or selected evidence span fails grounding. The correction receives the
+endpoint or selected evidence span fails grounding, or a resolution reference
+is unknown or of the wrong kind. The correction receives the
 original input, saved response and validation feedback. Extraction feedback
 identifies the failing array entry, rejected quotation and required endpoint
-labels when relevant. It must pass the same
-strict validation; it may withdraw unsupported extraction content or return an
-unresolved resolution. This does not enable fuzzy matching or partial publication.
+labels when relevant. Resolution feedback identifies the offending field or
+reference and, for quotation failures, the rejected quote and selected source
+span. It must pass the same validation; it may withdraw unsupported extraction
+content. Ordinary resolution may escalate; advanced resolution must conclude
+a supported decision or final no-change unless expected new evidence permits
+deferral. This does not enable fuzzy matching or partial publication.
 
 The correction is a separate provider call within the existing shared call,
 token, cost and time budgets, including when the ordinary attempt limit is one.
@@ -1557,3 +1670,21 @@ MCP callers should use the exact types and bounds shown by `tools/list`.
 enables the option and `false` leaves it disabled. Unknown, duplicate, missing,
 out-of-range or wrong-type arguments fail before dispatch. Command-like text
 inside a query, identifier or option value remains literal caller data.
+
+#### Large event and interrupted-call inspection
+
+`job events` keeps a large message to a 1,024-character preview, marks it
+`message_truncated`, and reports `message_characters`, `message_bytes` and
+`message_sha256`. It preserves cursor order. For retained provider requests and
+responses, `inspect_operation` and `inspect_section` identify `job inspect`; use
+the event's `item_id` and `attempt_id`, and page through `next_cursor` to recover
+the complete section. Short messages keep their original fields.
+
+`job inspect ITEM --attempt ATTEMPT --section timing` reports the full provider
+step duration (including admission wait for compatibility), a separate
+`provider_elapsed_ms` excluding that wait, and `usage_complete` where known.
+Null completeness means unavailable, not zero usage. Exact-turn reconciliation
+preserves the original timeout/transport cause with the confirmed final outcome;
+`job items --all --error timeout` or `--error transport` finds these failures.
+An interruption alone is not classified as a timeout. Earlier records retain
+only the facts originally captured.

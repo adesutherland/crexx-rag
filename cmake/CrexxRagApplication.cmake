@@ -59,6 +59,7 @@ set(CREXXRAG_APPLICATION_SOURCES
     "${CREXXRAG_APP_DIR}/ragquotationcontract.crexx"
     "${CREXXRAG_APP_DIR}/ragextractioncontract.crexx"
     "${CREXXRAG_APP_DIR}/ragresolutioncontract.crexx"
+    "${CREXXRAG_APP_DIR}/ragresolutionreferences.crexx"
     "${CREXXRAG_APP_DIR}/raganswercontract.crexx"
     "${CREXXRAG_APP_DIR}/ragreportcontract.crexx"
     "${CREXXRAG_APP_DIR}/ragpromptdefaults.crexx"

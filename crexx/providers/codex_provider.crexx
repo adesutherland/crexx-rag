@@ -234,6 +234,7 @@ codexprovider: class implements .provider
     validation = validatestructuredresponse(content, request.schema())
     if validation.code() \= 0 then do
       call result.set_failure("codex",request.model(),request.request_id(),validation,.providerusage(input_tokens,output_tokens,1,-1,1,0),elapsed)
+      call result.set_diagnostic_content(content)
       return result
     end
     call result.set_generation("codex", request.model(), request.request_id(), content, "completed", .providerusage(input_tokens, output_tokens, 1, -1, 1, 0), elapsed)
@@ -254,7 +255,7 @@ codexprovider: class implements .provider
     if inspect_turn(thread_id,turn_id,request.timeout_ms(),state,content,error) \= 0 then return _failure(request,"transport",-105,1,error)
     if state = "completed" & content \= "" then do
       schema_error = validatestructuredresponse(content, request.schema())
-      if schema_error.code() \= 0 then return _failed(request, schema_error)
+      if schema_error.code() \= 0 then do;result=_failed(request,schema_error);call result.set_diagnostic_content(content);return result;end
       result = .providerresult()
       call result.set_generation("codex", request.model(), request.request_id(), content, "recovered", .providerusage(input_tokens, output_tokens, 1, -1, 1, 0), 0)
       return result
@@ -347,7 +348,7 @@ codexprovider: class implements .provider
     if _wait_turn(request, thread_id, turn_id, content, input_tokens, output_tokens, error) \= 0 then do; ignored = _delete_thread(thread_id, request.timeout_ms()); return _failure(request, "provider", -103, 1, error); end
     if structured = 1 then do
       schema_error = validatestructuredresponse(content, request.schema())
-      if schema_error.code() \= 0 then do; ignored = _delete_thread(thread_id, request.timeout_ms()); return _failed(request, schema_error); end
+      if schema_error.code() \= 0 then do; ignored = _delete_thread(thread_id, request.timeout_ms()); result=_failed(request,schema_error);call result.set_diagnostic_content(content);return result;end
     end
     if _observer.turn_completed(request.request_id(), thread_id, turn_id, content, input_tokens, output_tokens) \= 0 then do; ignored = _delete_thread(thread_id, request.timeout_ms()); return _failure(request, "durability", -199, 0, "completed provider output could not be persisted"); end
     ignored = _delete_thread(thread_id, request.timeout_ms())

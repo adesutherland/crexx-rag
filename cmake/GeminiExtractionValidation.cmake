@@ -117,6 +117,20 @@ function(run_invalid_extraction case_name port expected_error)
             message(FATAL_ERROR "rejected provider output was not durably redacted")
         endif()
     endif()
+    execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+        "SELECT count(*) FROM job_events WHERE event_type='provider-request' AND json_extract(message,'$.operation')='generate_structured' AND json_extract(message,'$.availability')='retained';"
+        OUTPUT_VARIABLE requests OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    if(NOT requests STREQUAL "1")
+        message(FATAL_ERROR "${case_name}: failed work lost its original submitted request")
+    endif()
+    if(case_name STREQUAL "product-extraction-malformed")
+        execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+            "SELECT count(*) FROM job_events WHERE event_type='provider-response' AND json_extract(message,'$.error_category')='structured_validation' AND json_extract(message,'$.returned_availability')='retained' AND length(json_extract(message,'$.returned_text'))>0;"
+            OUTPUT_VARIABLE malformed OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        if(NOT malformed STREQUAL "1")
+            message(FATAL_ERROR "malformed output was discarded instead of retained as untrusted diagnostic text")
+        endif()
+    endif()
     file(GLOB vectors "${library}/vectors.*.rxvec")
     if(vectors)
         message(FATAL_ERROR "${case_name}: rejected extraction unexpectedly published a vector sidecar")

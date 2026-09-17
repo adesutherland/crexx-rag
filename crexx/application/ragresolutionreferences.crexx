@@ -1,0 +1,145 @@
+options levelg
+namespace ragresolutionreferences expose ragresolutionreferences
+import rxfnsb
+import rxjson
+
+/* A model-facing projection of one immutable work input. Never substitute
+ * inside source text, reasoning, labels or JSON encoded within string fields.
+ * Canonical identity/lifecycle/evidence validation remains in ragbacklog. */
+ragresolutionreferences: class
+  _input = .string
+  _document = .jsondocument
+  _enabled = .int
+  _ready = .int
+  _ids = .string[]
+  _refs = .string[]
+  _concepts = .int
+  _evidence = .int
+
+  *: factory
+    arg input_json = .string
+    _input=input_json;_document=.jsondocument(input_json);_enabled=0
+    _ready=0;_concepts=0;_evidence=0
+    if _document.valid()<>1 then return
+    root=_document.root();packet=_document.member(root,"evidence");subject=_document.member(packet,"subject")
+    if _text(_document,root,"resolution_contract")<>"crexx-rag.resolution-contract/5" | _text(_document,subject,"type")="provenance-chunk" then return
+    _enabled=1
+    return
+
+  _prepare: method = .void
+    if _ready=1 | _enabled=0 then return
+    _ready=1
+    root=_document.root();packet=_document.member(root,"evidence");subject=_document.member(packet,"subject")
+    call _add _text(_document,subject,"id"),"S"
+    if _text(_document,subject,"type")="concept" then call _add _text(_document,subject,"id"),"C"
+    call _collectconcepts packet,0
+    passages=_document.member(packet,"passages")
+    do i=1 to _document.node_count(passages)
+      call _add _text(_document,_document.element(passages,i),"evidence_id"),"E"
+    end
+    return
+
+  enabled: method = .int
+    return _enabled
+
+  mapping: method = .string
+    call _prepare()
+    result="{"
+    do i=1 to _ids.0
+      if i>1 then result=result || ","
+      result=result || jsonquote(_refs[i]) || ":" || jsonquote(_ids[i])
+    end
+    return result || "}"
+
+  input: method = .string
+    if _enabled=0 then return _input
+    call _prepare()
+    error=""
+    return _walk(_document,_document.root(),0,0,"",error)
+
+  response: method = .string
+    arg content=.string,expose error=.string
+    error=""
+    if _enabled=0 then return content
+    call _prepare()
+    document=.jsondocument(content)
+    if document.valid()<>1 | document.node_type(document.root())<>"object" then do;error="resolution response is not an object";return "";end
+    action=_text(document,document.root(),"action")
+    return _walk(document,document.root(),1,0,action,error)
+
+  _add: method = .void
+    arg id=.string,kind=.string
+    if id="" then return
+    do i=1 to _ids.0
+      if _ids[i]=id & left(_refs[i],1)=kind then return
+    end
+    number=1
+    if kind="C" then do;_concepts=_concepts+1;number=_concepts;end
+    if kind="E" then do;_evidence=_evidence+1;number=_evidence;end
+    index=_ids.0+1;_ids[index]=id;_refs[index]=kind || number
+    return
+
+  _collectconcepts: method = .void
+    arg node=.int,depth=.int
+    if node<=0 | depth>64 then return
+    kind=_document.node_type(node)
+    if kind="string" then do
+      if wordpos(_document.node_name(node),"concept_id source_concept_id target_concept_id")>0 then call _add _document.node_get(node),"C"
+      return
+    end
+    if kind<>"object" & kind<>"array" then return
+    children=.int[];ignored=_document.children(node,children)
+    do i=1 to children.0
+      call _collectconcepts children[i],depth+1
+    end
+    return
+
+  _forward: method = .string
+    arg value=.string,kinds=.string
+    do i=1 to _ids.0
+      if _ids[i]=value & pos(left(_refs[i],1),kinds)>0 then return _refs[i]
+    end
+    return value
+
+  _reverse: method = .string
+    arg value=.string,kinds=.string,field=.string,expose error=.string
+    if value="" then return value
+    do i=1 to _refs.0
+      if _refs[i]=value & pos(left(_refs[i],1),kinds)>0 then return _ids[i]
+    end
+    error="resolution reference is not supplied for " || field || ": " || jsonquote(left(value,160)) || "; select a " || kinds || " reference from this input"
+    return ""
+
+  _walk: method = .string
+    arg document=.jsondocument,node=.int,reverse=.int,depth=.int,action=.string,expose error=.string
+    if depth>64 then do;error="resolution reference document exceeds nesting limit";return "null";end
+    kind=document.node_type(node);name=document.node_name(node)
+    if kind="string" then do
+      value=document.node_get(node);kinds=""
+      if name="evidence_id" then kinds="E"
+      if wordpos(name,"concept_id source_concept_id target_concept_id")>0 then kinds="C"
+      if reverse=0 & name="id" then kinds="S"
+      if name="object_id" then kinds="SC"
+      if reverse=1 & action="read" & name="object_id" then kinds=""
+      if kinds<>"" then do
+        if reverse=1 then value=_reverse(value,kinds,name,error)
+        else value=_forward(value,kinds)
+      end
+      return jsonquote(value)
+    end
+    if kind<>"object" & kind<>"array" then return document.node_get(node)
+    children=.int[];ignored=document.children(node,children);result="["
+    if kind="object" then result="{"
+    do i=1 to children.0
+      if i>1 then result=result || ","
+      if kind="object" then result=result || jsonquote(document.node_name(children[i])) || ":"
+      result=result || _walk(document,children[i],reverse,depth+1,action,error)
+      if error<>"" then return ""
+    end
+    if kind="object" then return result || "}"
+    return result || "]"
+
+_text: procedure = .string
+  arg document=.jsondocument,node=.int,name=.string
+  value="";ignored=document.node_string(document.member(node,name),value)
+  return value

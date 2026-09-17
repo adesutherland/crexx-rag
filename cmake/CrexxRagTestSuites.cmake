@@ -5,7 +5,7 @@ set(fast_tests regression_command_metadata regression_command_catalogue
 set(component_tests regression_policy_file_vm regression_rule_simplification
     configuration_contract regression_supervision provider_durability codex_protocol
     ann_methodology lifecycle_methodology evidence_methodology maintenance_methodology
-    quotation_grounding temporal_provenance durable_backlog durable_backlog_escalation regression_lifecycle
+    quotation_grounding temporal_provenance durable_backlog durable_backlog_escalation durable_backlog_budget regression_lifecycle
     regression_sql_performance task_reset)
 get_property(tests DIRECTORY PROPERTY TESTS)
 foreach(test IN LISTS tests)
@@ -32,7 +32,7 @@ foreach(test IN LISTS tests)
     set_property(TEST "${test}" PROPERTY COST ${priority})
     # These spawn pools internally. Most tests consume one scheduling slot;
     # wider process matrices must not overcommit the host.
-    if(test MATCHES "^(controller_recovery_|native_supervision_(outage|bad-task)$|process_workers$)")
+    if(test MATCHES "^(regression_supervision$|controller_recovery_|native_supervision_(outage|outage24|bad-task)$|process_workers$)")
         set_property(TEST "${test}" PROPERTY PROCESSORS 8)
     elseif(test MATCHES "^embedding_(recovery|exhaustion)$")
         set_property(TEST "${test}" PROPERTY PROCESSORS 8)

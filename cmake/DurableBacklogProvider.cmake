@@ -14,7 +14,7 @@ endif()
 math(EXPR concurrent_extra "${CPRAG_CONCURRENT_ITEMS} - 1")
 math(EXPR concurrent_pairs "${CPRAG_CONCURRENT_ITEMS} / 2")
 if(NOT DEFINED CPRAG_CASES)
-    set(CPRAG_CASES valid advanced malformed rejected manual concurrent budget continuation item-limit correction correction-failed correction-budget)
+    set(CPRAG_CASES valid receipt-recovery advanced malformed rejected manual concurrent budget continuation item-limit correction correction-failed correction-budget)
 endif()
 if(NOT DEFINED CPRAG_COMMAND_TIMEOUT)
     set(CPRAG_COMMAND_TIMEOUT 60)
@@ -161,6 +161,11 @@ foreach(case IN LISTS CPRAG_CASES)
     string(REPLACE "budget.model_calls = 2" "budget.model_calls = ${window_calls}" config "${config}")
     string(REPLACE "budget.item_limit = 2" "budget.item_limit = ${window_items}" config "${config}")
     string(APPEND config "\nmaintenance.mode = ${maintenance_mode}\nmaintenance.batch_items = ${batch_items}\nmaintenance.maximum_attempts = 1\nmaintenance.resolution_prompt = fixture-resolution-prompt\n")
+    if(case STREQUAL "receipt-recovery")
+        string(REPLACE "max_attempts = 1" "max_attempts = 3" config "${config}")
+        string(REPLACE "maintenance.maximum_attempts = 1" "maintenance.maximum_attempts = 3" config "${config}")
+        string(APPEND config "\nworker.max_restarts = 0\n")
+    endif()
     if(case STREQUAL "advanced")
         string(APPEND config "\nrole.advanced-resolver = gemini-generate\n")
     endif()
@@ -308,7 +313,37 @@ foreach(case IN LISTS CPRAG_CASES)
                 "UPDATE maintenance_tasks SET required_capability='advanced-reasoning',escalation_reason='Fixture handoff for final assessment' WHERE subject_id='fixture-note';"
                 COMMAND_ERROR_IS_FATAL ANY)
         endif()
-        if(case STREQUAL "advanced")
+        if(case STREQUAL "receipt-recovery")
+            # Fail after receipt commit but before settlement, then reuse the
+            # frozen model reference mapping without another provider call.
+            execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+                "CREATE TRIGGER receipt_fault BEFORE INSERT ON provider_runs WHEN NEW.model='gemini-3.5-flash-lite' BEGIN SELECT RAISE(ABORT,'injected resolution receipt settlement failure'); END;"
+                COMMAND_ERROR_IS_FATAL ANY)
+            execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+                "CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key"
+                "CREXXRAG_SELF=${CPRAG_NATIVE_APPLICATION}" "${CPRAG_NATIVE_APPLICATION}" maintain --yes --workers 1
+                WORKING_DIRECTORY "${work}" RESULT_VARIABLE fault_status OUTPUT_VARIABLE interrupted ERROR_VARIABLE fault_detail TIMEOUT 60)
+            file(APPEND "${work}/commands.log" "receipt fault status=${fault_status}\n${interrupted}${fault_detail}\n")
+            if(NOT "${fault_status}" MATCHES "^[0-9]+$" OR fault_status EQUAL 0)
+                message(FATAL_ERROR "resolution receipt fault did not produce a failure exit: ${fault_status}")
+            endif()
+            execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+                "SELECT count(*) FROM attempts a JOIN job_events e USING(attempt_id) JOIN job_items i USING(item_id) WHERE e.event_type='provider-response' AND i.item_type='maintenance-resolution' AND a.provider_run_id IS NULL;"
+                OUTPUT_VARIABLE unsettled OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+            if(NOT unsettled STREQUAL "1")
+                message(FATAL_ERROR "fault did not preserve exactly one unsettled model response: ${unsettled}")
+            endif()
+            execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+                "DROP TRIGGER receipt_fault; UPDATE job_items SET lease_until=unixepoch()-1 WHERE state='running';"
+                COMMAND_ERROR_IS_FATAL ANY)
+            run_cli(maintain --access control --format json worker start --count 2 --poll-ms 20 --max-polls 10)
+            execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+                "SELECT (SELECT count(*) FROM job_events WHERE event_type='provider-receipt-reused')||':'||(SELECT count(*) FROM job_items WHERE state NOT IN('processed','skipped'))||':'||(SELECT sum(reserved_calls+reserved_tokens+reserved_cost) FROM jobs);"
+                OUTPUT_VARIABLE recovered OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+            if(NOT recovered STREQUAL "1:0:0")
+                message(FATAL_ERROR "resolution receipt recovery lost completion or accounting: ${recovered}")
+            endif()
+        elseif(case STREQUAL "advanced")
             run_cli(maintain maintain --yes --minutes 1 --workers ${maintenance_workers})
         else()
             run_cli(maintain maintain --yes --workers ${maintenance_workers})
@@ -370,6 +405,14 @@ foreach(case IN LISTS CPRAG_CASES)
         if(NOT correction_result STREQUAL expected_correction OR NOT task_state STREQUAL expected_task)
             message(FATAL_ERROR "citation correction lost its one-call bound, receipt or outcome: ${correction_result}, task=${task_state}\n${maintain}${status}")
         endif()
+        if(NOT case STREQUAL "correction-budget")
+            execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+                "SELECT count(*)||':'||count(DISTINCT json_extract(message,'$.resolution_references')) FROM job_events WHERE event_type='provider-request' AND json_extract(message,'$.resolution_references.S1')='fixture-note' AND json_extract(message,'$.resolution_references.E1')='fixture-note-link';"
+                OUTPUT_VARIABLE correction_mapping OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+            if(NOT correction_mapping STREQUAL "2:1")
+                message(FATAL_ERROR "correction did not retain exactly the initial reference mapping: ${correction_mapping}")
+            endif()
+        endif()
         execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
             "SELECT job_id FROM job_events WHERE event_type='citation-correction-requested' LIMIT 1;"
             OUTPUT_VARIABLE correction_job OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
@@ -399,9 +442,17 @@ foreach(case IN LISTS CPRAG_CASES)
         if(NOT active_windows STREQUAL "0")
             message(FATAL_ERROR "guided manual census left a window active with no queued provider work")
         endif()
-    elseif(case STREQUAL "valid" OR case STREQUAL "concurrent" OR case STREQUAL "budget" OR case STREQUAL "continuation" OR case STREQUAL "item-limit")
+    elseif(case STREQUAL "valid" OR case STREQUAL "receipt-recovery" OR case STREQUAL "concurrent" OR case STREQUAL "budget" OR case STREQUAL "continuation" OR case STREQUAL "item-limit")
         if(NOT task_state STREQUAL "resolved")
             message(FATAL_ERROR "valid Gemini resolution was not applied: ${task_state}\n${maintain}${status}")
+        endif()
+        if(case STREQUAL "valid" OR case STREQUAL "receipt-recovery")
+            execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+                "SELECT (SELECT count(*) FROM maintenance_decisions WHERE json_extract(response_json,'$.object_id')='fixture-note' AND json_extract(response_json,'$.evidence[0].evidence_id')='fixture-note-link')||':'||(SELECT count(*) FROM job_events WHERE event_type='provider-request' AND json_extract(message,'$.resolution_references.S1')='fixture-note' AND json_extract(message,'$.resolution_references.E1')='fixture-note-link')||':'||(SELECT count(*) FROM job_events WHERE event_type='provider-response' AND json_extract(nullif(json_extract(message,'$.content'),''),'$.object_id')='S1' AND json_extract(nullif(json_extract(message,'$.content'),''),'$.evidence[0].evidence_id')='E1');"
+                OUTPUT_VARIABLE reference_result OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+            if(NOT reference_result STREQUAL "1:1:1")
+                message(FATAL_ERROR "model references, retained mapping, original response and canonical decision disagree: ${reference_result}")
+            endif()
         endif()
         execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
             "SELECT task_id FROM maintenance_tasks WHERE subject_id='fixture-note';"

@@ -7,6 +7,7 @@ import ragmaintain
 import rxhash
 import rxjson
 import ragbacklog
+import ragresolutionreferences
 import raglifecycle
 import ragwork
 import ragworktypes
@@ -539,6 +540,31 @@ refreshchecks: procedure = .int
   errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=current+1 & scalarint(database,"SELECT count(*) FROM provider_runs")=calls & scalarint(database,"SELECT count(*) FROM source_revisions")=sources,"only accepted resolution changes generation; source and provider receipts preserved")
   return errors
 
+/* Saved-run reproduction: a quoted name occurs before and at the selected
+ * UTF-8 span. Validation must bind the selected occurrence, not the first. */
+selectedquotationchecks: procedure = .int
+  arg database=.binary,task_id=.string
+  errors=0; error=""; grounds=""
+  original=scalartext(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(task_id))
+  generation=scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  calls=scalarint(database,"SELECT count(*) FROM provider_runs")
+  body="Écosse: Dundee left. At Dundee, Mary waited. Dundee."
+  do selected=1 to 2
+    begin=9; if selected=2 then begin=25
+    packet='{"subject":{"type":"concept","id":"concept-parent"},"passages":[{"evidence_id":"scope-evidence","revision_chunk_id":"chunk-lifecycle","text":' || jsonquote(body) || ',"span_start":' || begin || ',"span_end":' || (begin+6) || ',"text_offset":100}]}'
+    errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET evidence_json=" || _testquote(packet) || " WHERE task_id=" || _testquote(task_id))=0,"selected quote fixture")
+    result=validatebacklogresponse(database,task_id,responsejson("retain","","[]",'[{"evidence_id":"scope-evidence","quote":"Dundee"}]'),grounds,error)
+    errors=errors+check(result=0,"selected repeated quotation " || selected || " " || error)
+    if result=0 then errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(grounds) || ",'$[0].span_start')")=begin+100 & scalarint(database,"SELECT json_extract(" || _testquote(grounds) || ",'$[0].span_end')")=begin+106,"selected occurrence retains original byte offsets")
+  end
+  result=validatebacklogresponse(database,task_id,responsejson("retain","","[]",'[{"evidence_id":"scope-evidence","quote":"At Dundee, Mary waited."}]'),grounds,error)
+  errors=errors+check(result=0 & scalarint(database,"SELECT json_extract(" || _testquote(grounds) || ",'$[0].span_start')")=122,"quotation may start before and extend after selected span " || error)
+  errors=errors+check(validatebacklogresponse(database,task_id,responsejson("retain","","[]",'[{"evidence_id":"scope-evidence","quote":"Dundee left."}]'),grounds,error)<>0,"quote elsewhere cannot support selected occurrence")
+  errors=errors+check(validatebacklogresponse(database,task_id,responsejson("retain","","[]",'[{"evidence_id":"scope-evidence","quote":"At Glasgow, Mary waited."}]'),grounds,error)<>0,"invented selected quotation remains rejected")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET evidence_json=" || _testquote(original) || " WHERE task_id=" || _testquote(task_id))=0,"restore independent task fixture")
+  errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=generation & scalarint(database,"SELECT count(*) FROM provider_runs")=calls,"quotation validation makes no publication or provider call")
+  return errors
+
 responsejson: procedure = .string
   arg action = .string, target = "", successors = "[]", evidence = "[]", object_id = "", question = "", qualifiers = "{}", effective_from = "", effective_to = ""
   return '{"action":' || jsonquote(action) || ',"object_id":' || jsonquote(object_id) || ',"target_concept_id":' || jsonquote(target) || ',"canonical_label":"","concept_type":"","successors":' || successors || ',"reason":"fixture evidence-based decision","evidence":' || evidence || ',"effective_from":' || jsonquote(effective_from) || ',"effective_to":' || jsonquote(effective_to) || ',"qualifiers_json":' || jsonquote(qualifiers) || ',"question":' || jsonquote(question) || '}'
@@ -759,6 +785,69 @@ oldpolicychecks: procedure = .int
   errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id='" || task_id || "' AND i.job_id='" || job_id || "' AND i.state='queued'")=1,"routine route-default changes cannot hide unfinished ordinary work")
   return errors
 
+/* Exercise actual worker calls and scheduler checkpoints with both route
+ * budgets. A completed ordinary task remains first in the table, so a lookup
+ * that loses correlation cannot silently classify every task as ordinary. */
+advancedbudgetchecks: procedure = .int
+  arg store=.ragstorehandle,base=.string
+  database=store.database();errors=0;error="";job_id=""
+  current=scalarint(database,"SELECT published_generation FROM library_meta")
+  errors = errors + check(sqliteexec(database,"INSERT INTO source_artifacts SELECT 'artifact-cobalt','raw-cobalt',mime_type,encoding,NULL,'fixture://cobalt',created_at FROM source_artifacts WHERE artifact_id='artifact-lifecycle'")=0,"outside evidence artifact")
+  errors = errors + check(sqliteexec(database,"INSERT INTO source_revision_texts SELECT 'text-cobalt','digest-cobalt','Cobalt evidence',extractor_version,normalization_version,created_at FROM source_revision_texts WHERE text_id='text-lifecycle'")=0,"outside normalized text")
+  errors = errors + check(sqliteexec(database,"INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc','fixture','cobalt','revision-sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd','active','fixture://cobalt','Cobalt archive'," || current || ")")=0,"outside source")
+  errors = errors + check(sqliteexec(database,"INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd','source-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc','envelope-cobalt','artifact-cobalt','text-cobalt','metadata-cobalt','fixture-time'," || current || ")")=0,"outside revision")
+  errors = errors + check(sqliteexec(database,"INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-cobalt','digest-cobalt','Cobalt evidence','input-cobalt')")=0,"outside content")
+  errors = errors + check(sqliteexec(database,"INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-cobalt','revision-sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',1,0,15,'content-cobalt','continuity-cobalt','fixture-v1','direct'," || current || ")")=0,"outside chunk")
+  errors = errors + check(sqliteexec(database,"INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-cobalt','content-cobalt','Cobalt evidence')")=0,"outside lexical index")
+  raw=scalartext(database,"SELECT json_set(" || _testquote(base) || ",'$.batch_items',1,'$.maximum_attempts',1,'$.source_id','source-lifecycle','$.search_reads',8,'$.evidence_expected',0,'$.advanced_attempts',3,'$.advanced_route',json('{""role"":""advanced-resolver"",""provider_id"":""fixture"",""model"":""advanced-fixture"",""charging_basis"":""local-compute"",""input_tokens"":100000,""output_tokens"":10000,""cost_microunits"":0,""time_ms"":1000,""resolution_prompt"":""Conclude.""}'))")
+  raw=changestr("retain investigate",raw,"retain investigate no-change")
+  control=""
+  errors=errors+check(enqueuebacklogtask(database,"budget-direct-control","chunk","chunk-lifecycle","","",1000000,.jsondocument(raw),control,error)=0,"direct budget control task")
+  errors=errors+check(nextwindow(store,raw,job_id,error)=0 & runresolution(store,job_id,control,responsejson("no-change"),error)=0,"ordinary direct conclusion control " || error)
+  errors=errors+check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || control || "'")="resolved" & scalarint(database,"SELECT " || taskretrycallcount(_testquote(control),1))=1,"direct control consumes exactly one call")
+  citation="crexx-rag:" || scalartext(database,"SELECT library_id FROM library_meta") || ":source-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:revision-sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd:utf8-0-15"
+  do ceiling=3 to 5 by 2
+    policy_text=scalartext(database,"SELECT json_set(" || _testquote(raw) || ",'$.advanced_attempts'," || ceiling || ")")
+    policy=.jsondocument(policy_text);task=""
+    errors=errors+check(enqueuebacklogtask(database,"budget-advanced-" || ceiling,"chunk","chunk-lifecycle","","",1000000,policy,task,error)=0,"advanced budget fixture")
+    before=scalarint(database,"SELECT count(*) FROM provider_runs")
+    errors=errors+check(nextwindow(store,policy_text,job_id,error)=0,"advanced budget window")
+    status=runresolution(store,job_id,task,responsejson("escalate","","[]","[]","","Inspect the missing source"),error)
+    errors=errors+check(status=0,"ordinary escalation preserves the advanced budget " || error)
+    if status<>0 then return errors
+    do step=1 to ceiling
+      /* A task failed by the old cutoff can resume under its existing
+       * unspent allowance; do not reset or discard any paid history. */
+      if ceiling=3 & step=3 then errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET state='failed',last_error='bounded attempt limit reached' WHERE task_id='" || task || "'")=0,"represent the retained premature-failure state")
+      errors=errors+check(tickbacklogwindow(store,job_id,error)>=0,"advanced budget checkpoint")
+      item=scalartext(database,"SELECT i.item_id FROM job_items i JOIN maintenance_task_items m USING(item_id) WHERE m.task_id='" || task || "' AND i.state='queued'")
+      errors=errors+check(item<>"","advanced call remains dispatchable at step " || step || " of " || ceiling)
+      if item="" then return errors
+      remaining=scalarint(database,"SELECT json_extract(input_json,'$.remaining_calls_including_this') FROM job_items WHERE item_id='" || item || "'")
+      errors=errors+check(remaining=ceiling-step+1,"prompt counts every advanced call")
+      facts=taskretryfacts(database,task,job_id)
+      errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(facts) || ",'$.route_calls')")=step-1,"inspection counts advanced calls without the ordinary escalation")
+      proposed=responsejson("search","","[]","[]","",word("Cobalt unused evidence",step))
+      if step=2 then proposed=responsejson("read","","[]","[]",citation)
+      if step=4 then proposed=responsejson("search","","[]","[]","","Cobalt evidence")
+      if step=ceiling then proposed=responsejson("no-change")
+      status=runresolution(store,job_id,task,proposed,error)
+      errors=errors+check(status=0,"advanced evidence/conclusion step " || step || " of " || ceiling || " " || error)
+      if status<>0 then return errors
+      errors=errors+check(scalarint(database,"SELECT " || taskretrycallcount(_testquote(task),1,0,"advanced-reasoning"))=step,"each advanced step is charged to its configured allowance")
+      errors=errors+check(scalarint(database,"SELECT count(*) FROM provider_runs")=before+step+1,"ordinary and all advanced calls remain in total usage")
+    end
+    errors=errors+check(tickbacklogwindow(store,job_id,error)>=0,"complete advanced budget window")
+    errors=errors+check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || task || "'")="resolved","last advanced call concludes")
+    errors=errors+check(scalarint(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id='" || task || "'")=ceiling+1,"all decisions retained")
+    errors=errors+check(scalarint(database,"SELECT sum(input_tokens+output_tokens) FROM provider_runs WHERE provider_run_id IN(SELECT a.provider_run_id FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id='" || job_id || "')")=20*(ceiling+1),"every call consumes job token budget")
+    errors=errors+check(scalarint(database,"SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id='" || job_id || "'")=0,"all call reservations released")
+    grounds="";refusal=""
+    errors=errors+check(validatebacklogresponse(database,task,responsejson("search","","[]","[]","","New query"),grounds,refusal,policy_text)<>0 & pos("last reasoning call",refusal)>0,"no evidence step beyond the configured advanced allowance")
+    errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta")=current & scalarint(database,"SELECT count(*) FROM source_revisions")=2,"evidence gathering preserves source and graph state")
+  end
+  return errors
+
 searchhandoffchecks: procedure = .int
   arg store = .ragstorehandle, raw = .string, expose job_id = .string, task_id = .string
   database = store.database(); errors = 0; error = ""; policy = .jsondocument(raw)
@@ -884,7 +973,7 @@ main: procedure = .int
   arg args = .string[]
   if args.0 < 1 | args.0 > 2 then return 2
   selected_case = "core"; if args.0=2 then selected_case=args[2]
-  if selected_case<>"core" & selected_case<>"escalation" then return 2
+  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" then return 2
   path = args[1]; errors = 0; error = ""; store = .ragstorehandle
   /* Applicability is a request contract as well as an apply-time guard. */
   note_schema = backlogschema("note",0); alias_schema = backlogschema("alias-issue",0)
@@ -924,6 +1013,13 @@ main: procedure = .int
 
 
   policy_json = '{"mode":"automatic","window_seconds":1000,"automatic_actions":"reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate","maximum_impact":100,"maximum_attempts":3,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":100,"resolution_prompt":"Fixture resolution","knowledge_policy":"fixture-v1","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":100,"model_calls":100,"input_budget":10000000,"output_budget":1000000,"cost_budget":0,"codex_turns":0}'
+  if selected_case="budget" then do
+    errors=errors+advancedbudgetchecks(store,policy_json)
+    call closeragstore store,error
+    if errors>0 then return 1
+    say "DURABLE_BACKLOG_OK budget"
+    return 0
+  end
   if selected_case="escalation" then do
     errors = errors + escalationroutechecks(store,policy_json)
     errors = errors + oldpolicychecks(store,policy_json)
@@ -938,6 +1034,8 @@ main: procedure = .int
   grounds = ""
   errors = errors + check(validatebacklogresponse(database,task_id,responsejson("reuse"),grounds,error) \= 0 & error = "resolution action is not applicable to its subject","reject identity-only answer on a concept task")
   first_task = task_id
+  errors = errors + selectedquotationchecks(database,first_task)
+  errors = errors + check(pos("unresolved disposition",scalartext(database,"SELECT question FROM maintenance_tasks WHERE task_id=" || _testquote(first_task)))=0,"new task question follows current outcome contract")
   errors = errors + check(enqueuebacklogtask(database,"lifecycle","concept","concept-parent","","",999999,policy,task_id,error) = 0 & task_id = first_task & scalarint(database,"SELECT count(*) FROM maintenance_tasks") = 1, "unchanged task is deduplicated")
   texts = .string[]; scores = .int[]
   census = .ragmaintenancecensus(1,"",texts,texts,texts,scores,texts,texts,texts,'{}',rxhash..sha256hex('{}' as .binary))
@@ -1125,9 +1223,30 @@ main: procedure = .int
   errors = errors + check(recordaliasissue(database,"candidate-reuse","Peer","concept",aliases,error) = 0, "preserve unresolved reuse question")
   label = ""; selected = ""
   errors = errors + check(resolveknownconcept(database,"PEER","concept",label,selected,error) = 1 & selected = child, "unique typed catalogue reuse is deterministic")
+  errors=errors+check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('inactive-peer','Peer','concept','migration-parent'," || generation || ")")=0,"inactive homonym before packet selection")
   errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0, "dispatch identity resolution")
   alias_task = scalartext(database,"SELECT t.task_id FROM maintenance_tasks t JOIN maintenance_alias_issues i ON i.issue_id=t.subject_id WHERE i.candidate_id='candidate-reuse' AND t.state='dispatched'")
   evidence = '[{"evidence_id":"candidate-reuse","quote":"peer"}]'
+  packet=scalartext(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id='" || alias_task || "'")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.subject.candidates') c WHERE t.task_id='" || alias_task || "' AND json_extract(c.value,'$.concept_id')='inactive-peer'")=0,"migration parents not offered as usable candidates")
+  errors=errors+check(pos('"lifecycle_state":"active"',packet)>0,"candidate lifecycle explicit")
+  references=.ragresolutionreferences('{"resolution_contract":"crexx-rag.resolution-contract/5","evidence":' || packet || '}')
+  mapping=references.mapping()
+  chosen_ref=scalartext(database,"SELECT key FROM json_each(" || _testquote(mapping) || ") WHERE key LIKE 'C%' AND value=" || _testquote(child))
+  evidence_ref=scalartext(database,"SELECT key FROM json_each(" || _testquote(mapping) || ") WHERE key LIKE 'E%' AND value='candidate-reuse'")
+  errors=errors+check(chosen_ref<>"" & evidence_ref<>"","identity packet has concept and evidence references")
+  short_evidence='[{"evidence_id":' || jsonquote(evidence_ref) || ',"quote":"peer"}]'
+  expanded=references.response(responsejson("reuse",chosen_ref,"[]",short_evidence),error)
+  errors=errors+check(error="" & expanded=responsejson("reuse",child,"[]",evidence),"short identity selection expands before canonical validation")
+  other_ref=scalartext(database,"SELECT key FROM json_each(" || _testquote(mapping) || ") m WHERE key LIKE 'C%' AND NOT EXISTS(SELECT 1 FROM json_each(" || _testquote(packet) || ",'$.subject.candidates') c WHERE json_extract(c.value,'$.concept_id')=m.value) LIMIT 1")
+  errors=errors+check(other_ref<>"","catalogue control includes a concept outside the identity candidates")
+  inappropriate=references.response(responsejson("reuse",other_ref,"[]",short_evidence),error)
+  grounds=""
+  errors=errors+check(error="" & validatebacklogresponse(database,alias_task,inappropriate,grounds,error)<>0 & pos("candidate supplied",error)>0,"known catalogue reference cannot bypass identity eligibility")
+  errors=errors+check(sqliteexec(database,"UPDATE concepts SET lifecycle_state='retired' WHERE concept_id='" || child || "'")=0,"retire candidate after dispatch")
+  grounds=""
+  errors=errors+check(validatebacklogresponse(database,alias_task,expanded,grounds,error)<>0 & pos("maintain refresh-plan",error)>0,"expanded reference cannot bypass mid-call retirement and names supported refresh")
+  errors=errors+check(sqliteexec(database,"UPDATE concepts SET lifecycle_state='active' WHERE concept_id='" || child || "'; UPDATE concepts SET lifecycle_state='retired' WHERE concept_id='inactive-peer'")=0,"restore candidate positive control")
   errors = errors + check(runresolution(store,job_id,alias_task,responsejson("reuse",child,"[]",evidence),error) = 0, "apply quoted catalogue reuse " || error)
   errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE candidate_id='candidate-reuse' AND state='resolved'") = 1 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE kind LIKE 'alias-follow-up:%'") = 1, "identity answer queues a durable extraction follow-up")
   errors = errors + check(recordaliasissue(database,"candidate-distinct","Peer","source-artifact",aliases,error) = 0 & nextwindow(store,supervised,job_id,error) = 0, "dispatch distinct sense")

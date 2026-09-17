@@ -24,3 +24,26 @@ waits and bounded corpus search/read controls, with explicit remaining calls
 and the final-route instructions. `durable_backlog`, prompt inspection and the
 native advanced fixture exercise the behavior; this snapshot guards the exact
 approved effective text/schema rather than treating a changed hash as proof.
+
+On 17 September the approved prompt repair changed only the resolution system
+hash (`1504fdc8…` to `cb36d8a9…`). All four captured schema hashes and the other
+three system hashes remain unchanged. Explicit reuse/no-change field examples,
+consistent ordinary/advanced outcomes and legacy-question guidance account for
+the change. Selected context and route-specific correction history are checked
+by the semantic scenarios. See `docs/prompt-grounding-delivery-20260917.md` for
+the pre-repair failures and combined qualification.
+
+17 September approved follow-up: command metadata changes only the large-event
+inspection description; counts, schemas and access annotations are unchanged.
+Provider captures change only extraction and resolution system prompts: shared
+literal OCR/escape examples and the resolution split-parent rule. All four
+response-schema hashes and answer/report system hashes remain unchanged.
+Reviewed fragments are retained in `out/maintenance-follow-up-20260917/prompt-review.json`.
+
+17 September approved reference handling: only the resolution system hash changes
+from `37350e03…` to `b0314174…`, adding the frozen S/C/E reference contract,
+candidate restrictions, exact read-citation exception and readable-newline
+instructions. All four response-schema hashes and the extraction/answer/report
+system hashes remain unchanged. Short-reference projection, canonical expansion,
+rejection, correction and native receipt recovery have behavioral tests in
+`docs/resolution-references-delivery-20260917.md`.

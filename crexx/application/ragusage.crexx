@@ -137,6 +137,7 @@ settlecallintransaction: procedure = .int
     ignored = closed.node_string(closed.member(closed.root(),"reason"),close_reason)
     if close_reason \= "lease-expired" then return _rollback(database,"provider reservation was already settled without this receipt",error)
   end
+  if diagnostic_json<>"" then if _boundcount(database,"SELECT count(*) FROM job_events WHERE attempt_id=?1 AND event_type IN('provider-response','provider-diagnostic')",reservation.attempt_id())=0 then ignored=_event(database,reservation.job_id(),reservation.item_id(),reservation.attempt_id(),"provider-diagnostic",diagnostic_json)
   if record_provider_run = 1 then do
     provider_run_id = existing_provider_run_id
     if provider_run_id = "" then provider_run_id = "provider-run-sha256:" || rxhash..sha256hex((reservation.reservation_id() || "00"x || provider_id || "00"x || model || "00"x || request_id) as .binary)
@@ -393,6 +394,7 @@ closeexpiredreservations: procedure = .int
 retainuncertainusage: procedure = .int
   arg store = .ragstorehandle, claim = .ragworkclaim, result = .ragworkproviderresult, expose error = .string
   database = store.database(); error = ""
+  if result.diagnostic_json()<>"" then if _boundcount(database,"SELECT count(*) FROM job_events WHERE attempt_id=?1 AND event_type IN('provider-response','provider-diagnostic')",claim.attempt_id())=0 then ignored=_event(database,claim.job_id(),claim.item_id(),claim.attempt_id(),"provider-diagnostic",result.diagnostic_json())
   if result.provider_called() = 0 then return 0
   identity = "SELECT count(*) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.attempt_id=?1 AND i.job_id=" || _q(claim.job_id()) || " AND a.item_id=" || _q(claim.item_id()) || " AND a.worker_id=" || _q(claim.worker_id()) || " AND a.fence=" || claim.fence()
   if _boundcount(database,identity,claim.attempt_id()) \= 1 | _boundcount(database,"SELECT count(*) FROM job_events WHERE attempt_id=?1 AND event_type='provider-intent'",claim.attempt_id()) \= 1 | _boundeventcount(database,claim.job_id(),"reservation-open:" || claim.attempt_id() || "#call-1") \= 1 then do; error = "uncertain usage has no original reservation and intent"; return -3; end

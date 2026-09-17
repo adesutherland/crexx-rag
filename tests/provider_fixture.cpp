@@ -254,7 +254,7 @@ int main(int argc, char** argv)
             } else if (request.find("Durable resolution input:") != std::string::npos) {
                 if (!valid_auth || !valid_structured || request.find("maintenance-resolution") == std::string::npos
                     || (scenario != "product-backlog-advanced" && request.find("fixture-resolution-prompt") == std::string::npos)
-                    || request.find("fixture-note-link") == std::string::npos) {
+                    || request.find("Reference contract:") == std::string::npos) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini resolution request shape mismatch"}})";
                 } else {
@@ -283,16 +283,11 @@ int main(int argc, char** argv)
                                 correcting ? "Unsupported correction quotation." : "Unsupported original quotation.");
                         }
                     }
-                    if (scenario == "product-concurrent") {
-                        const std::string marker = "\\\"evidence_id\\\":\\\"";
-                        const auto position = request.find(marker);
-                        if (position == std::string::npos) return 6;
-                        const auto start = position + marker.size();
-                        const auto end = request.find("\\\"", start);
-                        if (end == std::string::npos) return 6;
-                        const auto evidence_id = request.substr(start, end - start);
-                        const auto response_id = resolution.find("fixture-note-link");
-                        resolution.replace(response_id, std::string("fixture-note-link").size(), evidence_id);
+                    if (request.find("Reference contract:") != std::string::npos) {
+                        auto position = resolution.find("fixture-note-link");
+                        if (position != std::string::npos) resolution.replace(position, std::string("fixture-note-link").size(), "E1");
+                        position = resolution.find("fixture-note");
+                        if (position != std::string::npos) resolution.replace(position, std::string("fixture-note").size(), "S1");
                     }
                     body = "{\"responseId\":\"product-gemini-resolution-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
                         + json_string(resolution)

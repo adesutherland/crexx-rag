@@ -25,21 +25,55 @@ raggrounding: class
 
   find: method = .int
     arg quotation = .string, expose span_start = .int, expose span_end = .int, scope_start = 0, scope_end = -1
+    return _findquote(quotation,span_start,span_end,scope_start,scope_end,-1,-1)
+
+  /* A selected occurrence is an overlap constraint, not containment: a
+   * supporting quotation may begin before it and include surrounding context. */
+  findoverlap: method = .int
+    arg quotation=.string,expose span_start=.int,expose span_end=.int,required_start=.int,required_end=.int
+    span_start=-1;span_end=-1
+    if required_start<0 | required_end<=required_start | required_end>binlength(_bytes) then return 0
+    if _findquote(quotation,span_start,span_end,0,-1,required_start,required_end)=1 then return 1
+    /* One narrowly bounded representation fallback. Normal matching wins,
+     * including genuine literal backslashes. Do not recursively unescape or
+     * apply case/whitespace folding to the converted quotation. */
+    if pos('\n',quotation)=0 | pos('\\',quotation)>0 then return 0
+    converted=changestr('\n',quotation,"0A"x) as .binary
+    cursor=1
+    do forever
+      found=binpos(converted,_bytes,cursor)
+      if found=0 then return 0
+      finish=found-1+binlength(converted)
+      if found-1<required_end & finish>required_start then do
+        span_start=found-1;span_end=finish;return 1
+      end
+      if found-1>=required_end then return 0
+      cursor=found+1
+    end
+
+  _findquote: method = .int
+    arg quotation=.string,expose span_start=.int,expose span_end=.int,scope_start=.int,scope_end=.int,required_start=.int,required_end=.int
     span_start = -1; span_end = -1
     if scope_end = -1 then scope_end = binlength(_bytes)
     if quotation = "" | scope_start < 0 | scope_end <= scope_start | scope_end > binlength(_bytes) then return 0
     needle = quotation as .binary
-    found = binpos(needle, _bytes, scope_start + 1)
-    if found > 0 & found - 1 + binlength(needle) <= scope_end then do
-      span_start = found - 1; span_end = span_start + binlength(needle)
-      return 1
+    cursor=scope_start+1
+    do forever
+      found = binpos(needle, _bytes, cursor)
+      if found=0 | found-1+binlength(needle)>scope_end then leave
+      if required_start<0 | (found-1<required_end & found-1+binlength(needle)>required_start) then do
+        span_start = found - 1; span_end = span_start + binlength(needle)
+        return 1
+      end
+      if found-1>=required_end then leave
+      cursor=found+1
     end
     if _ready = 0 then call _prepare()
     needle = rxunicode..toCasefold(quotation) as .binary
     if binlength(needle) = 0 then return 0
-    if _findmapped(needle, _folded, _boundaries, scope_start, scope_end, span_start, span_end) = 1 then return 1
+    if _findmapped(needle, _folded, _boundaries, scope_start, scope_end, span_start, span_end,required_start,required_end) = 1 then return 1
     needle = _collapsewhitespace(needle as .string) as .binary
-    return _findmapped(needle, _spaced, _space_boundaries, scope_start, scope_end, span_start, span_end)
+    return _findmapped(needle, _spaced, _space_boundaries, scope_start, scope_end, span_start, span_end,required_start,required_end)
 
   _prepare: method = .void
     folded_text = ""; original_byte = 0; folded_byte = 0
@@ -80,7 +114,7 @@ raggrounding: class
     return
 
 _findmapped: procedure = .int
-  arg needle = .binary, haystack = .binary, boundaries = .int[], scope_start = .int, scope_end = .int, expose span_start = .int, expose span_end = .int
+  arg needle = .binary, haystack = .binary, boundaries = .int[], scope_start = .int, scope_end = .int, expose span_start = .int, expose span_end = .int,required_start=.int,required_end=.int
   if binlength(needle) = 0 then return 0
   cursor = 1
   do forever
@@ -90,7 +124,7 @@ _findmapped: procedure = .int
     /* Never accept a start or end inside an expanding Unicode fold. */
     before_byte = boundaries[found]; after_byte = boundaries[after]
     if before_byte > 0 & after_byte > 0 then do
-      if before_byte - 1 >= scope_start & after_byte - 1 <= scope_end then do
+      if before_byte - 1 >= scope_start & after_byte - 1 <= scope_end & (required_start<0 | (before_byte-1<required_end & after_byte-1>required_start)) then do
         span_start = before_byte - 1; span_end = after_byte - 1
         return 1
       end

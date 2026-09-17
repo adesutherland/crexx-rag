@@ -44,6 +44,11 @@ the pending investigation are T7-10 in
 
 ## Installed compiler source-import finding during T7-10
 
+Update, 16 September: Adrian confirms #699 is fixed in the local CREXX install.
+The master register reflects that update; the following failure/containment
+record is historical. This documentation update did not rerun the reproduction
+or check the upstream issue status.
+
 Filed as [CREXX #699](https://github.com/adesutherland/CREXX/issues/699) under
 `adesutherland` on 15 September 2026. The report contains the repeated build
 failure, successful alternative and explicit absence of a reduced reproducer.

@@ -109,9 +109,42 @@ foreach(runtime IN ITEMS RXVME RXBVM)
         list(APPEND failures "${runtime}: ${output}${errors}")
     endif()
     execute_process(COMMAND "${CPRAG_${runtime}}" -l "${imports}" "${program}" ${modules}
+        -a "${CPRAG_WORK_DIR}/library-${runtime}" capacity
+        RESULT_VARIABLE capacity_status OUTPUT_VARIABLE capacity_output ERROR_VARIABLE capacity_error TIMEOUT 30)
+    file(WRITE "${CPRAG_WORK_DIR}/capacity-${runtime}.log" "${capacity_output}${capacity_error}")
+    if(NOT capacity_status EQUAL 0 OR NOT capacity_output MATCHES "CAPACITY_OK")
+        list(APPEND failures "${runtime} capacity: ${capacity_output}${capacity_error}")
+    endif()
+    if(capacity_status EQUAL 0)
+        file(READ "${CPRAG_WORK_DIR}/race-${runtime}.sh" race)
+        string(REPLACE "race-${runtime}" "capacity-race-${runtime}" race "${race}")
+        string(REPLACE "worker-5" "capacity-26" race "${race}")
+        string(REPLACE "worker-6" "capacity-27" race "${race}")
+        file(WRITE "${CPRAG_WORK_DIR}/capacity-race-${runtime}.sh" "${race}")
+        execute_process(COMMAND /bin/sh "${CPRAG_WORK_DIR}/capacity-race-${runtime}.sh"
+            "${CPRAG_${runtime}}" -l "${imports}" "${program}" ${modules} -a "${CPRAG_WORK_DIR}/library-${runtime}"
+            RESULT_VARIABLE raced TIMEOUT 20)
+        file(READ "${CPRAG_WORK_DIR}/capacity-race-${runtime}-1.log" first)
+        file(READ "${CPRAG_WORK_DIR}/capacity-race-${runtime}-2.log" second)
+        execute_process(COMMAND "${sqlite_cli}" -readonly "${CPRAG_WORK_DIR}/library-${runtime}/library.sqlite"
+            "SELECT count(*) FROM job_events WHERE job_id='capacity' AND event_type='worker-replacement' AND unixepoch(occurred_at)>4900;"
+            OUTPUT_VARIABLE recent OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        if(NOT raced EQUAL 0 OR NOT "${first}${second}" MATCHES "RACE=0" OR NOT "${first}${second}" MATCHES "RACE=2" OR NOT recent STREQUAL "24")
+            list(APPEND failures "${runtime} concurrent 24 limit failed: ${first}${second}; count=${recent}")
+        endif()
+    endif()
+    execute_process(COMMAND "${CPRAG_${runtime}}" -l "${imports}" "${program}" ${modules}
         -a "${CPRAG_WORK_DIR}/library-${runtime}" checkpoint-error
         RESULT_VARIABLE checkpoint_status OUTPUT_VARIABLE checkpoint_output ERROR_VARIABLE checkpoint_error TIMEOUT 30)
     file(WRITE "${CPRAG_WORK_DIR}/checkpoint-${runtime}.log" "exit=${checkpoint_status}\n${checkpoint_output}${checkpoint_error}")
+    find_program(python python3 REQUIRED)
+    execute_process(COMMAND "${python}" "${CMAKE_CURRENT_LIST_DIR}/../tests/fixtures/checkpoint-contention.py" "${CPRAG_WORK_DIR}/library-${runtime}"
+        "${CPRAG_${runtime}}" -l "${imports}" "${program}" ${modules} -a "${CPRAG_WORK_DIR}/library-${runtime}"
+        RESULT_VARIABLE parallel_status OUTPUT_VARIABLE parallel_output ERROR_VARIABLE parallel_error TIMEOUT 30)
+    file(WRITE "${CPRAG_WORK_DIR}/contention-${runtime}.log" "${parallel_output}${parallel_error}")
+    if(NOT parallel_status EQUAL 0)
+        list(APPEND failures "${runtime} eight concurrent checkpoint pollers failed")
+    endif()
     if(NOT checkpoint_status EQUAL 0 OR NOT checkpoint_output MATCHES "CHECKPOINT_ERROR_OK")
         list(APPEND failures "${runtime} checkpoint: ${checkpoint_output}${checkpoint_error}")
     endif()

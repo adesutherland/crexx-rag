@@ -23,6 +23,8 @@ import ragrepository
 import ragretrieval
 import ragquerypolicy
 import ragevidence
+import ragsqlsupport
+import ragtrace
 
 /* Paid attempts follow immutable embedding identity across ingestion, repair
  * and replay jobs. Uncalled deferrals and shared receipt replays add no call. */
@@ -513,12 +515,12 @@ enqueuebacklogtask: procedure = .int
 _question: procedure = .string
   arg kind = .string
   if kind = "provenance-enrichment" then return enrichmentprompt()
-  if kind = "alias-resolution" then return "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage."
+  if kind = "alias-resolution" then return "Review this occurrence and the competing catalogue meanings. Does the source support reuse of a supplied concept or a distinct meaning? Explain any remaining uncertainty using the current route's outcome instructions. Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage."
   if kind = "identity-review" then return "Review this concept's classification against its source passages, competing meanings and recorded changes. Correct only what the evidence supports. Distinguish an actor from the object or place it acts upon; an index heading alone does not classify every name in its entry. Prefer splitting mixed meanings and reviewing their connections over changing all occurrences to one type."
   if kind = "connection" then return "Which successor does this particular connection belong to? Preserve its source-supported meaning and direction; retain uncertainty rather than copying a fact to every successor."
   if kind = "claim-conflict" then return "Are these claims contradictory, different in time or scope, or simultaneously valid? Decide whether to retain, qualify or retract one, with source evidence."
   if kind = "retirement" then return "Can this migration parent retire after all affected connections have been accounted for? Never discard remaining evidence."
-  return "Investigate this issue or opportunity using the supplied evidence and catalogue. Propose a supported lifecycle action, a useful follow-up question, or an unresolved disposition."
+  return "Assess this issue or opportunity using the supplied evidence and catalogue. Propose a supported lifecycle action or explain the remaining uncertainty using the current route's outcome instructions."
 
 _q: procedure = .string
   arg value = .string
@@ -568,7 +570,7 @@ _subject: procedure = .string
   if kind = "conflict" then sql = "SELECT json_object('type','conflict','id',f.conflict_id,'first',json(" || _claimobject("c") || "),'second',json(" || _claimobject("d") || ")) FROM claim_conflicts f JOIN claims c ON c.claim_id=f.claim_id JOIN claims d ON d.claim_id=f.competing_claim_id WHERE f.conflict_id=" || key || " AND f.visible_to_generation IS NULL AND f.review_state='pending'"
   if kind = "note" then sql = "SELECT json_object('type','note','id',note_id,'kind',note_kind,'text',text,'next_action',next_action) FROM analysis_notes WHERE note_id=" || key || " AND state='active'"
   if kind = "gap" then sql = "SELECT json_object('type','gap','id',gap_id,'question',normalized_question,'text',gap_text,'occurrences',occurrence_count) FROM query_gaps WHERE gap_id=" || key || " AND state='open'"
-  if kind = "alias-issue" then sql = "SELECT json_object('type','alias-issue','id',i.issue_id,'candidate_id',i.candidate_id,'canonical_label',i.proposed_label,'concept_type',i.proposed_type,'aliases',json(i.aliases_json),'candidates',json(coalesce((SELECT json_group_array(json_object('concept_id',z.concept_id,'canonical_label',z.canonical_label,'concept_type',z.concept_type)) FROM (SELECT DISTINCT c.concept_id,c.canonical_label,c.concept_type FROM concepts c WHERE c.concept_id IN(SELECT concept_id FROM concepts WHERE lower(canonical_label)=lower(i.proposed_label) AND visible_to_generation IS NULL UNION SELECT target_concept_id FROM aliases WHERE visible_to_generation IS NULL AND normalized_alias IN(SELECT lower(i.proposed_label) UNION SELECT lower(value) FROM json_each(i.aliases_json))) AND c.visible_to_generation IS NULL AND c.lifecycle_state<>'retired' ORDER BY c.concept_id) z),'[]'))) FROM maintenance_alias_issues i WHERE i.issue_id=" || key || " AND i.state='open'"
+  if kind = "alias-issue" then sql = "SELECT json_object('type','alias-issue','id',i.issue_id,'candidate_id',i.candidate_id,'canonical_label',i.proposed_label,'concept_type',i.proposed_type,'aliases',json(i.aliases_json),'candidates',json(coalesce((SELECT json_group_array(json_object('concept_id',z.concept_id,'canonical_label',z.canonical_label,'concept_type',z.concept_type,'lifecycle_state',z.lifecycle_state)) FROM (SELECT DISTINCT c.concept_id,c.canonical_label,c.concept_type,c.lifecycle_state FROM concepts c WHERE c.concept_id IN(SELECT concept_id FROM concepts WHERE lower(canonical_label)=lower(i.proposed_label) AND visible_to_generation IS NULL UNION SELECT target_concept_id FROM aliases WHERE visible_to_generation IS NULL AND normalized_alias IN(SELECT lower(i.proposed_label) UNION SELECT lower(value) FROM json_each(i.aliases_json))) AND c.visible_to_generation IS NULL AND c.lifecycle_state='active' ORDER BY c.concept_id) z),'[]'))) FROM maintenance_alias_issues i WHERE i.issue_id=" || key || " AND i.state='open'"
   if sql = "" then return ""
   subject = _text(database,sql)
   if kind = "concept" then do
@@ -873,28 +875,33 @@ _idcolumn: procedure = .string
   return "revision_chunk_id"
 
 tickbacklogwindow: procedure = .int
-  arg store = .ragstorehandle, job_id = .string, expose error = .string
+  arg store = .ragstorehandle, job_id = .string, expose error = .string, worker_id = ""
   error = ""; database = store.database()
   if job_id = "" then job_id = _text(database,"SELECT job_id FROM maintenance_windows WHERE state='active' ORDER BY created_epoch LIMIT 1")
   if job_id = "" then return 0
   raw = _text(database,"SELECT policy_json FROM maintenance_windows WHERE job_id=" || _q(job_id))
   if raw = "" then return 0
   policy = .jsondocument(raw)
-  /* Embedding batches may wait without repeatedly taking the writer lock.
-   * Keep budget closure observable even when every remaining item is parked. */
-  if _n(policy,"embeddings_only") = 1 then do
-    if _number(database,"SELECT count(*) FROM maintenance_windows w JOIN jobs j ON j.job_id=w.job_id WHERE w.job_id=" || _q(job_id) || " AND w.state='active' AND j.state IN('queued','running') AND (w.deadline_epoch-unixepoch()-" || _cleanupseconds(policy) || ")*1000>=" || max(_n(policy,"time_ms"),_n(policy,"embedding_time")) || " AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=w.job_id AND i.state IN('queued','running','cancel_requested'))") = 1 then do
-      usage_filter = " FROM provider_runs p WHERE p.provider_run_id IN(SELECT a.provider_run_id FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=" || _q(job_id) || ")"
-      room = "count(*)<" || _n(policy,"model_calls") || " AND coalesce(sum(input_tokens),0)+" || _n(policy,"input_tokens") || "<=" || _n(policy,"input_budget") || " AND coalesce(sum(max(0,cost_microunits)),0)+" || _n(policy,"cost_microunits") || "<=" || _n(policy,"cost_budget")
-      if _providertimebudget(policy)>0 then room = room || " AND coalesce(sum(duration_ms),0)+" || _n(policy,"time_ms") || "<=" || _providertimebudget(policy)
-      if _number(database,"SELECT CASE WHEN " || room || " THEN 1 ELSE 0 END" || usage_filter) = 1 then return 0
-    end
+  /* An existing funded batch needs no discovery/reconciliation writer on each
+   * worker poll. Actual claim/admission rechecks all bounds transactionally.
+   * Drain, deadline, exhausted budgets and stopped jobs still take the normal
+   * checkpoint path, including reconciliation of the final settled call. */
+  if _number(database,"SELECT count(*) FROM maintenance_windows w JOIN jobs j ON j.job_id=w.job_id WHERE w.job_id=" || _q(job_id) || " AND w.state='active' AND j.state IN('queued','running') AND (w.deadline_epoch-unixepoch()-" || _cleanupseconds(policy) || ")*1000>=" || max(_n(policy,"time_ms"),_n(policy,"embedding_time")) || " AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=w.job_id AND i.state IN('queued','running','cancel_requested'))") = 1 then do
+    usage=.int[]
+    if jobusagevalues(database,job_id,usage)<>0 then do;error="cannot read maintenance usage";return -1;end
+    if usage[1]<_n(policy,"model_calls") & _windowroutefits(policy,usage)<>0 then return 0
   end
-  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot checkpoint maintenance backlog"; return -1; end
+  waiting=time("us")
+  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do
+    error=_lockfailure(database,"cannot checkpoint maintenance backlog","maintenance-checkpoint",waiting,job_id,"",worker_id)
+    return -1
+  end
+  begun=time("us");wait_ms=_elapsedms(waiting,begun)
   if _number(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=" || _q(job_id) || " AND state='active'") \= 1 then do
     /* Calls admitted before closure may settle afterwards. Reconcile their
      * task outcomes without changing the window, deadline or dispatch queue. */
     if _reconcileoutcomes(database,policy,job_id,error) \= 0 then return _rollback(database,error,error)
+    call _recordtiming database,job_id,"","",worker_id,"maintenance-checkpoint",wait_ms,begun,0
     if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot reconcile closed maintenance window",error)
     return 0
   end
@@ -902,6 +909,7 @@ tickbacklogwindow: procedure = .int
   if state = "paused" | state = "cancel_requested" | state = "cancelled" then do
     reason = "paused"; if state = "cancel_requested" | state = "cancelled" then reason = "cancelled"
     if _closewindow(database,job_id,reason,error) \= 0 then return _rollback(database,error,error)
+    call _recordtiming database,job_id,"","",worker_id,"maintenance-checkpoint",wait_ms,begun,0
     if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot pause maintenance window",error)
     return 1
   end
@@ -928,6 +936,7 @@ tickbacklogwindow: procedure = .int
   if running=0 & _windowroutefits(policy,usage)=0 then close_reason="budget-exhausted"
   if close_reason \= "" then do
     if _closewindow(database,job_id,close_reason,error) \= 0 then return _rollback(database,error,error)
+    call _recordtiming database,job_id,"","",worker_id,"maintenance-checkpoint",wait_ms,begun,0
     if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot close bounded maintenance window",error)
     return 1
   end
@@ -949,6 +958,7 @@ tickbacklogwindow: procedure = .int
       if queued = 0 & scan_status = 0 & waiting_retry = 0 & eligible = 0 then if _closewindow(database,job_id,"complete",error) \= 0 then return _rollback(database,error,error)
     end
   end
+  call _recordtiming database,job_id,"","",worker_id,"maintenance-checkpoint",wait_ms,begun,0
   if generation > 0 then do
     if commitgeneration(store,generation,error) \= 0 then return -3
     if publishmanifest(store,error) \= 0 then return -4
@@ -1068,7 +1078,9 @@ _backlogorder: procedure = .string
 
 _routecallcount: procedure = .string
   arg task_expression = .string
-  return "CASE WHEN (SELECT required_capability FROM maintenance_tasks WHERE task_id=" || task_expression || ")='advanced-reasoning' THEN " || taskretrycallcount(task_expression,0,0,"advanced-reasoning") || " ELSE " || _taskcallcount(task_expression) || " END"
+  /* Keep an outer maintenance_tasks.task_id correlated in selection/updates;
+   * an unaliased inner table would classify every row using another task. */
+  return "CASE WHEN (SELECT route_task.required_capability FROM maintenance_tasks route_task WHERE route_task.task_id=" || task_expression || ")='advanced-reasoning' THEN " || taskretrycallcount(task_expression,0,0,"advanced-reasoning") || " ELSE " || _taskcallcount(task_expression) || " END"
 
 _routeattemptlimit: procedure = .string
   arg policy = .jsondocument
@@ -1408,7 +1420,7 @@ validatebacklogresponse: procedure = .int
       ignored = packet.node_string(packet.member(passage,"text"),body); ignored = packet.node_string(packet.member(passage,"revision_chunk_id"),chunk)
       ignored = packet.node_int(packet.member(passage,"span_start"),required_start); ignored = packet.node_int(packet.member(passage,"span_end"),required_end)
       matcher = .raggrounding(body); begin = -1; finish = -1
-      if matcher.find(quote,begin,finish) \= 1 | finish <= required_start | begin >= required_end then do; error = "resolution quotation does not ground the selected connection"; return -1; end
+      if matcher.findoverlap(quote,begin,finish,required_start,required_end) \= 1 then do; error = "resolution quotation does not ground the selected connection"; return -1; end
       text_offset = 0; ignored = packet.node_int(packet.member(passage,"text_offset"),text_offset)
       begin = begin + text_offset; finish = finish + text_offset
       if i > 1 then grounds = grounds || ","
@@ -1437,7 +1449,12 @@ validatebacklogresponse: procedure = .int
 checkbacklogclaim: procedure = .int
   arg store = .ragstorehandle, job_id = .string, item_id = .string, attempt_id = .string, worker_id = .string, fence = .int, expose error = .string
   database = store.database(); error = ""
-  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot validate claimed maintenance context"; return -3; end
+  waiting=time("us")
+  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do
+    error=_lockfailure(database,"cannot validate claimed maintenance context","claim-context",waiting,job_id,item_id,worker_id)
+    return -3
+  end
+  begun=time("us");wait_ms=_elapsedms(waiting,begun)
   task = .jsondocument(_text(database,"SELECT json_object('task_id',t.task_id,'subject_type',t.subject_type,'subject_id',t.subject_id,'workflow_id',t.workflow_id,'fingerprint',t.evidence_fingerprint,'maximum_bytes',json_extract(w.policy_json,'$.maximum_evidence_bytes')) FROM maintenance_task_items m JOIN maintenance_tasks t ON t.task_id=m.task_id JOIN maintenance_windows w ON w.window_id=m.window_id WHERE m.item_id=" || _q(item_id)))
   if activeworkfence(database,job_id,item_id,attempt_id,worker_id,fence) \= 1 then return _rollback(database,"maintenance worker fence is stale",error)
   fresh = ""; fingerprint = ""
@@ -1449,6 +1466,7 @@ checkbacklogclaim: procedure = .int
     if sqliteexec(database,"UPDATE attempts SET outcome='skipped',validation_state='stale-maintenance-evidence',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(attempt_id)) \= 0 then return _rollback(database,"cannot checkpoint stale question attempt",error)
     if sqliteexec(database,"UPDATE job_items SET state='skipped',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(item_id)) \= 0 then return _rollback(database,"cannot checkpoint stale question item",error)
   end
+  call _recordtiming database,job_id,item_id,attempt_id,worker_id,"claim-context",wait_ms,begun,1
   if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit claimed maintenance validation",error)
   return stale
 
@@ -1751,7 +1769,7 @@ _identityselection: procedure = .int
     selected = _s(result,"target_concept_id")
     if selected = "" | _number(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.subject.candidates') c WHERE t.task_id=" || _q(task_id) || " AND json_extract(c.value,'$.concept_id')=" || _q(selected)) < 1 then do; error = "identity decision did not select a candidate supplied to this task"; return -1; end
     current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
-    if activeclaimconcept(database,selected,current,label,concept_type) <> 1 then do; error = "selected identity is no longer active; refresh evidence and choose an active identity or a distinct identity"; return -1; end
+    if activeclaimconcept(database,selected,current,label,concept_type) <> 1 then do; error = "selected identity is no longer active; use maintain refresh-plan or maintain reset to reconsider current evidence"; return -1; end
   end
   if strip(label) = "" | strip(concept_type) = "" then do; error = "identity decision requires a label and type"; return -1; end
   return 0
@@ -2219,3 +2237,28 @@ _configuredattemptlimit: procedure = .int
 _attemptlimit: procedure = .int
   arg policy=.jsondocument
   return _configuredattemptlimit(_n(policy,"maximum_attempts"),_n(policy,"embeddings_only"),_n(policy,"embedding_attempts"))
+
+/* Only the two observed hot paths. Wait and body are separate measurements;
+ * body ends before COMMIT. Failed BEGIN cannot depend on a writable database. */
+_elapsedms: procedure = .int
+  arg started=.int,finished=.int
+  elapsed=finished-started
+  if elapsed<0 then elapsed=elapsed+86400000000
+  return (elapsed/1000) as .int
+
+_lockfailure: procedure = .string
+  arg database=.binary,message=.string,operation=.string,started=.int,job=.string,item=.string,worker=.string
+  original=sqliteerrordetail();wait_ms=_elapsedms(started,time("us"))
+  result=message || "; operation=" || operation || "; lock_wait_ms=" || wait_ms || "; transaction_body_ms=unavailable; " || original
+  timestamp=_text(database,"SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now')")
+  call writeoperatorline '{"event":"transaction-lock-failed","timestamp":' || jsonquote(timestamp) || ',"utc_offset_seconds":0' || ',"job_id":' || jsonquote(job) || ',"item_id":' || jsonquote(item) || ',"worker_id":' || jsonquote(worker) || ',"operation":' || jsonquote(operation) || ',"lock_wait_ms":' || wait_ms || ',"error":' || jsonquote(original) || '}'
+  return result
+
+_recordtiming: procedure = .void
+  arg database=.binary,job=.string,item=.string,attempt=.string,worker=.string,operation=.string,wait_ms=.int,begun=.int,always=.int
+  body_ms=_elapsedms(begun,time("us"))
+  if always=0 & wait_ms+body_ms<100 then return
+  body='{"operation":' || jsonquote(operation) || ',"worker_id":' || jsonquote(worker) || ',"lock_wait_ms":' || wait_ms || ',"transaction_body_ms":' || body_ms || ',"commit_ms":null,"coverage":"claim checks and checkpoints >=100ms"}'
+  /* Diagnostic insertion is best effort and does not change work outcomes. */
+  ignored=sqliteexec(database,"INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES(" || _q(job) || ",nullif(" || _q(item) || ",''),nullif(" || _q(attempt) || ",''),'transaction-timing'," || _q(body) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))")
+  return

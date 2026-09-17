@@ -8,6 +8,7 @@ import ragclaims
 import generic_profile
 import ragstore
 import ragsupervision
+import ragbacklog
 
 uncalledprovider: class implements .ragworkprovider
   *: factory
@@ -21,6 +22,9 @@ uncalledprovider: class implements .ragworkprovider
 checkpointfailure: procedure = .int
   arg store = .ragstorehandle
   database=store.database(); error=""; errors=0
+  /* The preceding capacity case has finished; retire its synthetic window
+   * before creating this case's single active maintenance window. */
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_windows SET state='complete' WHERE window_id='capacity-window'")=0,"close preceding capacity window")
   errors=errors+check(sqliteexec(database,"INSERT INTO maintenance_runs(run_id,expected_generation,config_snapshot_id,mode,state,plan_digest,canonical_plan,created_at) SELECT 'checkpoint',published_generation,'snapshot-supervision','manual','complete','checkpoint','{}','fixture' FROM library_meta; INSERT INTO maintenance_windows(window_id,run_id,job_id,state,deadline_epoch,policy_json,policy_fingerprint,created_epoch) VALUES('checkpoint','checkpoint','job','complete',1,'{}','checkpoint',1); UPDATE job_items SET state='cancelled'")=0,"checkpoint fixture")
   before=number(database,"SELECT count(*) FROM attempts")
   policy=.ragclaimpolicy("fixture","concept","related-to",1000000,750000,500000,-1000000,250000)
@@ -29,10 +33,26 @@ checkpointfailure: procedure = .int
    * return the original diagnostic, before any claim/provider state exists. */
   errors=errors+check(sqliteexec(database,"BEGIN IMMEDIATE")=0,"checkpoint conflict")
   status=runworkeronce(store,"job","checkpoint-worker",30,3,policy,provider,disposition,error,genericprofile())
-  errors=errors+check(status=-3 & error="cannot checkpoint maintenance backlog","checkpoint preserves original error " || error)
+  errors=errors+check(status=-3 & pos("cannot checkpoint maintenance backlog",error)=1,"checkpoint preserves original error " || error)
   errors=errors+check(sqliteexec(database,"ROLLBACK")=0,"release checkpoint conflict")
   errors=errors+check(runworkeronce(store,"job","checkpoint-worker",30,3,policy,provider,disposition,error,genericprofile())=1,"checkpoint succeeds after conflict clears " || error)
   errors=errors+check(number(database,"SELECT count(*) FROM attempts")=before & number(database,"SELECT count(*) FROM provider_runs")=0,"pre-claim error creates no attempt or call")
+  /* An independent writer tests real SQLITE_BUSY, rather than nested BEGIN. */
+  competitor=.ragstorehandle
+  errors=errors+check(openragstore(store.path(),"readwrite",competitor,error)=0,"open independent contender " || error)
+  errors=errors+check(sqliteexec(database,"PRAGMA busy_timeout=30")=0 & sqliteexec(competitor.database(),"BEGIN IMMEDIATE")=0,"hold independent writer")
+  status=tickbacklogwindow(store,"job",error)
+  errors=errors+check(status=-1 & pos("lock_wait_ms=",error)>0 & pos("sqlite=5,",error)>0 & pos("transaction_body_ms=unavailable",error)>0,"checkpoint reports failed lock acquisition " || error)
+  errors=errors+check(sqlitebusyerror(error)=1,"checkpoint retains BUSY classification")
+  status=runworkeronce(store,"job","checkpoint-worker",30,3,policy,provider,disposition,error,genericprofile())
+  errors=errors+check(status=1 & disposition="checkpoint-busy" & pos("lock_wait_ms=",error)>0,"pre-claim contention schedules another poll without worker loss")
+  status=checkbacklogclaim(store,"job","item","missing-attempt","checkpoint-worker",1,error)
+  errors=errors+check(status=-3 & pos("claim-context",error)>0 & pos("sqlite=5,",error)>0,"claim-context distinguishes contention " || error)
+  errors=errors+check(sqliteexec(competitor.database(),"ROLLBACK")=0,"release competing writer")
+  call closeragstore competitor,error
+  active_policy='{"mode":"automatic","time_ms":1000,"model_calls":100,"input_tokens":10,"output_tokens":10,"input_budget":1000,"output_budget":1000,"cost_budget":0,"charging_basis":"local-compute"}'
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_windows SET state='active',deadline_epoch=unixepoch()+600,policy_json='" || active_policy || "' WHERE job_id='job'; UPDATE jobs SET state='running' WHERE job_id='job'; UPDATE job_items SET state='queued' WHERE job_id='job'")=0,"seed active checkpoint workload")
+  errors=errors+check(number(database,"SELECT count(*) FROM attempts")=before & number(database,"SELECT count(*) FROM provider_runs")=0,"timing failure leaves work and call counts unchanged")
   return errors
 
 check: procedure = .int
@@ -65,8 +85,29 @@ main: procedure = .int
       say "CHECKPOINT_ERROR_OK"
       return 0
     end
+    if args[2]="checkpoint-poll" then do
+      call sqliteexec store.database(),"PRAGMA busy_timeout=30"
+      say "CHECKPOINT_READY"
+      release=linein()
+      started=time("us");failures=0
+      do poll=1 to 20
+        if tickbacklogwindow(store,"job",error,"checkpoint-poll")<0 then failures=failures+1
+      end
+      elapsed=time("us")-started;if elapsed<0 then elapsed=elapsed+86400000000
+      say "CHECKPOINT_POLL failures=" || failures || " elapsed_ms=" || (elapsed/1000) as .int
+      call closeragstore store,error
+      return failures>0
+    end
+    if args[2]="capacity" then do
+      errors=capacity(store)
+      call closeragstore store,error
+      if errors>0 then return 1
+      say "CAPACITY_OK"
+      return 0
+    end
     replacement = ""; delay = 0
-    status = ragsupervision..reserveworkerreplacement(store,"controller",args[2],1,10,replacement,delay,error,100,5000)
+    maximum=1;if left(args[2],9)="capacity-" then maximum=24
+    status = ragsupervision..reserveworkerreplacement(store,"controller",args[2],maximum,10,replacement,delay,error,100,5000)
     say "RACE=" || status
     call closeragstore store,error
     return 0
@@ -142,3 +183,40 @@ main: procedure = .int
   if errors > 0 then return 1
   say "SUPERVISION_REGRESSION_OK"
   return 0
+
+/* Separate job and clock keep the larger allowance independent of old controls. */
+capacity: procedure = .int
+  arg store=.ragstorehandle
+  database=store.database();error="";errors=0;replacement="";delay=0
+  errors=errors+check(sqliteexec(database,"INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) SELECT 'capacity','capacity',canonical_plan,config_snapshot_id,'running',100,100,1000,1000,1000,created_at,updated_at FROM jobs WHERE job_id='job'; INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('capacity-item','capacity','claim-extraction','queued',1,'capacity-item','input','{}','fixture','fixture')")=0,"capacity job")
+  before=number(database,"SELECT count(*) FROM attempts")
+  do i=1 to 25
+    errors=errors+check(sqliteexec(database,"INSERT INTO runtime_instances(instance_id,kind,parent_instance_id,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,started_at,heartbeat_at,exit_code) VALUES('capacity-" || i || "','worker','controller','fixture',0,'token','exe','follow','capacity','failed',1,1,75)")=0,"capacity worker")
+    expected=0;if i=25 then expected=2
+    status=reserveworkerreplacement(store,"controller","capacity-" || i,24,5000,replacement,delay,error,3600,10000)
+    errors=errors+check(status=expected,"24 whole-job allowance reservation " || i || ": " || error)
+    if i=1 then errors=errors+check(delay=5000,"initial backoff")
+    if i=2 then errors=errors+check(delay=30000,"second backoff")
+    if i>2 & i<25 then errors=errors+check(delay=60000,"capped backoff")
+  end
+  errors=errors+check(number(database,"SELECT count(*) FROM job_events WHERE job_id='capacity' AND event_type='worker-replacement'")=24,"exactly 24 durable reservations")
+  errors=errors+check(reserveworkerreplacement(store,"controller","capacity-25",25,5000,replacement,delay,error,3600,10000)=-1,"25 invalid policy")
+  path=store.path()
+  errors=errors+check(closeragstore(store,error)=0 & openragstore(path,"readwrite",store,error)=0,"restart capacity connection")
+  database=store.database()
+  errors=errors+check(reserveworkerreplacement(store,"controller","capacity-25",24,5000,replacement,delay,error,3600,13599)=2 & delay=1000,"restart retains rolling limit")
+  errors=errors+check(sqliteexec(database,"UPDATE jobs SET state='cancelled' WHERE job_id='capacity'")=0,"cancel capacity")
+  errors=errors+check(reserveworkerreplacement(store,"controller","capacity-25",24,5000,replacement,delay,error,3600,13600)=1,"cancellation blocks replacement")
+  errors=errors+check(sqliteexec(database,"UPDATE jobs SET state='running' WHERE job_id='capacity'")=0,"restore capacity")
+  errors=errors+check(sqliteexec(database,"INSERT INTO maintenance_runs(run_id,expected_generation,config_snapshot_id,mode,state,plan_digest,canonical_plan,created_at) SELECT 'capacity-window',published_generation,'snapshot-supervision','manual','complete','capacity-window','{}','fixture' FROM library_meta; INSERT INTO maintenance_windows(window_id,run_id,job_id,state,deadline_epoch,policy_json,policy_fingerprint,created_epoch) VALUES('capacity-window','capacity-window','capacity','active',1,'{}','capacity',1)")=0,"expired maintenance allowance")
+  errors=errors+check(reserveworkerreplacement(store,"controller","capacity-25",24,5000,replacement,delay,error,3600,13600)=1,"expired deadline prevents replacement even with available capacity")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_windows SET deadline_epoch=unixepoch()+3600 WHERE job_id='capacity'")=0,"renew fixture deadline")
+  errors=errors+check(reserveworkerreplacement(store,"controller","capacity-25",24,5000,replacement,delay,error,3600,13600)=0 & delay=5000,"hour boundary replenishes")
+  errors=errors+check(number(database,"SELECT count(*) FROM attempts")=before & number(database,"SELECT count(*) FROM provider_runs")=0,"capacity never resets attempts or creates calls")
+  /* Leave exactly one slot for two independent processes to race. Preserve
+   * all historical events, moving only synthetic clock values in this fixture. */
+  errors=errors+check(sqliteexec(database,"UPDATE job_events SET occurred_at=strftime('%Y-%m-%dT%H:%M:%fZ',1000,'unixepoch') WHERE job_id='capacity'; UPDATE job_events SET occurred_at=strftime('%Y-%m-%dT%H:%M:%fZ',5000,'unixepoch') WHERE event_id IN(SELECT event_id FROM job_events WHERE job_id='capacity' AND event_type='worker-replacement' ORDER BY event_id LIMIT 23)")=0,"seed 23 recent reservations for race")
+  do i=26 to 27
+    errors=errors+check(sqliteexec(database,"INSERT INTO runtime_instances(instance_id,kind,parent_instance_id,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,started_at,heartbeat_at,exit_code) VALUES('capacity-" || i || "','worker','controller','fixture',0,'token','exe','follow','capacity','failed',1,1,75)")=0,"capacity race worker")
+  end
+  return errors

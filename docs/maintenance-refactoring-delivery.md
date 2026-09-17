@@ -1,5 +1,19 @@
 # Maintenance refactoring delivery
 
+## Essential observability — 16 September 2026, locally qualified
+
+Existing owners remain in place: application request serialization/redaction in
+`ragapplicationprovider`, immutable intent/response capture in `ragreceipts`,
+diagnostic settlement in `ragusage`, bounded operator reads in
+`ragoperationsquery`, and job projection in `ragrepository`. `ragwork` forwards
+the optional request capture to the receipt owner. Generic adapters retain
+rejected text separately from validated provider content. Checkpoint and
+claim-context timing belongs to `ragbacklog`; `ragtrace` handles database-independent
+failed-lock output. No new dependency cycle, schema, prompt or retry policy.
+The [delivery record](observability-delivery-20260916.md) maps original passing
+controls, diagnostic failure reproductions and the 123-pass local qualification.
+The bounded corpus-copy run is tracked there separately.
+
 ## Lease validation follow-up — 16 September 2026
 
 `configuration_contract` covers typed/file lease bounds at 1, 86,400, 0 and
@@ -722,3 +736,54 @@ The public queue/defer operations live in `ragcommandcatalog` and delegate to
 that owner. No database migration, provider implementation or alternate runner
 is introduced. Explicit extraction is a resolver action using the existing
 work-item type and claim pipeline, not a new task family.
+
+## Resolution prompt and selected-quotation repair (17 September 2026)
+
+The [bounded delivery record](prompt-grounding-delivery-20260917.md) records
+the regression-first failures, controls and final QA. `ragresolutioncontract`
+now owns initial and citation-correction route outcomes together, with explicit
+reuse/no-change field examples and selected-source context. The generic
+quotation owner retains extraction correction as its default. Provider
+composition selects the domain builder; no route rule is duplicated there.
+`raggrounding` adds overlap-constrained matching, consumed by the existing
+`ragbacklog` validator for both provider and external proposals. Its previous
+unscoped and contained-scope API remains unchanged. No schema, transaction,
+scheduler or recovery owner moved.
+
+## Approved maintenance follow-up — 17 September 2026
+
+Ownership remains unchanged. `ragworkerdefaults` now supplies the explicit
+24 ceiling to both `ragsupervision` and the `ragprocess` controller; canonical
+omission still means two. `ragbacklog` owns the read-only active-batch guard and
+active-only alias packet projection; `ragwork` handles only pre-claim BUSY
+scheduling. `ragapplicationprovider` retains original transport failure through
+exact-turn reconciliation and measures the provider step. `ragoperationsquery`
+projects bounded event previews, retained references, failure categories and
+separate timing/usage facts. `ragresolutioncontract` and `ragquotationcontract`
+share their examples across initial/correction consumers. No schema or new
+public operation is introduced. Regression-first evidence and qualification
+status are in [the delivery record](maintenance-follow-up-delivery-20260917.md).
+
+## Maintenance reference and quotation boundary (17 September 2026)
+
+The new `ragresolutionreferences` domain module owns frozen short-reference
+projection and expansion. `ragresolutioncontract` composes it for model messages;
+`ragapplicationprovider` composes it for retained request mapping and expansion
+before canonical validation, including recovered responses. `ragbacklog` keeps
+eligibility, lifecycle, source validation and application ownership. The quotation
+owner adds specific feedback; the existing grounding owner adds only a one-pass
+exact newline fallback after normal overlap matching. No policy/SQL moved into
+adapters and no transaction, schema or recovery ownership changed. The
+[seven-criterion delivery record](resolution-references-delivery-20260917.md)
+links regression-first evidence and qualification, including canonical validation
+and native retained-response recovery at the new boundary.
+
+## Advanced-call correlation repair (17 September 2026)
+
+`ragbacklog._routecallcount` retains ownership of the route-count projection.
+Its inner task lookup now uses a distinct alias, preserving correlation when
+selection and reconciliation pass an outer task expression. `raglifecycle`
+continues to own distinct provider-run counts and reset baselines; no policy
+moves into adapters. The [ESC-OPS-02 record](advanced-call-budget-delivery-20260917.md)
+retains baseline passes, the isolated failing worker sequence, three/five-call
+acceptance and final qualification status.

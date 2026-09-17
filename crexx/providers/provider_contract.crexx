@@ -288,6 +288,7 @@ providerresult: class
   _model = .string
   _request_id = .string
   _content = .string
+  _diagnostic_content = .string
   _finish_reason = .string
   _embeddings = .embeddingrecord[]
   _usage = .providerusage
@@ -301,6 +302,7 @@ providerresult: class
     _model = ""
     _request_id = ""
     _content = ""
+    _diagnostic_content = ""
     _finish_reason = ""
     _embeddings = vectors
     _usage = .providerusage()
@@ -316,6 +318,7 @@ providerresult: class
     _model = model
     _request_id = request_id
     _content = content
+    _diagnostic_content = ""
     _finish_reason = finish_reason
     _embeddings = vectors
     _usage = usage
@@ -330,6 +333,7 @@ providerresult: class
     _model = model
     _request_id = request_id
     _content = ""
+    _diagnostic_content = ""
     _finish_reason = "complete"
     _embeddings = vectors
     _usage = usage
@@ -345,12 +349,21 @@ providerresult: class
     _model = model
     _request_id = request_id
     _content = ""
+    _diagnostic_content = ""
     _finish_reason = "error"
     _embeddings = vectors
     _usage = usage
     _latency_us = latency_us
     _error = error
     return
+
+  set_diagnostic_content: method = .void
+    arg content=.string
+    _diagnostic_content=content
+    return
+
+  diagnostic_content: method = .string
+    return _diagnostic_content
 
   status: method = .int
     return _status

@@ -8,6 +8,7 @@ import ragmcp
 import operator_registry
 import ragextractioncontract
 import ragresolutioncontract
+import ragresolutionreferences
 import ragquotationcontract
 import ragassessment
 import ragenrich
@@ -15,6 +16,58 @@ import generic_profile
 
 main: procedure = .int
   arg args=.string[]
+  errors=0
+  ordinary=resolutioninputprompt('{"required_capability":"ordinary","evidence_expected":0}',"Ordinary objective","alias-issue")
+  advanced=resolutioninputprompt('{"required_capability":"advanced-reasoning","evidence_expected":0}',"Final objective","alias-issue")
+  if pos("target_concept_id must be a concept_id from evidence.subject.candidates",ordinary)=0 then do;say "PROMPT_FAIL reuse target mapping";errors=errors+1;end
+  if pos('For no-change, object_id and target_concept_id must both be empty',advanced)=0 then do;say "PROMPT_FAIL explicit no-change fields";errors=errors+1;end
+  if pos("Unresolved is a valid decision",ordinary)>0 | pos("Unresolved is a valid decision",advanced)>0 then do;say "PROMPT_FAIL contradictory unresolved fallback";errors=errors+1;end
+  if errors>0 then return 1
+  if pos("Stored questions may describe unresolved uncertainty",ordinary)=0 | pos("Stored questions may describe unresolved uncertainty",advanced)=0 then do;say "PROMPT_FAIL legacy question outcome guidance";return 1;end
+  corrected=resolutioncorrectionmessage('{"required_capability":"advanced-reasoning"}',"original quote failed")
+  if pos("original quote failed",corrected)=0 | pos("final no-change",corrected)=0 | pos("choose unresolved",corrected)>0 | pos("updating mention indexes",corrected)>0 then do;say "PROMPT_FAIL advanced correction outcome";return 1;end
+  corrected=resolutioncorrectionmessage('{"required_capability":"ordinary"}',"original quote failed")
+  if pos("choose escalate",corrected)=0 | pos("choose unresolved",corrected)>0 then do;say "PROMPT_FAIL ordinary correction outcome";return 1;end
+  if pos("updating mention indexes",correctionmessage("original quote failed"))=0 then do;say "PROMPT_FAIL extraction correction preserved";return 1;end
+  corrected=resolutioncorrectionmessage('{"required_capability":"advanced-reasoning","evidence":{"subject":{"type":"provenance-chunk"}}}',"original quote failed")
+  if pos("final no-change",corrected)>0 | pos("one assessment per supplied support_id",corrected)=0 then do;say "PROMPT_FAIL provenance correction retains its own envelope";return 1;end
+  if pos("must not reproduce the parent",ordinary)=0 | pos("Kingsburgh",ordinary)=0 then do;say "PROMPT_FAIL split parent rule and example";return 1;end
+  if pos("must not reproduce the parent",resolutioncorrectionmessage('{"required_capability":"advanced-reasoning"}',"bad split"))=0 then do;say "PROMPT_FAIL shared split correction";return 1;end
+  if pos('An-\nother',quotationcontract())=0 | pos("literal backslash",correctionmessage("bad quotation"))=0 then do;say "PROMPT_FAIL OCR and escape examples";return 1;end
+  marker="Complete no-change example: ";begin=pos(marker,advanced)+length(marker);finish=pos(". If citations",advanced,begin)
+  example=.jsondocument(substr(advanced,begin,finish-begin));value="unexpected"
+  if example.valid()<>1 | example.node_string(example.member(example.root(),"object_id"),value)<>0 | value<>"" then do;say "PROMPT_FAIL valid no-change example";return 1;end
+  input='{"evidence":{"passages":[{"evidence_id":"selected-Dundee","text":"Écosse: Dundee left. At Dundee, Mary waited. Dundee.","span_start":25,"span_end":31}]},"required_capability":"ordinary","evidence_expected":0}'
+  messages=resolutionmessages(genericprofile(),input,"ordinary objective","concept")
+  if pos("selected UTF-8 bytes 25:31",messages[2].content())=0 | pos("Context for selected-Dundee",messages[2].content())=0 | pos("At Dundee, Mary waited.",messages[2].content())=0 | pos("Écosse",messages[2].content())=0 then do;say "PROMPT_FAIL selected Unicode context";return 1;end
+  ref_input='{"resolution_contract":"crexx-rag.resolution-contract/5","evidence":{"subject":{"type":"alias-issue","id":"issue-original","candidates":[{"concept_id":"concept-original","canonical_label":"Argyle","concept_type":"person"}]},"catalogue":[],"passages":[{"evidence_id":"evidence-original","text":"made \nArgyle waited.","span_start":6,"span_end":12}]},"required_capability":"ordinary","evidence_expected":0}'
+  messages=resolutionmessages(genericprofile(),ref_input,"ordinary objective","alias-issue")
+  if pos('"id":"S1"',messages[2].content())=0 | pos('"concept_id":"C1"',messages[2].content())=0 | pos('"evidence_id":"E1"',messages[2].content())=0 then do;say "PROMPT_FAIL model short reference projection";return 1;end
+  if pos("made " || "0A"x || "Argyle waited.",messages[2].content())=0 then do;say "PROMPT_FAIL readable source newlines";return 1;end
+  refs=.ragresolutionreferences(ref_input);restored=.ragresolutionreferences(ref_input);ref_error=""
+  if refs.mapping()<>'{"S1":"issue-original","C1":"concept-original","E1":"evidence-original"}' | refs.mapping()<>restored.mapping() then do;say "PROMPT_FAIL deterministic retained mapping";return 1;end
+  encoded='{"action":"reuse","object_id":"S1","target_concept_id":"C1","evidence":[{"evidence_id":"E1","quote":"Argyle"}],"reason":"literal C1 and evidence-original remain source data"}'
+  expanded=refs.response(encoded,ref_error)
+  if ref_error<>"" | expanded<>'{"action":"reuse","object_id":"issue-original","target_concept_id":"concept-original","evidence":[{"evidence_id":"evidence-original","quote":"Argyle"}],"reason":"literal C1 and evidence-original remain source data"}' then do;say "PROMPT_FAIL canonical field expansion " || ref_error;return 1;end
+  if restored.response(encoded,ref_error)<>expanded then do;say "PROMPT_FAIL frozen correction/recovery mapping";return 1;end
+  ignored=refs.response(changestr('"C1"',encoded,'"E1"'),ref_error)
+  if ref_error="" | pos("target_concept_id",ref_error)=0 then do;say "PROMPT_FAIL wrong-kind reference accepted";return 1;end
+  ignored=refs.response(changestr('"E1"',encoded,'"E99"'),ref_error)
+  if ref_error="" | pos("evidence_id",ref_error)=0 then do;say "PROMPT_FAIL unknown evidence reference accepted";return 1;end
+  ignored=refs.response(changestr('"E1"',encoded,'"evidence-original"'),ref_error)
+  if ref_error="" then do;say "PROMPT_FAIL model full-ID bypass accepted";return 1;end
+  control='{"action":"no-change","object_id":"","target_concept_id":"","evidence":[]}'
+  if refs.response(control,ref_error)<>control | ref_error<>"" then do;say "PROMPT_FAIL empty control references";return 1;end
+  control='{"action":"read","object_id":"crexx-rag:library:source:revision:utf8-0-12","target_concept_id":"","evidence":[]}'
+  if refs.response(control,ref_error)<>control | ref_error<>"" then do;say "PROMPT_FAIL exact read citation changed";return 1;end
+  oldrefs=.ragresolutionreferences(changestr('resolution-contract/5',ref_input,'resolution-contract/4'))
+  if oldrefs.enabled()<>0 | oldrefs.response(expanded,ref_error)<>expanded then do;say "PROMPT_FAIL legacy full-ID input changed";return 1;end
+  newrefs=.ragresolutionreferences(changestr('evidence-original',ref_input,'different-evidence'))
+  if newrefs.mapping()=refs.mapping() | restored.response(encoded,ref_error)<>expanded then do;say "PROMPT_FAIL refreshed input changed old mapping";return 1;end
+  feedback=resolutionquotationfeedback(refs.input(),'{"evidence":[{"evidence_id":"E1","quote":"Invented quote"}]}')
+  if pos("field=evidence[0]",feedback)=0 | pos("selected UTF-8 bytes 6:12",feedback)=0 | pos("Argyle",feedback)=0 then do;say "PROMPT_FAIL selected occurrence feedback";return 1;end
+  feedback=resolutionquotationfeedback(refs.input(),'{"evidence":[{"evidence_id":"E99","quote":"Argyle"}]}')
+  if pos("reference is not supplied",feedback)=0 then do;say "PROMPT_FAIL wrong-ID feedback";return 1;end
   plain=extractionprompt("operator objective");enriched=extractionprompt("operator objective",1)
   if left(plain,18)\="operator objective" | enriched\=plain || "0A"x || assessmentprompt() then return 1
   if wordpos("split",resolutionactions("claim",0))>0 | wordpos("retract",resolutionactions("claim",0))=0 then return 1

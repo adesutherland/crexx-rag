@@ -83,6 +83,12 @@ main: procedure = .int
 
   first_child = scalartext(database, "SELECT child_concept_id FROM concept_lineage WHERE operation='split' AND parent_concept_id='concept-parent' ORDER BY child_concept_id LIMIT 1")
   second_child = scalartext(database, "SELECT child_concept_id FROM concept_lineage WHERE operation='split' AND parent_concept_id='concept-parent' ORDER BY child_concept_id DESC LIMIT 1")
+  /* Real canonical child IDs exercise the parent's identity rejection. */
+  duplicate_split=changestr('"concept_id":"concept-parent"',split_action,'"concept_id":"' || first_child || '"')
+  errors=errors+check(sqliteexec(database,"BEGIN IMMEDIATE")=0,"isolate invalid split fixture")
+  errors=errors+check(insertitem(database,"item-duplicate-split","split",first_child,2,duplicate_split,error)=0,"seed invalid split")
+  errors=errors+check(applylifecycleaction(store,genericprofile(),"item-duplicate-split",duplicate_split,2,published,disposition,error)<>0 & pos("distinct from the migration parent",error)>0,"parent duplicate rejected by lifecycle owner " || error)
+  errors=errors+check(sqliteexec(database,"ROLLBACK")=0 & scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=2,"rejection preserves generation")
   merge_action = '{"schema":"crexx-rag.lifecycle-action/1","operation":"merge","concept_id":"' || first_child || '","target_concept_id":"' || second_child || '","alias":"","concept_type":"","successors":[],"dispositions":[],"reason":"merge duplicate split successor into the reviewed survivor"}'
   errors = errors + check(insertitem(database, "item-merge", "merge", first_child, 2, merge_action, error) = 0, error)
   errors = errors + check(applylifecycleaction(store, genericprofile(), "item-merge", merge_action, 2, published, disposition, error) = 0 & published = 3 & disposition = "merge-applied", "merge " || error)

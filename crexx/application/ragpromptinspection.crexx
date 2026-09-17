@@ -35,7 +35,7 @@ promptrecords: procedure = .ragresultrecord[]
     if objective="" & role<>"advanced-resolver" then do; objective=config.maintenance().resolution_prompt(); selected_role=rolebinding(config,"extractor"); end
     if objective="" then do; error="configure role.advanced-resolver before processing advanced tasks"; return records; end
     capability="standard";if role="advanced-resolver" then capability="advanced-reasoning"
-    prompt_context='{"required_capability":"' || capability || '","evidence_expected":' || config.maintenance().evidence_expected() || '}'
+    prompt_context='{"resolution_contract":' || jsonquote(resolutioncontractversion()) || ',"required_capability":"' || capability || '","evidence_expected":' || config.maintenance().evidence_expected() || '}'
     system=resolutioninputprompt(prompt_context,objective,"")
     schema=resolutionresponseschema();version=resolutioncontractversion()
     scope=scope || " This schema lists all actions; maintain inspect returns the narrower task-specific schema."

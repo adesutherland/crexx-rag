@@ -60,7 +60,7 @@ foreach(runtime_name IN ITEMS rxvme rxbvm)
     endif()
 endforeach()
 
-if(CPRAG_CASE STREQUAL "escalation")
+if(NOT CPRAG_CASE STREQUAL "core")
     return()
 endif()
 
