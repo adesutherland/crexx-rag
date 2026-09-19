@@ -50,5 +50,4 @@ Internal defects and prompt/model tuning remain separate worklists in the
 master register. The health/social-care corpus remains outside this run.
 
 The live run's `RUN.md` and `run-state.json` own the exact job, deadline, limits,
-recovery instructions and closeout progress. Publication is complete; live
-quality acceptance remains pending until that record closes.
+recovery instructions and closeout progress. Publication and the bounded run are complete. [Soak closeout](maintenance-quality-soak-20260919.md) records clean four-worker completion, remaining work, the 32-item quality review and the unperformed repeatability comparison. Semantic quality remains open.
