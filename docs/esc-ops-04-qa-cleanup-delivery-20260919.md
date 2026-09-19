@@ -1,5 +1,7 @@
 # Correction allowance and QA cleanup — 19 September 2026
 
+Subsequent delivery: this qualified repair is now [published and installed](maintenance-quality-publication-20260919.md). Earlier uncommitted/uninstalled statements below describe the repair checkpoint.
+
 ## Outcome and approved scope
 
 Fix ESC-OPS-04 (stale remaining-call context on citation correction) and

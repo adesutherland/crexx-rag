@@ -1,5 +1,7 @@
 # ESC-OPS-03 — lifecycle recording repair
 
+Subsequent delivery: this qualified repair is now [published and installed](maintenance-quality-publication-20260919.md). Earlier uncommitted/uninstalled statements below describe the repair checkpoint.
+
 ## Outcome and scope
 
 Fix the retained Scottish type-correction failure without changing the corpus,
