@@ -17,7 +17,7 @@ set(modules ragsupervision ragenrich ragproposalio ragperiod ragprovenance ragas
     ragstore ragbackup ragrepository ragcanonical ragplanning ragtrace ragcommandcatalog ragcommand ragworkerdefaults ragpolicypublication ragpolicyfile ragingest
     ragfolder ragquotationcontract ragextractioncontract ragresolutioncontract raganswercontract ragreportcontract ragpromptdefaults ragpromptinspection ragcommandutil ragsqlsupport ragdirectcalls ragreportservice ragobservationservice ragqueryservice ragoperationsquery ragclaimrules ragclaims ragimprove ragmaintain ragbacklog ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragallowance ragwork ragquery ragembedding
     ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics raggrounding ragapplicationprovider ragqueryprovider
-    ragquerypolicy ragcontinuation ragproduct provider_contract provider_catalog provider_http industrial_provider codex_provider architecture_local_config
+    ragquerypolicy ragcontinuation ragproduct provider_contract provider_catalog provider_http industrial_provider llama_provider ragembeddinginput codex_provider architecture_local_config
     generic_profile it_architecture_profile operator_registry rxsqlite rx_hash rx_system rxfs rxplatform
     rxvector rxfnsg library)
 

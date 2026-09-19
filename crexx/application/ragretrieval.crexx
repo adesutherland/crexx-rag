@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragretrieval expose ragretrievaloptions ragretrievalresult retrieveevidence parsecitation resolvecitation recordquerygaps
+namespace ragretrieval expose ragretrievaloptions ragretrievalresult ragvectorsidecar preparevectorsidecar retrieveevidence retrieveevidencewithsidecar parsecitation resolvecitation recordquerygaps
 
 import rxfnsb
 import rxfnsg
@@ -17,6 +17,44 @@ import ragconfig
 import ragevidence
 import ragquery
 import ragfile
+
+/* One request owns these verified bytes. Reuse requires the same path and
+ * checksum selected from current SQLite state, and the current byte ceiling.
+ * A changed publication reloads; this is never a process-wide cache. */
+ragvectorsidecar: class
+  _path = .string
+  _checksum = .string
+  _payload = .binary
+
+  *: factory
+    _path = ""; _checksum = ""; _payload = ''x as .binary
+    return
+
+  load: method = .int
+    arg path = .string, checksum = .string, maximum_bytes = .int, expose error = .string
+    error = ""
+    if path = _path & checksum = _checksum & maximum_bytes > 0 & binlength(_payload) <= maximum_bytes & _checksum \= "" then return 0
+    _path = ""; _checksum = ""; _payload = ''x as .binary
+    bytes = 0
+    if ragfile..readbinaryfilebounded(path,maximum_bytes,_payload,bytes,error) \= 0 then do; _payload = ''x as .binary; return -1; end
+    if rxhash..sha256hex(_payload) \= checksum then do; _payload = ''x as .binary; error = "vector sidecar checksum mismatch"; return -1; end
+    _path = path; _checksum = checksum
+    return 0
+
+  bytes: method = .binary
+    return _payload
+
+preparevectorsidecar: procedure = .int
+  arg store = .ragstorehandle, profile_id = .string, maximum_bytes = .int, expose sidecar = .ragvectorsidecar, expose error = .string
+  sidecar = .ragvectorsidecar(); error = ""; state = ""; prepared = .binary
+  if manifeststate(store,state,error) \= 0 | state \= "aligned" then return -1
+  sql = "SELECT sidecar_name,sidecar_checksum FROM vector_generations WHERE state='published' AND algorithm IN('ivf-flat-v1','exact-native-v1') AND " || compatiblevectorpredicate("(SELECT published_generation FROM library_meta WHERE singleton=1)") || " AND embedding_profile_id=?1"
+  if sqliteprepare(store.database(),sql,prepared) \= 0 | sqlitebindtext(prepared,1,profile_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "compatible vector sidecar is unavailable"; return -1; end
+  name = ""; checksum = ""
+  columns = sqlitecolumntext(prepared,0,name) | sqlitecolumntext(prepared,1,checksum)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if columns \= 0 | step \= 101 | name = "" | pos("/",name) > 0 | pos("\",name) > 0 then do; error = "vector sidecar identity is invalid"; return -1; end
+  return sidecar.load(store.path() || "/" || name,checksum,maximum_bytes,error)
 
 ragretrievaloptions: class
   _policy_version = .string
@@ -154,6 +192,10 @@ ragretrievalresult: class
 
 retrieveevidence: procedure = .int
   arg store = .ragstorehandle, profile = .ragprofile, question = .string, retrieval_options = .ragretrievaloptions, expose result = .ragretrievalresult, expose error = .string
+  return retrieveevidencewithsidecar(store,profile,question,retrieval_options,result,error,.ragvectorsidecar())
+
+retrieveevidencewithsidecar: procedure = .int
+  arg store = .ragstorehandle, profile = .ragprofile, question = .string, retrieval_options = .ragretrievaloptions, expose result = .ragretrievalresult, expose error = .string, sidecar = .ragvectorsidecar
   empty_evidence = _emptyevidence(question)
   result = .ragretrievalresult(-1, "error", empty_evidence, 0, 0, 0, 0, 0, 0, 0, "not-attempted", "retrieval input is invalid")
   error = ""
@@ -173,7 +215,7 @@ retrieveevidence: procedure = .int
 
   vector_state = "disabled"
   if retrieval_options.embedding_profile_id() \= "" | binlength(retrieval_options.query_vector()) > 0 then do
-    vector_status = _vector(store, generation, retrieval_options, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, vector_state, trace_notes, error)
+    vector_status = _vector(store, generation, retrieval_options, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, vector_state, trace_notes, error, sidecar)
     if vector_status < 0 then return -3
   end
   if _graph(store.database(), generation, query_plan, retrieval_options.graph_hops(), retrieval_options.graph_direction(), candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, claim_ids, claim_hops, trace_notes, error,retrieval_options,claim_paths) \= 0 then return -3
@@ -343,7 +385,7 @@ _lexicalneighbors: procedure = .int
   return added
 
 _vector: procedure = .int
-  arg store = .ragstorehandle, generation = .int, retrieval_options = .ragretrievaloptions, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose vector_state = .string, expose trace_notes = .string[], expose error = .string
+  arg store = .ragstorehandle, generation = .int, retrieval_options = .ragretrievaloptions, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose vector_state = .string, expose trace_notes = .string[], expose error = .string, sidecar = .ragvectorsidecar
   profile_id = retrieval_options.embedding_profile_id(); query_wire = retrieval_options.query_vector()
   if profile_id = "" | binlength(query_wire) = 0 then do; vector_state = "disabled-incomplete-options"; return 0; end
   dimension = _scalarint(store.database(), "SELECT dimension FROM embedding_profiles WHERE embedding_profile_id=" || _q(profile_id))
@@ -351,15 +393,16 @@ _vector: procedure = .int
   store_status = .ragstorestatus; status_error = ""
   if storagestatus(store, store_status, status_error) \= 0 | store_status.manifest_state() \= "aligned" then do; vector_state = "fallback-manifest"; trace_notes[trace_notes.0 + 1] = "vector-fallback=manifest"; return 0; end
   prepared = .binary
-  sql = "SELECT sidecar_name,sidecar_checksum,row_count,centroid_count,probe_count,semantic_generation FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND " || compatiblevectorpredicate("?1") || " AND embedding_profile_id=?2 AND dimension=?3"
+  sql = "SELECT sidecar_name,sidecar_checksum,row_count,centroid_count,probe_count,semantic_generation,algorithm FROM vector_generations WHERE state='published' AND algorithm IN('ivf-flat-v1','exact-native-v1') AND " || compatiblevectorpredicate("?1") || " AND embedding_profile_id=?2 AND dimension=?3"
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, profile_id) \= 0 | sqlitebindint(prepared, 3, dimension) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare ANN generation lookup"; return -1; end
   if sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; vector_state = "fallback-stale-or-missing-generation"; trace_notes[trace_notes.0 + 1] = "vector-fallback=stale-or-missing-generation"; return 0; end
-  sidecar_name = ""; sidecar_checksum = ""; total_rows = 0; centroid_count = 0; probe_count = 0; index_generation = 0
-  column_status = sqlitecolumntext(prepared, 0, sidecar_name) | sqlitecolumntext(prepared, 1, sidecar_checksum) | sqlitecolumnint(prepared, 2, total_rows) | sqlitecolumnint(prepared, 3, centroid_count) | sqlitecolumnint(prepared, 4, probe_count) | sqlitecolumnint(prepared, 5, index_generation)
+  sidecar_name = ""; sidecar_checksum = ""; total_rows = 0; centroid_count = 0; probe_count = 0; index_generation = 0; index_algorithm = ""
+  column_status = sqlitecolumntext(prepared, 0, sidecar_name) | sqlitecolumntext(prepared, 1, sidecar_checksum) | sqlitecolumnint(prepared, 2, total_rows) | sqlitecolumnint(prepared, 3, centroid_count) | sqlitecolumnint(prepared, 4, probe_count) | sqlitecolumnint(prepared, 5, index_generation) | sqlitecolumntext(prepared, 6, index_algorithm)
   if column_status \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; error = "ANN generation identity is ambiguous or invalid"; return -1; end
   call sqlitefinalize prepared
-  raw = .binary; byte_count = 0
-  if ragfile..readbinaryfilebounded(store.path() || "/" || sidecar_name, retrieval_options.maximum_sidecar_bytes(), raw, byte_count, error) \= 0 | rxhash..sha256hex(raw) \= sidecar_checksum then do; vector_state = "fallback-invalid-ann-sidecar"; trace_notes[trace_notes.0 + 1] = "vector-fallback=invalid-ann-sidecar"; error = ""; return 0; end
+  if sidecar.load(store.path() || "/" || sidecar_name,sidecar_checksum,retrieval_options.maximum_sidecar_bytes(),error) \= 0 then do; vector_state = "fallback-invalid-ann-sidecar"; trace_notes[trace_notes.0 + 1] = "vector-fallback=invalid-ann-sidecar"; error = ""; return 0; end
+  raw = sidecar.bytes()
+  if index_algorithm = "exact-native-v1" then return _nativecandidates(store,generation,retrieval_options,raw,index_generation,total_rows,dimension,candidate_ids,lexical_ranks,vector_ranks,graph_ranks,vector_scores,graph_hops,directness_values,vector_state,trace_notes,error)
   document = .jsondocument(raw as .string)
   if document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 12 then do; error = "ANN sidecar schema is invalid"; return -1; end
   root = document.root(); schema = ""; algorithm = ""; codec = ""; storage = ""; side_profile = ""; centroid_hex = ""
@@ -376,15 +419,17 @@ _vector: procedure = .int
   if _positivepackednorm(query_vector) \= 1 | _allrowspositive(centroid_vectors, centroid_count, dimension) \= 1 then do; error = "ANN centroid probe contains a zero-norm vector"; return -1; end
   probed_ids = .packedint(0); probe_scores = .packedfloat(0)
   call rxvector..topkcosine(centroid_vectors, centroid_ids, dimension, query_vector, probe_count, probed_ids, probe_scores)
-  member_ids = .string[]; member_digests = .string[]
+  member_ids = .string[]; member_digests = .string[]; member_seen = .stem()
   do p = 0 to probed_ids.size() - 1
     cluster_number = probed_ids.get(p); cluster_node = document.element(clusters_node, cluster_number); encoded_cluster = 0
     members_node = document.member(cluster_node, "members")
     if document.node_type(cluster_node) \= "object" | document.node_count(cluster_node) \= 2 | document.node_int(document.member(cluster_node, "cluster"), encoded_cluster) \= 0 | encoded_cluster \= cluster_number | document.node_type(members_node) \= "array" then do; error = "ANN cluster is invalid"; return -1; end
-    do m = 1 to document.node_count(members_node)
-      member = document.element(members_node, m); chunk_id = ""; input_digest = ""
+    member_nodes = .int[]; member_count = document.children(members_node, member_nodes)
+    do m = 1 to member_count
+      member = member_nodes[m]; chunk_id = ""; input_digest = ""
       if document.node_type(member) \= "object" | document.node_count(member) \= 2 | document.node_string(document.member(member, "revision_chunk_id"), chunk_id) \= 0 | document.node_string(document.member(member, "input_digest"), input_digest) \= 0 | chunk_id = "" | length(input_digest) \= 64 then do; error = "ANN cluster member is invalid"; return -1; end
-      if _contains(member_ids, chunk_id) = 0 then do; member_ids[member_ids.0 + 1] = chunk_id; member_digests[member_ids.0] = input_digest; end
+      member_key = chunk_id || "00"x || input_digest
+      if member_seen.get(member_key) = "" then do; call member_seen.set(member_key, "1"); member_ids[member_ids.0 + 1] = chunk_id; member_digests[member_ids.0] = input_digest; end
       if member_ids.0 > retrieval_options.vector_scan_limit() then do; vector_state = "fallback-ann-candidate-ceiling"; trace_notes[trace_notes.0 + 1] = "vector-fallback=ann-candidate-ceiling"; return 0; end
     end
   end
@@ -417,22 +462,80 @@ _vector: procedure = .int
     if page_ids.0 = 0 then iterate
     call page_owners.resize(page_rows)
     page_vectors = rxvector..decodef32le(page_wire)
-    requested = retrieval_options.vector_limit()
-    if requested > page_ids.0 then requested = page_ids.0
+    /* Score this bounded page before limiting distinct parent chunks. A
+     * parent's repeated windows must not crowd other parents out of top-k. */
+    requested = page_ids.0
     if page_vectors.size() \= page_rows * dimension | page_owners.size() \= page_rows then do; error = "ANN member page owner shapes are invalid: matrix=" || page_vectors.size() || ", identities=" || page_owners.size() || ", rows=" || page_rows; return -1; end
-    if _allrowspositive(page_vectors, page_rows, dimension) \= 1 then do; error = "ANN member page contains a zero-norm vector"; return -1; end
     result_ids = .packedint(0); result_scores = .packedfloat(0)
-    call rxvector..topkcosine(page_vectors, page_owners, dimension, query_vector, requested, result_ids, result_scores)
+    /* The native kernel validates every row's norm while scoring. Avoid a
+     * second component-by-component scan here; retain the controlled error. */
+    do
+      call rxvector..topkcosine(page_vectors, page_owners, dimension, query_vector, requested, result_ids, result_scores)
+    on signal invalid_arguments as problem
+      if pos("zero-norm", problem.message()) > 0 then error = "ANN member page contains a zero-norm vector"
+      else error = "ANN member page scoring failed: " || problem.message()
+      return -1
+    end
+    /* Scores descend, so the first occurrence is this parent's page maximum.
+     * A parent below k distinct better parents in its page cannot be global
+     * top-k. Retain the existing bounded candidate pool across pages. */
+    page_parents = .string[]
     do i = 0 to result_ids.size() - 1
       owner = result_ids.get(i); similarity = result_scores.get(i)
+      if _contains(page_parents,page_ids[owner]) = 1 then iterate
+      page_parents[page_parents.0+1] = page_ids[owner]
       index = _candidate(page_ids[owner], candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values)
       if similarity > vector_scores[index] | vector_ranks[index] = 0 then vector_scores[index] = similarity
+      vector_ranks[index] = 1
+      if page_parents.0 >= retrieval_options.vector_limit() then leave
     end
     searched = searched + page_ids.0
   end
   call _rankvectors(candidate_ids, vector_ranks, vector_scores, retrieval_options.vector_limit())
   vector_state = "active-ann-ivf-rxvector"
   trace_notes[trace_notes.0 + 1] = "vector-candidates=" || searched || ";total-rows=" || total_rows || ";centroids=" || centroid_count || ";probes=" || probe_count || ";dimension=" || dimension || ";backend=rxvector-ivf-flat"
+  return 0
+
+/* The native owner ranks windows. SQLite decides whether each returned key
+ * is still visible; this layer keeps only the best window per parent. Widen
+ * until enough distinct visible parents exist, never assume a fixed overfetch. */
+_nativecandidates: procedure = .int
+  arg store = .ragstorehandle, generation = .int, retrieval_options = .ragretrievaloptions, raw = .binary, index_generation = .int, total_rows = .int, dimension = .int, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose vector_state = .string, expose trace_notes = .string[], expose error = .string
+  if total_rows > retrieval_options.vector_scan_limit() then do; vector_state = "fallback-ann-candidate-ceiling"; return 0; end
+  native_index = .vectorindex
+  if rxvector..openindex(raw,native_index,error) \= 0 then do; vector_state = "fallback-invalid-ann-sidecar"; error = ""; return 0; end
+  profile_id = retrieval_options.embedding_profile_id()
+  if native_index.rows() \= total_rows | native_index.dimensions() \= dimension | native_index.metadata() \= index_generation || "|" || profile_id then do; call native_index.close(); error = "native vector sidecar does not match the active generation"; return -1; end
+  requested = max(32,retrieval_options.vector_limit()*2); if requested > total_rows then requested = total_rows
+  checked = 0; parents = .stem(); selected = 0; prepared = .binary
+  sql = "SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE rc.revision_chunk_id=?1 AND e.embedding_profile_id=?2 AND e.dimension=?3 AND e.input_digest=?5 AND rce.visible_from_generation<=?4 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?4) AND rc.visible_from_generation<=?4 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?4) LIMIT 1"
+  if sqliteprepare(store.database(),sql,prepared) \= 0 then do; call native_index.close(); error = "cannot prepare native vector visibility lookup"; return -1; end
+  do forever
+    keys = .packedint(0); scores = .packedfloat(0)
+    call native_index.search(retrieval_options.query_vector(),requested,keys,scores)
+    do i = checked to keys.size()-1
+      label = native_index.label(keys.get(i)); delimiter = pos("00"x,label)
+      if delimiter < 2 | length(label)-delimiter \= 64 then do; call sqlitefinalize prepared; call native_index.close(); error = "invalid native vector label"; return -1; end
+      chunk_id = substr(label,1,delimiter-1); digest = substr(label,delimiter+1)
+      checked = i+1
+      if parents.get(chunk_id) \= "" then iterate
+      binds = sqlitebindtext(prepared,1,chunk_id) | sqlitebindtext(prepared,2,profile_id) | sqlitebindint(prepared,3,dimension) | sqlitebindint(prepared,4,generation) | sqlitebindtext(prepared,5,digest)
+      step = sqlitestep(prepared)
+      if binds \= 0 | (step \= 100 & step \= 101) then do; call sqlitefinalize prepared; call native_index.close(); error = "cannot check native vector visibility"; return -1; end
+      if sqlitereset(prepared) \= 0 | sqliteclearbindings(prepared) \= 0 then do; call sqlitefinalize prepared; call native_index.close(); error = "cannot reset native vector visibility lookup"; return -1; end
+      if step = 101 then iterate
+      call parents.set(chunk_id,"1"); selected = selected+1
+      index = _candidate(chunk_id,candidate_ids,lexical_ranks,vector_ranks,graph_ranks,vector_scores,graph_hops,directness_values)
+      vector_scores[index] = scores.get(i); vector_ranks[index] = 1
+      if selected >= retrieval_options.vector_limit() then leave
+    end
+    if selected >= retrieval_options.vector_limit() | requested >= total_rows then leave
+    requested = min(total_rows,requested*2)
+  end
+  call sqlitefinalize prepared; call native_index.close()
+  call _rankvectors(candidate_ids,vector_ranks,vector_scores,retrieval_options.vector_limit())
+  vector_state = "active-exact-native"
+  trace_notes[trace_notes.0+1] = "vector-candidates=" || total_rows || ";total-rows=" || total_rows || ";visibility-checks<=" || checked || ";dimension=" || dimension || ";backend=rxvector-exact"
   return 0
 
 _hexwire: procedure = .int
@@ -870,7 +973,8 @@ _rankvectors: procedure
   arg candidate_ids = .string[], expose ranks = .int[], scores = .float[], maximum = .int
   order = .int[]
   do i = 1 to candidate_ids.0
-    if scores[i] \= 0.0 then order[order.0 + 1] = i
+    if ranks[i] > 0 then order[order.0 + 1] = i
+    ranks[i] = 0
   end
   call _sortorder order, scores
   limit = maximum

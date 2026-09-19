@@ -73,7 +73,7 @@ provenance assessment is a separate, explicit experiment. See the
 | Autonomous maintenance | Ranked worklists, configurable worker processes, bounded windows, durable leases, retries, review policy and auditable recovery |
 | Operations | Shared admission and budgets, configuration checks before claims, supervised `job run`, digest-checked Codex outcome reconciliation, verification, generation-pinned backup/restore and historical trends |
 | Interfaces | One operation vocabulary through the human CLI, JSON/NDJSON, `ADDRESS RAG` and MCP |
-| Providers | Gemini, managed Codex App Server generation, and OpenAI-compatible routes including local llama.cpp embeddings |
+| Providers | Gemini, managed Codex App Server generation, and OpenAI-compatible routes, plus native offline llama/BGE embedding windows |
 
 ## Implementation and architecture
 
@@ -159,9 +159,15 @@ MCP configuration, skill discovery, bounds and review controls.
 
 ## Build
 
-An installed CREXX package containing the supported `rxsqlite` component is
-required. CREXX supplies the SQLite implementation, dynamic provider, native
-archive, and packaging metadata; no separate SQLite SDK is needed here.
+An installed CREXX package containing the supported `rxsqlite`, `llama` and
+`rxvector` components is required. The vector provider must expose `.vectorindex`
+and `openindex` (introduced in CREXX `5949ef27efd8`); the complete package baseline
+is recorded in [publication acceptance](docs/baseline-publication-20260919.md). CREXX supplies their implementations, native archives
+and packaging metadata; no separate SQLite or llama.cpp SDK is needed here.
+Native packages include the declared inference runtime files and notices beside
+the executable. Model weights are provisioned separately. See
+[local embedding configuration](docs/user-guide.md#providers) and
+[windowed embedding qualification](docs/windowed-embedding-delivery-20260918.md).
 
 ```sh
 cmake --preset debug
@@ -394,3 +400,10 @@ inspect actual source/operation progress, retain retry/receipt history and use
 named allowance periods when explicitly renewing work. The
 [live delivery handoff](docs/operator-continuation-handoff.md) records current
 qualification, corpus smoke results and the next outstanding work.
+
+
+The optional `vector.algorithm = exact-native-v1` route uses CREXX's installed
+`rxvector` float32 owner for exact cosine search over a rebuildable binary
+sidecar. Existing configurations retain IVF. The C provider needs no USearch
+or separate vector plugin. [Integration and qualification](docs/rxvector-consolidation-20260919.md)
+records the required provider version and current local delivery boundary.

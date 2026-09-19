@@ -4,6 +4,7 @@ import rxfnsb
 import rxfnsg
 import rxhash
 import rxvector
+import rxjson
 import rxsqlite
 import rxfs
 import ragfile
@@ -11,6 +12,11 @@ import ragstore
 import ragbackup
 import ragembedding
 import ragretrieval
+import ragcommand
+import ragconfig
+import ragprofile
+import ragregistry
+import ragreportservice
 import generic_profile
 
 check: procedure = .int
@@ -18,6 +24,36 @@ check: procedure = .int
   if condition then return 0
   say "ANN_METHODOLOGY_FAIL=" || label
   return 1
+
+filecontract: procedure = .int
+  arg path = .string
+  sizes = .int[]; sizes[1]=0; sizes[2]=1; sizes[3]=65535; sizes[4]=65536; sizes[5]=65537; sizes[6]=131073
+  errors=0; error=""; actual=.binary; expected=.binary; bytes=0
+  do s=1 to sizes.0
+    call binresize expected,sizes[s]
+    do offset=0 to sizes[s]-1; <at..u8>(offset) expected=offset%256; end
+    errors=errors+check(ragfile..writebinaryfile(path,expected,error)=0,"binary fixture write " || error)
+    digest=""; hashed_bytes=0; ceiling=max(1,sizes[s])
+    errors=errors+check(ragfile..readbinaryfilebounded(path,ceiling,actual,bytes,error)=0 & bytes=sizes[s] & actual=expected,"exact binary bytes across read boundaries size=" || sizes[s])
+    errors=errors+check(ragfile..sha256filebounded(path,ceiling,digest,hashed_bytes,error)=0 & hashed_bytes=bytes & digest=rxhash..sha256hex(expected),"bounded file digest agrees size=" || sizes[s])
+    if sizes[s]>1 then do
+      errors=errors+check(ragfile..readbinaryfilebounded(path,sizes[s]-1,actual,bytes,error)\=0 & error\="","one byte below file size is rejected")
+      errors=errors+check(ragfile..readbinaryfilebounded(path,ceiling,actual,bytes,error)=0 & actual=expected,"successful reread after ceiling failure")
+    end
+  end
+  errors=errors+check(ragfile..readbinaryfilebounded(path,0,actual,bytes,error)\=0,"zero ceiling rejected")
+  errors=errors+check(ragfile..readbinaryfilebounded(path || ".missing",1,actual,bytes,error)\=0 & bytes=0,"missing file rejected")
+  proof=.ragvectorsidecar(); expected_hash=rxhash..sha256hex(expected)
+  errors=errors+check(proof.load(path,expected_hash,131073,error)=0,"verified request payload")
+  detached=proof.bytes(); call binresize detached,0
+  errors=errors+check(rxfs..delete(path)=0,"remove file after verification")
+  errors=errors+check(proof.load(path,expected_hash,131073,error)=0 & proof.bytes()=expected,"request owns independent verified bytes after file removal")
+  errors=errors+check(proof.load(path,expected_hash,131072,error)\=0 & binlength(proof.bytes())=0,"smaller ceiling cannot reuse prior payload")
+  errors=errors+check(ragfile..writebinaryfile(path,expected,error)=0 & proof.load(path,expected_hash,131073,error)=0,"restore verified fixture")
+  errors=errors+check(proof.load(path,copies("0",64),131073,error)\=0 & binlength(proof.bytes())=0,"changed expected checksum invalidates payload")
+  errors=errors+check(proof.load(path,expected_hash,131073,error)=0,"restore valid checksum")
+  errors=errors+check(proof.load(path || ".missing",expected_hash,131073,error)\=0,"different store path cannot reuse payload")
+  return errors
 
 scalartext: procedure = .string
   arg database = .binary, sql = .string
@@ -30,6 +66,41 @@ scalartext: procedure = .string
 indexdirty: procedure = .string
   arg database = .binary, profile_id = .string
   return scalartext(database,"SELECT CAST(p.vector_revision<>v.input_revision AS TEXT) FROM vector_generations v JOIN embedding_profiles p USING(embedding_profile_id) WHERE v.state='published' AND p.embedding_profile_id='" || profile_id || "' AND " || compatiblevectorpredicate("(SELECT published_generation FROM library_meta WHERE singleton=1)","v.") || " ORDER BY v.semantic_generation DESC LIMIT 1")
+
+reportfield: procedure = .string
+  arg result=.ragcommandresult, kind=.string, name=.string
+  records=result.records()
+  do i=1 to records.0
+    if records[i].kind()=kind then do
+      fields=records[i].fields()
+      do j=1 to fields.0
+        if fields[j].name()=name then return fields[j].value()
+      end
+    end
+  end
+  return ""
+
+checkreport: procedure = .int
+  arg store=.ragstorehandle, state=.string, links=.int, rows=.int, coverage=.int, model=.string, dimensions=2, centroids=4, probes=1
+  access=.string[];access[1]="read";report_options=.ragcommandoption[];positionals=.string[]
+  request=.ragcommandrequest(store.path(),"ann-methodology","generic-profile","","json","off",access,"library","report","library.report",report_options,positionals)
+  configs=.ragconfig[];profiles=.ragprofile[]
+  result=libraryreport(request,.ragregistry(configs,profiles))
+  errors=check(result.exit_code()=0,"report readable " || result.message())
+  if errors>0 then return errors
+  errors=errors+check(reportfield(result,"vector-stat","state")=state,"report state " || state || " actual=" || reportfield(result,"vector-stat","state"))
+  errors=errors+check(reportfield(result,"vector-stat","active_embeddings")=links as .string,"report selected-profile link count")
+  errors=errors+check(reportfield(result,"vector-stat","published_rows")=rows as .string,"report selected publication rows")
+  errors=errors+check(reportfield(result,"vector-stat","coverage_millionths")=coverage as .string,"report distinct-parent coverage actual=" || reportfield(result,"vector-stat","coverage_millionths"))
+  errors=errors+check(reportfield(result,"vector-stat","model")=model,"report selected publication model")
+  errors=errors+check(reportfield(result,"vector-stat","dimension")=dimensions as .string & reportfield(result,"vector-stat","centroids")=centroids as .string & reportfield(result,"vector-stat","probes")=probes as .string,"report settings belong to the same publication")
+  generation=reportfield(result,"report-snapshot","generation")
+  storage=reportfield(result,"report-snapshot","storage_verification_issues")
+  repository=reportfield(result,"report-snapshot","repository_verification_issues")
+  digest=reportoperationaldigest(store.database(),generation as .int,storage as .int,repository as .int)
+  errors=errors+check(digest=reportfield(result,"report-snapshot","operational_digest"),"report and narrative recheck use identical operational projection")
+  errors=errors+check(scalartext(store.database(),"SELECT CAST(count(*) AS TEXT) FROM provider_runs")="0","report performs no inference")
+  return errors
 
 insertchunk: procedure = .int
   arg database = .binary, ordinal = .int, text = .string, x = .float, y = .float, expose error = .string
@@ -75,6 +146,8 @@ main: procedure = .int
   errors = errors + check(initragstore(path, "library-ann-methodology", "snapshot-ann", "ann-methodology", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
   if errors > 0 then return 1
   database = store.database()
+  errors=errors+filecontract(path || "/reader-fixture.bin")
+  errors=errors+checkreport(store,"empty",0,0,0,"",0,0,0)
   errors = errors + check(sqliteexec(database, "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('artifact-ann','raw-ann','text/plain','utf-8',NULL,'fixture://ann',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "artifact")
   errors = errors + check(sqliteexec(database, "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-ann','text-digest-ann','ANN corpus','fixture-v1','utf8-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "revision text")
   errors = errors + check(sqliteexec(database, "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-ann','fixture','ann','revision-ann','active','fixture://ann','ANN corpus',1)") = 0, "source")
@@ -96,11 +169,13 @@ main: procedure = .int
   errors = errors + check(publishmanifest(store, error) = 0, "pre-ANN manifest " || error)
   if errors > 0 then return 1
 
+  errors=errors+checkreport(store,"missing",12,0,0,"",0,0,0)
   generation = .ragvectorgenerationresult
   errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, 1048576, generation, error) = 0 & generation.state() = "published" & generation.rows() = 12, "partial-coverage IVF-flat publication " || error)
   replay = .ragvectorgenerationresult
   errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, 1048576, replay, error) = 0 & replay.state() = "identical-no-op" & replay.checksum() = generation.checksum(), "deterministic ANN replay " || error)
   errors = errors + check(indexdirty(database,"ann-profile") = "0","successful index is clean")
+  errors=errors+checkreport(store,"partial",12,12,923076,"fixture-model")
 
   matrix = .packedfloat(24)
   call matrix.set(0,1.0); call matrix.set(1,0.0); call matrix.set(2,1.0); call matrix.set(3,0.1); call matrix.set(4,1.0); call matrix.set(5,-0.1)
@@ -123,6 +198,12 @@ main: procedure = .int
   errors = errors + check(result.vector_state() = "active-ann-ivf-rxvector" & trace_found = 1, "production path must probe bounded IVF clusters")
   errors = errors + check(recall >= 900000, "ANN recall threshold against exact QA oracle")
 
+  errors=errors+check(sqliteexec(database,"UPDATE embeddings SET vector=x'0000000000000000' WHERE embedding_id='embedding-01'")=0,"zero-norm page fixture")
+  invalid_page=.ragretrievalresult
+  errors=errors+check(retrieveevidence(store,genericprofile(),"zzzznotlexical",retrieval_policy,invalid_page,error)\=0 & pos("zero-norm",error)>0,"zero-norm IVF page rejects through the normal error path")
+  errors=errors+check(sqliteexec(database,"UPDATE embeddings SET vector=x'0000803f00000000' WHERE embedding_id='embedding-01'")=0,"restore valid page vector")
+  errors=errors+check(retrieveevidence(store,genericprofile(),"zzzznotlexical",retrieval_policy,invalid_page,error)=0 & invalid_page.vector_state()="active-ann-ivf-rxvector","positive page control after rejected vector")
+
   single_source_policy = .ragretrievaloptions("ann-methodology-v1", "ann-profile", query_wire, 8, 4, 12, 0, 4, 0, 0, 60, "both")
   single_source_result = .ragretrievalresult
   errors = errors + check(retrieveevidence(store, genericprofile(), "ann", single_source_policy, single_source_result, error) = 0, "single-source retrieval " || error)
@@ -136,8 +217,13 @@ main: procedure = .int
 
   raw = .binary; byte_count = 0
   errors = errors + check(ragfile..readbinaryfilebounded(path || "/" || generation.sidecar_name(), 67108864, raw, byte_count, error) = 0, "read ANN sidecar " || error)
+  prepared_sidecar=.ragvectorsidecar()
+  errors=errors+check(preparevectorsidecar(store,"ann-profile",67108864,prepared_sidecar,error)=0,"prefetch verified IVF file")
   errors = errors + check(ragfile..writebinaryfile(path || "/" || generation.sidecar_name(), "tampered" as .binary, error) = 0, "tamper ANN sidecar " || error)
   fallback = .ragretrievalresult
+  errors=errors+check(retrieveevidencewithsidecar(store,genericprofile(),"zzzznotlexical",retrieval_policy,fallback,error,prepared_sidecar)=0 & fallback.vector_state()="active-ann-ivf-rxvector","in-flight IVF query uses verified bytes")
+  in_flight=fallback.evidence().passages()
+  errors=errors+check(in_flight.0=1 & in_flight[1].text()=expected,"verified IVF query preserves evidence")
   errors = errors + check(retrieveevidence(store, genericprofile(), "zzzznotlexical", retrieval_policy, fallback, error) = 0 & fallback.vector_state() = "fallback-invalid-ann-sidecar", "tampered ANN fail-safe fallback " || error)
   errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, 1048576, replay, error) = 0 & replay.state() = "rebuilt-from-sqlite" & replay.checksum() = generation.checksum(), "recover corrupt sidecar from SQLite " || error)
   errors = errors + check(rxfs..delete(path || "/" || generation.sidecar_name()) = 0, "remove derived sidecar")
@@ -194,6 +280,7 @@ main: procedure = .int
   errors = errors + check(retrieveevidence(store,genericprofile(),"zzzznotlexical",retrieval_policy,fallback,error) = 0 & fallback.vector_state() = "active-ann-ivf-rxvector","original index remains usable during incomplete replacement " || error)
   errors = errors + check(sqliteexec(database,"INSERT INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,created_at) SELECT 'replacement-'||revision_chunk_id,'replacement-'||revision_chunk_id,'replacement-profile',(SELECT vector FROM embeddings WHERE embedding_id='replacement-one'),2,'fixture' FROM revision_chunks WHERE revision_chunk_id<>'chunk-01'; INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) SELECT revision_chunk_id,'replacement-'||revision_chunk_id," || graph_generation || " FROM revision_chunks WHERE revision_chunk_id<>'chunk-01'") = 0,"finish replacement vectors alongside original data")
   errors = errors + check(buildannvectorgeneration(store,"replacement-profile",13,4,1,3,1048576,replacement,error) = 0 & replacement.rows() = 13,"complete replacement is publishable " || error)
+  errors=errors+checkreport(store,"ready",13,13,1000000,"replacement-model")
   errors = errors + check(retrieveevidence(store,genericprofile(),"zzzznotlexical",retrieval_policy,fallback,error) = 0 & fallback.vector_state() = "active-ann-ivf-rxvector","complete replacement preserves original query representation " || error)
   errors = errors + check(scalartext(database,"SELECT CAST(count(*) AS TEXT) FROM embeddings WHERE embedding_profile_id='ann-profile'") = "12" & scalartext(database,"SELECT CAST(count(*) AS TEXT) FROM provider_runs") = "0","representation replacement preserves original BLOBs without provider calls")
   /* A converged index can have identical centroids after different iteration
@@ -203,6 +290,7 @@ main: procedure = .int
   errors = errors + check(buildannvectorgeneration(store,"replacement-profile",13,4,1,4,1048576,replay,error) = 0 & replay.state() = "identical-no-op" & replay.checksum() = tuned.checksum(),"unchanged tuned build is reused " || error)
   errors = errors + check(sqliteexec(database,"UPDATE embeddings SET vector=(SELECT vector FROM embeddings WHERE embedding_id='embedding-08') WHERE embedding_id='replacement-one'") = 0,"change stored vector without changing its identity or row count")
   errors = errors + check(indexdirty(database,"replacement-profile") = "1","embedding transaction marks index dirty")
+  errors=errors+checkreport(store,"partial",13,13,1000000,"replacement-model")
   changed_input = .ragvectorgenerationresult
   errors = errors + check(buildannvectorgeneration(store,"replacement-profile",13,4,1,4,1048576,changed_input,error) = 0 & changed_input.state() = "published" & changed_input.checksum() \= tuned.checksum(),"same-count changed vector cannot reuse an old build " || error)
   errors = errors + check(buildannvectorgeneration(store,"replacement-profile",13,4,1,4,1048576,replay,error) = 0 & replay.state() = "identical-no-op" & replay.checksum() = changed_input.checksum(),"changed vector build subsequently reuses index " || error)
@@ -215,6 +303,84 @@ main: procedure = .int
   errors = errors + check(buildannvectorgeneration(store,"replacement-profile",13,4,1,4,1048576,replay,error) = 0 & indexdirty(database,"replacement-profile") = "0","retry after failed rebuild clears marker " || error)
   errors = errors + check(sqliteexec(database,"UPDATE revision_chunk_embeddings SET embedding_id='replacement-chunk-12' WHERE revision_chunk_id='chunk-13' AND embedding_id='replacement-chunk-13'") = 0 & indexdirty(database,"replacement-profile") = "1","reusing an existing embedding marks dirty without a new timestamp")
   errors = errors + check(buildannvectorgeneration(store,"replacement-profile",13,4,1,4,1048576,replay,error) = 0 & replay.rows() = 13 & replay.checksum() \= changed_input.checksum() & indexdirty(database,"replacement-profile") = "0","same-count membership change rebuilds then clears marker " || error)
+  verified = .ragverifyresult
+  errors = errors + check(verifyragstore(store,0,verified,error) = 0 & pos("embedding-membership-duplicates",verified.summary()) = 0,"single-window memberships verify")
+  /* One parent has four distinct windows. The first is a poor match; the
+   * strongest two must not consume both places in a two-parent result. */
+  do window = 1 to 4
+    window_vector = .packedfloat(2)
+    wx = 1.0; wy = 1.0
+    if window = 1 then do; wx = -1.0; wy = -1.0; end
+    if window = 3 then wy = 1.01
+    if window = 4 then wy = 2.0
+    call window_vector.set(0,wx); call window_vector.set(1,wy)
+    window_wire = rxvector..encodef32le(window_vector)
+    window_id = "window-" || window
+    window_digest = rxhash..sha256hex(window_id as .binary)
+    errors = errors + check(sqliteexec(database,"INSERT INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,created_at) VALUES('" || window_id || "','" || window_digest || "','ann-profile',X'" || bin2x(window_wire) || "',2,'fixture'); INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES('chunk-13','" || window_id || "',1)") = 0,"add window " || window)
+  end
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",32,1,1,3,1048576,replay,error) = 0 & replay.rows() = 16,"windowed index rows " || error)
+  errors=errors+checkreport(store,"ready",16,16,1000000,"fixture-model",2,1,1)
+  call query_vector.set(0,1.0); call query_vector.set(1,1.0)
+  window_policy = .ragretrievaloptions("ann-methodology-v1","ann-profile",rxvector..encodef32le(query_vector),1,2,32,0,2,0,0,60,"both")
+  errors = errors + check(retrieveevidence(store,genericprofile(),"zzzznotlexical",window_policy,fallback,error) = 0,"windowed retrieval " || error)
+  window_passages = fallback.evidence().passages()
+  errors = errors + check(window_passages.0 = 2,"window candidates yield two distinct parents")
+  errors = errors + check(fallback.candidate_count() = 2,"window page retains only the best distinct parent candidates")
+  if window_passages.0 > 0 then errors = errors + check(window_passages[1].text() = "ann-missing-13","later window supplies the best parent score")
+  if window_passages.0 = 2 then errors = errors + check(window_passages[2].text() \= "ann-missing-13","parent appears only once")
+  /* A repeated identical parent/window membership must be ignored before the
+   * scan ceiling, while distinct windows remain eligible. Keep full ordering
+   * and every score identical to the unmodified index. */
+  original_window_sidecar = .binary; window_sidecar_bytes = 0
+  errors = errors + check(ragfile..readbinaryfilebounded(path || "/" || replay.sidecar_name(),1048576,original_window_sidecar,window_sidecar_bytes,error) = 0,"read window index for duplicate control " || error)
+  window_document = .jsondocument(original_window_sidecar as .string)
+  window_clusters = window_document.member(window_document.root(),"clusters")
+  window_cluster = window_document.element(window_clusters,1)
+  window_members = window_document.member(window_cluster,"members")
+  repeated_member = window_document.node_get(window_document.element(window_members,1))
+  duplicated_sidecar = changestr(repeated_member,original_window_sidecar as .string,repeated_member || "," || repeated_member) as .binary
+  duplicate_checksum = rxhash..sha256hex(duplicated_sidecar)
+  errors = errors + check(ragfile..writebinaryfile(path || "/" || replay.sidecar_name(),duplicated_sidecar,error) = 0,"write duplicate membership control " || error)
+  errors = errors + check(sqliteexec(database,"UPDATE vector_generations SET sidecar_checksum='" || duplicate_checksum || "' WHERE vector_generation_id='" || replay.vector_generation_id() || "'") = 0 & publishmanifest(store,error) = 0,"publish duplicate control checksum " || error)
+  duplicate_policy = .ragretrievaloptions("ann-methodology-v1","ann-profile",rxvector..encodef32le(query_vector),1,2,16,0,2,0,0,60,"both")
+  duplicate_result = .ragretrievalresult
+  errors = errors + check(retrieveevidence(store,genericprofile(),"zzzznotlexical",duplicate_policy,duplicate_result,error) = 0 & duplicate_result.vector_state() = "active-ann-ivf-rxvector","duplicate does not consume scan allowance " || error)
+  duplicate_passages = duplicate_result.evidence().passages()
+  errors = errors + check(duplicate_passages.0 = window_passages.0 & duplicate_result.candidate_count() = fallback.candidate_count(),"duplicate membership preserves candidate and passage counts")
+  if duplicate_passages.0 = window_passages.0 then do
+    do comparison = 1 to window_passages.0
+      errors = errors + check(duplicate_passages[comparison].citation().citation() = window_passages[comparison].citation().citation(),"duplicate membership preserves citation order")
+      before_scores = window_passages[comparison].scores(); after_scores = duplicate_passages[comparison].scores()
+      errors = errors + check(before_scores.0 = after_scores.0,"duplicate membership preserves score count")
+      if before_scores.0 = after_scores.0 then do
+        do score_index = 1 to before_scores.0
+          errors = errors + check(before_scores[score_index].name() = after_scores[score_index].name() & before_scores[score_index].value() = after_scores[score_index].value(),"duplicate membership preserves scores")
+        end
+      end
+    end
+  end
+  errors = errors + check(ragfile..writebinaryfile(path || "/" || replay.sidecar_name(),original_window_sidecar,error) = 0,"restore window index " || error)
+  errors = errors + check(sqliteexec(database,"UPDATE vector_generations SET sidecar_checksum='" || replay.checksum() || "' WHERE vector_generation_id='" || replay.vector_generation_id() || "'") = 0 & publishmanifest(store,error) = 0,"restore window index checksum " || error)
+  errors = errors + check(scalartext(database,"SELECT text FROM chunk_contents WHERE content_id='content-13'") = "ann-missing-13" & scalartext(database,"SELECT CAST(count(*) AS TEXT) FROM provider_runs") = "0","window search preserves original source and provider history")
+  errors = errors + check(verifyragstore(store,0,verified,error) = 0 & pos("embedding-membership-duplicates",verified.summary()) = 0,"distinct windows are valid memberships")
+  errors = errors + check(sqliteexec(database,"BEGIN; INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES('chunk-13','window-1'," || graph_generation || ")") = 0,"inject duplicate window membership")
+  errors = errors + check(verifyragstore(store,0,verified,error) = 0 & pos("embedding-membership-duplicates",verified.summary()) > 0,"duplicate identical window membership is rejected")
+  errors = errors + check(sqliteexec(database,"ROLLBACK") = 0,"restore valid memberships")
+  /* RAG-VEC-02: revisiting an immutable index is a supported operation. */
+  first = .ragvectorgenerationresult; second = .ragvectorgenerationresult; again = .ragvectorgenerationresult
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,4,1,3,1048576,first,error) = 0,"switch positive control A " || error)
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,8,2,3,1048576,second,error) = 0 & second.checksum() \= first.checksum(),"switch positive control B " || error)
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,4,1,3,1048576,again,error) = 0 & again.checksum() = first.checksum(),"reactivate A after B " || error)
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,8,2,3,1048576,second,error) = 0,"reactivate B again " || error)
+  errors = errors + check(rxfs..delete(path || "/" || first.sidecar_name()) = 0,"remove superseded A file")
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,4,1,3,1048576,again,error) = 0 & again.state() = "rebuilt-from-sqlite" & again.checksum() = first.checksum(),"rebuild and reactivate missing A " || error)
+  errors = errors + check(scalartext(database,"SELECT CAST(count(*) AS TEXT) FROM vector_generations WHERE state='published' AND embedding_profile_id='ann-profile' AND semantic_generation=" || again.semantic_generation()) = "1","reactivation leaves one published selection")
+  revision = scalartext(database,"SELECT CAST(vector_revision AS TEXT) FROM embedding_profiles WHERE embedding_profile_id='ann-profile'") as .int
+  errors = errors + check(reactivatesidecar(store,second.vector_generation_id(),again.semantic_generation()+1,"ann-profile",revision,error) \= 0,"reactivation rejects a changed semantic generation")
+  errors = errors + check(reactivatesidecar(store,second.vector_generation_id(),again.semantic_generation(),"ann-profile",revision+1,error) \= 0,"reactivation rejects changed vector inputs")
+  errors = errors + check(reactivatesidecar(store,"missing-index",again.semantic_generation(),"ann-profile",revision,error) \= 0,"reactivation rejects an unknown immutable identity")
+  errors = errors + check(scalartext(database,"SELECT vector_generation_id FROM vector_generations WHERE state='published' AND embedding_profile_id='ann-profile' AND semantic_generation=" || again.semantic_generation()) = again.vector_generation_id(),"failed reactivation leaves the prior publication intact")
   errors = errors + check(closeragstore(store, error) = 0, "close " || error)
   if errors > 0 then return 1
   say "ANN_METHODOLOGY_OK algorithm=ivf-flat-v1 rows=12 centroids=4 probes=1 candidates=3 exact_oracle=qa-only recall_millionths=" || recall || " tamper=fallback"

@@ -254,6 +254,7 @@ ragworkproviderresult: class
   _source_candidate_id = .string
   _target_candidate_id = .string
   _embedding = .ragworkembedding
+  _embeddings = .ragworkembedding[]
   _provider_run_id = .string
   _charging_basis = .string
   _mentions = .ragworkmention[]
@@ -356,6 +357,15 @@ ragworkproviderresult: class
     return _target_candidate_id
   embedding: method = .ragworkembedding
     return _embedding
+  embeddings: method = .ragworkembedding[]
+    if _embeddings.0 > 0 then return _embeddings
+    result = .ragworkembedding[]
+    if _embedding.valid() = 1 then result[1] = _embedding
+    return result
+  set_embeddings: method = .void
+    arg values = .ragworkembedding[]
+    _embeddings = values
+    return
   provider_run_id: method = .string
     return _provider_run_id
   charging_basis: method = .string

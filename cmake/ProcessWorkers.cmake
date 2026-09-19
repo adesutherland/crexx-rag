@@ -189,7 +189,7 @@ foreach(runtime IN ITEMS "${CPRAG_RXVME}" "${CPRAG_RXBVM}")
     file(READ "${cell_dir}/final-list.out" final_list_out)
     file(READ "${cell_dir}/final-list.err" final_list_err)
     string(FIND "${final_list_out}" "\"records\":[]" empty_records_position)
-    if(NOT init_out MATCHES "\"schema_version\":19" OR
+    if(NOT init_out MATCHES "\"schema_version\":20" OR
        NOT controller_out MATCHES "\"workers_requested\":8" OR
        NOT controller_out MATCHES "\"workers_completed\":8" OR
        NOT controller_out MATCHES "\"workers_failed\":0" OR
@@ -215,7 +215,10 @@ foreach(runtime IN ITEMS "${CPRAG_RXVME}" "${CPRAG_RXBVM}")
 endforeach()
 
 execute_process(
-    COMMAND "${CPRAG_LAUNCHER}"
+    # The launcher deliberately discovers its runtime on PATH. Keep this last
+    # check in the same installed cohort as the explicit VM worker checks.
+    COMMAND "${CMAKE_COMMAND}" -E env "PATH=${CPRAG_CREXX_BIN_DIR}:$ENV{PATH}"
+        "${CPRAG_LAUNCHER}"
         --library "${CPRAG_WORK_DIR}/rxvme/library"
         --access read --format json worker list --stale-seconds 1
     RESULT_VARIABLE launcher_result

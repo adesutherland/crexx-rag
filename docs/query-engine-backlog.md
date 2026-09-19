@@ -109,7 +109,7 @@ another executable. Qualify model/session lifetime, thread/process safety,
 concurrent request bounds, cancellation and per-owner memory before making that
 choice. Keep orchestration independent of the adapter so existing HTTP routes
 and a linked route share the same job/usage/recovery rules. This is a planned
-dependency; it is not yet qualified in the installed CREXX package.
+dependency in that dated design; see the current integration evidence below.
 
 Consume the installed CREXX native embedding provider through the existing
 application provider abstraction. Keep a model loaded in an application-owned
@@ -128,6 +128,13 @@ remain applicable to their existing routes.
 
 Dependency: CREXX-NI-01 through NI-06. Moving RAG workers to attached VMs is a
 separate decision and is not required by this item.
+
+18 September implementation evidence: [atomic native BGE windows](windowed-embedding-delivery-20260918.md)
+uses one model/session per process worker, all-or-nothing window lists and the
+existing receipt/publication path. It measures a small Scottish corpus and cold
+CLI queries. A persistent standalone reader, warm query reuse, backend/memory
+reporting and broader platform/concurrency qualification remain this item's
+wider acceptance; the current status remains in `ROADMAP.md`.
 
 ## RAG-QE-05 — A deliberate lifecycle without embeddings
 

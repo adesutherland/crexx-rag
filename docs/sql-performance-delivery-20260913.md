@@ -1,5 +1,51 @@
 # SQL performance repair delivery — 13 September 2026
 
+## rxvector consolidation — 19 September 2026
+
+The provider replacement preserves all projections, indexes, transaction owners
+and visibility loops. The same binary sidecar avoids per-window SQL reads;
+returned hits still use the existing indexed visibility projection. No SQL or
+schema change is needed. Both implementations return the same twenty ordered
+passage lists at 0.965 s median. [Qualification](rxvector-consolidation-20260919.md).
+
+## Native vector projection — 18 September 2026
+
+Exact-native retrieval reads the complete binary vector matrix and uses the existing indexed chunk/profile/digest membership projection for returned hits only. It never fetches vector blobs inside its candidate loop. Publication reuses the bulk active-embedding projection; SQL visibility remains authoritative. [Regression and performance evidence](native-vector-delivery-20260918.md). The [19 September phase profile](native-vector-delta-20260919.md) distinguishes this retrieval read from the separate preflight read/hash: both happen in a complete public query. SQL visibility takes about 0.5 ms in the serial example; the dominant avoidable cost is binary-buffer accumulation, with duplicated file verification a separate follow-up. A scratch append variant proves the speed effect without changing the qualified product.
+
+
+## Vector reporting — 18 September 2026, locally verified
+
+The existing `ragreportservice` projection selects one compatible publication
+instead of independent maxima across profiles. Its shared read query restricts
+embedding membership to that profile and visible parents/links before counting
+links and distinct parents; the existing profile dirty revision is read with
+the same publication. Report and narrative recheck share the helper. This is
+one report snapshot, with no writes, per-parent query loop, schema or index
+change. The report's model uses the same deterministic selection as its counts
+and observation snapshots. Existing pending-link behavior is retained before
+the first publication. The scratch query plan exposed two membership scans in
+the first draft; link and distinct-parent counts now use one aggregate over the
+joined membership. Existing primary-key lookups resolve embeddings and parents;
+no per-parent prepared-statement loop is added. Final targeted checks passed
+on both VMs in 8.66 seconds. Full-corpus acceptance verifies 36,319 covered
+parents, 36,328 windows, a current index and zero integrity issues. See the
+[acceptance and qualification boundaries](scottish-bge-migration-20260918.md#completed-corpus-acceptance).
+The separate full-corpus transaction-contention evidence remains RAG-PERF-01.
+
+## Windowed embeddings — 18 September 2026, locally qualified
+
+The existing `(input_digest,embedding_profile_id)` uniqueness and parent/embedding
+link key support multiple vectors per chunk. No new table or index is required.
+Native token admission and inference finish before the existing worker write
+transaction. That transaction publishes the whole validated list and task
+completion; the generation is read once. Retrieval keeps the existing bounded
+128-row pages/prepared member query, now retaining parent-plus-input identities
+until scoring. Every page scores all its windows, then retains only its best distinct parents
+up to the existing vector limit; the cross-page ranking pool stays bounded as
+before. The fail-first candidate-count assertion is recorded with the change.
+The [delivery record](windowed-embedding-delivery-20260918.md) retains atomic
+second-link failure and later-window/distinct-parent regression evidence.
+
 ## Essential observability follow-up — 16 September 2026, locally qualified
 
 Job/item example filters are composed before keyset paging. Correlated lookups
@@ -301,3 +347,27 @@ are unchanged. No extra query, loop, transaction, schema or index. The
 [isolated regression](advanced-call-budget-delivery-20260917.md) reproduces an
 ordinary first row incorrectly classifying another advanced task, and checks
 three/five-call worker sequences with independent usage/source assertions.
+
+## Retrieval CPU repair (18 September 2026)
+
+The measured ANN repair changes in-memory JSON traversal and duplicate lookup,
+not the owning member SQL, visibility predicates, indexed identity lookup,
+128-row scoring page or transaction scope. Same-generation queries scan the
+same 11,006 vectors and return identical passages, scores and claims while
+whole-command time drops from 10.47 seconds to 3.41/1.64/1.63 seconds. This is
+evidence for avoidable CPU/copying cost, not a resolution of the separately
+observed migration write contention. See the
+[repair record](retrieval-profiling-20260918.md) for exact artifacts and limits.
+
+## Verified retrieval payload (19 September 2026)
+
+The preflight SELECT moves from `ragqueryservice` into `ragretrieval` alongside
+its payload owner. The existing compatibility predicate, indexed publication
+selection, final current-state lookup and visibility queries remain unchanged.
+Statements are finalized before provider work; no transaction is held over a
+model call. Reusing verified bytes removes the second file read/hash, not the
+SQLite publication check. IVF's per-member indexed SQL and 128-row page remain;
+its redundant in-memory norm scan is removed. Profiles attribute most remaining
+IVF cost to JSON parsing (591 ms) versus member SQL (69 ms) on the example;
+this is separate from concurrent migration-write contention. See
+[phase evidence, corpus equivalence and qualification](retrieval-tightening-20260919.md).

@@ -3,10 +3,11 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 19
+  return 20
 
 migrationname: procedure = .string
   arg version = .int
+  if version = 20 then return "native-exact-vector-index"
   if version = 19 then return "vector-index-dirty-marker"
   if version = 1 then return "initial-library"
   if version = 2 then return "worker-hot-path-indexes"
@@ -30,6 +31,7 @@ migrationname: procedure = .string
 
 migrationchecksum: procedure = .string
   arg version = .int
+  if version = 20 then return "de15f0138bc4b3fd0ba6d7e74ccba2dd0d2a7b9d48d2bdac9b7d7152b8d6a600"
   if version = 19 then return "0355843e3530385b64aaf22b123649d923b027cd14094c14315cb0ae7583c534"
   if version = 18 then return "4cb2a9720f37963a3b3be2e5683590eaea03cf6a12e3c2c271121627b46618e9"
   if version = 17 then return "9ab5f09ae6a287250dec45e2f546afe743145724af5dd5f749d833b8bdbb506c"
@@ -55,6 +57,13 @@ migrationchecksum: procedure = .string
 migrationstatements: procedure = .int
   arg version = .int, expose statements = .string[]
   statements = .string[]
+  if version = 20 then do
+    statements[statements.0 + 1] = "CREATE TABLE vector_generations_new(vector_generation_id TEXT PRIMARY KEY,semantic_generation INTEGER NOT NULL REFERENCES published_generations(generation),embedding_profile_id TEXT NOT NULL REFERENCES embedding_profiles(embedding_profile_id),state TEXT NOT NULL,algorithm TEXT NOT NULL CHECK(algorithm IN('ivf-flat-v1','exact-native-v1')),sidecar_name TEXT NOT NULL,sidecar_checksum TEXT NOT NULL,dimension INTEGER NOT NULL CHECK(dimension>0),row_count INTEGER NOT NULL CHECK(row_count>=0),centroid_count INTEGER NOT NULL CHECK(centroid_count>0),probe_count INTEGER NOT NULL CHECK(probe_count>0 AND probe_count<=centroid_count),created_at TEXT NOT NULL,published_at TEXT,input_revision INTEGER NOT NULL DEFAULT -1,build_iterations INTEGER NOT NULL DEFAULT 0) STRICT"
+    statements[statements.0 + 1] = "INSERT INTO vector_generations_new SELECT * FROM vector_generations"
+    statements[statements.0 + 1] = "DROP TABLE vector_generations"
+    statements[statements.0 + 1] = "ALTER TABLE vector_generations_new RENAME TO vector_generations"
+    return statements.0
+  end
   if version = 19 then do
     statements[statements.0 + 1] = "ALTER TABLE embedding_profiles ADD COLUMN vector_revision INTEGER NOT NULL DEFAULT 0"
     statements[statements.0 + 1] = "ALTER TABLE vector_generations ADD COLUMN input_revision INTEGER NOT NULL DEFAULT -1"

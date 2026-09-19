@@ -44,6 +44,13 @@ foreach(crexxrag_sqlite_artifact IN ITEMS
     endif()
 endforeach()
 
+set(CREXXRAG_VECTOR_DYNAMIC_PROVIDER "${CREXX_INSTALL_BIN_DIR}/providers/rxvector.rxplugin")
+set(CREXXRAG_VECTOR_STATIC_PROVIDER "${CREXX_INSTALL_BIN_DIR}/providers/rxvector${CMAKE_STATIC_LIBRARY_SUFFIX}")
+foreach(artifact IN ITEMS "${CREXXRAG_VECTOR_DYNAMIC_PROVIDER}" "${CREXXRAG_VECTOR_STATIC_PROVIDER}")
+    if(NOT EXISTS "${artifact}")
+        message(FATAL_ERROR "Install CREXX with the rxvector binary float32 owner: missing ${artifact}")
+    endif()
+endforeach()
 include(cmake/CrexxRagApplication.cmake)
 
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/crexxrag-product")
@@ -83,6 +90,7 @@ add_custom_command(
         "${CREXXRAG_APPLICATION_RXBIN}"
         "${CREXXRAG_APPLICATION_PROJECT_RXBIN}"
         "${CREXXRAG_SQLITE_STATIC_PROVIDER}"
+        "${CREXXRAG_VECTOR_STATIC_PROVIDER}"
         "${CREXX_EXECUTABLE}"
         "${CREXX_BUILDINFO_FILE}"
         "${CMAKE_CURRENT_LIST_DIR}/cmake/AttemptNativeCrexxRag.cmake"
@@ -98,6 +106,19 @@ install(FILES "${CREXXRAG_ADDRESS_RXBIN}"
     DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/crexxrag")
 install(PROGRAMS
     "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
+    DESTINATION "${CMAKE_INSTALL_BINDIR}")
+# CREXX owns and packages the native provider. Install the packager's declared
+# runtime cohort beside the executable, including its integrity manifest/notices.
+set(crexxrag_llama_manifest "${CREXX_INSTALL_BIN_DIR}/providers/rxllama.native.json")
+file(READ "${crexxrag_llama_manifest}" crexxrag_llama_package)
+string(JSON crexxrag_llama_count LENGTH "${crexxrag_llama_package}" runtime_files)
+math(EXPR crexxrag_llama_last "${crexxrag_llama_count}-1")
+foreach(index RANGE 0 ${crexxrag_llama_last})
+    string(JSON runtime_path GET "${crexxrag_llama_package}" runtime_files ${index} path)
+    install(FILES "${CMAKE_BINARY_DIR}/crexxrag-native/package/${runtime_path}"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}")
+endforeach()
+install(FILES "${CMAKE_BINARY_DIR}/crexxrag-native/package/rxllama.native.json"
     DESTINATION "${CMAKE_INSTALL_BINDIR}")
 # Upgrades from the incubating provider must not leave its private dynamic
 # module beside the supported CREXX-owned rxsqlite component.  Remove only the

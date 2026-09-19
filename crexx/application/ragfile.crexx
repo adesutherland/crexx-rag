@@ -61,7 +61,7 @@ readbinaryfilebounded: procedure = .int
       error = "binary file exceeds the configured ingestion ceiling"
       return -3
     end
-    data = data || chunk
+    call binappend data, chunk
     byte_count = byte_count + count
   end
   read_error = 0; close_status = 0

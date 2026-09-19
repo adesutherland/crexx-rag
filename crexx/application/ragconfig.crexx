@@ -102,9 +102,10 @@ ragproviderconfig: class
   _output_price_microunits_per_million = .int
   _catalog_observed_date = .string
   _reasoning_effort = .string
+  _model_path = .string
 
   *: factory
-    arg provider_id = .string, kind = .string, base_url = .string, model = .string, route_class = .string, privacy_policy = .string, credential = .ragsecretref, timeout_ms = .int, max_attempts = .int, requests_per_minute = 60000, tokens_per_minute = 2000000000, concurrent_requests = 64, initial_backoff_ms = 1000, maximum_backoff_ms = 60000, jitter_ms = 250, context_tokens = 2000000000, maximum_output_tokens = 2000000000, embedding_dimensions_minimum = 1, embedding_dimensions_maximum = 1000000, maximum_batch_size = 1024, input_price_microunits_per_million = -1, output_price_microunits_per_million = -1, catalog_observed_date = "compatibility-default", reasoning_effort = ""
+    arg provider_id = .string, kind = .string, base_url = .string, model = .string, route_class = .string, privacy_policy = .string, credential = .ragsecretref, timeout_ms = .int, max_attempts = .int, requests_per_minute = 60000, tokens_per_minute = 2000000000, concurrent_requests = 64, initial_backoff_ms = 1000, maximum_backoff_ms = 60000, jitter_ms = 250, context_tokens = 2000000000, maximum_output_tokens = 2000000000, embedding_dimensions_minimum = 1, embedding_dimensions_maximum = 1000000, maximum_batch_size = 1024, input_price_microunits_per_million = -1, output_price_microunits_per_million = -1, catalog_observed_date = "compatibility-default", reasoning_effort = "", model_path = ""
     _provider_id = provider_id
     _kind = kind
     _base_url = base_url
@@ -129,6 +130,7 @@ ragproviderconfig: class
     _output_price_microunits_per_million = output_price_microunits_per_million
     _catalog_observed_date = catalog_observed_date
     _reasoning_effort = reasoning_effort
+    _model_path = model_path
     return
 
   provider_id: method = .string
@@ -179,6 +181,8 @@ ragproviderconfig: class
     return _catalog_observed_date
   reasoning_effort: method = .string
     return _reasoning_effort
+  model_path: method = .string
+    return _model_path
   charging_basis: method = .string
     if _kind = "codex" then return "subscription-allowance"
     if _route_class = "local" then return "local-compute"
@@ -755,13 +759,17 @@ validateconfig: procedure = .ragvalidationresult
     if _contains(seen, provider.provider_id()) = 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "duplicate_id", path || ".id", "provider id is duplicated")
     seen[seen.0 + 1] = provider.provider_id()
     kind = provider.kind()
-    if kind \= "openai-compatible" & kind \= "openai" & kind \= "anthropic" & kind \= "gemini" & kind \= "codex" then issues[issues.0 + 1] = .ragvalidationissue("config", "unsupported_provider", path || ".kind", "provider kind is not supported")
+    if kind \= "openai-compatible" & kind \= "openai" & kind \= "anthropic" & kind \= "gemini" & kind \= "codex" & kind \= "llama" then issues[issues.0 + 1] = .ragvalidationissue("config", "unsupported_provider", path || ".kind", "provider kind is not supported")
     route_class = provider.route_class()
     if route_class \= "local" & route_class \= "hosted" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_route", path || ".route_class", "provider route must be local or hosted")
     if provider.base_url() = "" | provider.model() = "" then issues[issues.0 + 1] = .ragvalidationissue("config", "incomplete_provider", path, "provider base URL and model are required")
     if kind = "codex" then do
       if provider.base_url() \= "app-server://local" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_url", path || ".base_url", "Codex must use app-server://local")
       if route_class \= "hosted" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_route", path || ".route_class", "Codex is a hosted privacy route")
+    end
+    else if kind = "llama" then do
+      if provider.base_url() \= "llama://local" | route_class \= "local" | provider.model() \= "bge-small-en-v1.5" | provider.model_path() = "" | provider.credential().empty() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config","invalid_native_embedding",path,"llama requires llama://local, local route, bge-small-en-v1.5, model_path and no credential")
+      if provider.context_tokens() \= 512 | provider.embedding_dimensions_minimum() \= 384 | provider.embedding_dimensions_maximum() \= 384 | provider.maximum_output_tokens() \= 0 then issues[issues.0 + 1] = .ragvalidationissue("config","invalid_native_capability",path,"native BGE requires 512 tokens per window, 384 dimensions and no generated output")
     end
     else do
       if left(provider.base_url(), 7) \= "http://" & left(provider.base_url(), 8) \= "https://" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_url", path || ".base_url", "provider URL must use HTTP or HTTPS")
@@ -770,6 +778,7 @@ validateconfig: procedure = .ragvalidationresult
     if provider.reasoning_effort() \= "" then do
       if kind \= "codex" | words(provider.reasoning_effort()) \= 1 | wordpos(provider.reasoning_effort(), "none minimal low medium high xhigh max") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_reasoning_effort", path || ".reasoning_effort", "reasoning_effort requires Codex and a supported effort name")
     end
+    if kind \= "llama" & provider.model_path() \= "" then issues[issues.0 + 1] = .ragvalidationissue("config","unexpected_model_path",path,"model_path requires the llama provider")
     privacy_policy = provider.privacy_policy()
     if privacy_policy \= "local-only" & privacy_policy \= "restricted-ok" & privacy_policy \= "public-only" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_privacy_policy", path || ".privacy_policy", "provider privacy policy is invalid")
     credential = provider.credential()
@@ -801,7 +810,10 @@ validateconfig: procedure = .ragvalidationresult
     else if role.maximum_output_tokens() < 1 | role.embedding_dimensions() \= 0 | role.system_prompt() = "" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_generation_role", path, "generation role requires output tokens, no embedding dimension, and a system prompt")
     do p = 1 to providers.0
       if providers[p].provider_id() \= role.provider_id() then iterate
-      if role.maximum_input_tokens() > providers[p].context_tokens() then issues[issues.0 + 1] = .ragvalidationissue("config", "role_context_exceeded", path || ".maximum_input_tokens", "role input envelope exceeds the configured provider catalogue capability")
+      if providers[p].kind() = "llama" & (role_id \= "embedding" | role.embedding_dimensions() \= 384) then issues[issues.0 + 1] = .ragvalidationissue("config","native_embedding_role",path,"native BGE supports only the embedding role with 384 dimensions")
+      /* Native embedding input allowance covers the complete chunk, including
+       * overlap; the provider's 512-token context applies to each window. */
+      if providers[p].kind() \= "llama" & role.maximum_input_tokens() > providers[p].context_tokens() then issues[issues.0 + 1] = .ragvalidationissue("config", "role_context_exceeded", path || ".maximum_input_tokens", "role input envelope exceeds the configured provider catalogue capability")
       if role.maximum_output_tokens() > providers[p].maximum_output_tokens() then issues[issues.0 + 1] = .ragvalidationissue("config", "role_output_exceeded", path || ".maximum_output_tokens", "role output envelope exceeds the configured provider catalogue capability")
       if role_id = "embedding" & (role.embedding_dimensions() < providers[p].embedding_dimensions_minimum() | role.embedding_dimensions() > providers[p].embedding_dimensions_maximum() | role.batch_size() > providers[p].maximum_batch_size()) then issues[issues.0 + 1] = .ragvalidationissue("config", "role_embedding_exceeded", path, "embedding role dimensions or batch size exceed the configured provider catalogue capability")
     end
@@ -846,7 +858,7 @@ validateconfig: procedure = .ragvalidationresult
   if discovery.max_notes() < 1 | discovery.max_notes() > 64 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_discovery_limit", "discovery.max_notes", "maximum discovered notes must be from 1 through 64")
 
   vector = config.vector()
-  if vector.algorithm() \= "ivf-flat-v1" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_algorithm", "vector.algorithm", "production vector search must use ivf-flat-v1")
+  if (vector.algorithm() \= "ivf-flat-v1" & vector.algorithm() \= "exact-native-v1") then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_algorithm", "vector.algorithm", "vector.algorithm must be ivf-flat-v1 or exact-native-v1")
   if vector.centroids() < 1 | vector.centroids() > 4096 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_limit", "vector.centroids", "vector centroid count is outside its supported range")
   if vector.probes() < 1 | vector.probes() > vector.centroids() then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_limit", "vector.probes", "vector probes must be positive and no greater than centroids")
   if vector.iterations() < 1 | vector.iterations() > 16 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_limit", "vector.iterations", "vector training iterations must be from 1 through 16")

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbackup expose ragsidecarpublication ragbackupsession ragbackupreport prepareannvectorsidecar installsidecar commitsidecar publishannvectorsidecar beginragbackup copyragbackupsidecars writeragbackupmanifest publishragbackup abortragbackup backupragstore restoreragstore
+namespace ragbackup expose ragsidecarpublication ragbackupsession ragbackupreport prepareannvectorsidecar installsidecar commitsidecar publishannvectorsidecar reactivatesidecar beginragbackup copyragbackupsidecars writeragbackupmanifest publishragbackup abortragbackup backupragstore restoreragstore
 
 import rxfnsb
 import rxfs
@@ -21,6 +21,7 @@ ragsidecarpublication: class
   _final_path = .string
   _sidecar_name = .string
   _state = .string
+  _algorithm = .string
 
   *: factory
     arg vector_generation_id = .string, semantic_generation = .int, embedding_profile_id = .string, dimension = .int, row_count = .int, centroid_count = .int, probe_count = .int, checksum = .string, size = .int, temporary_path = .string, final_path = .string, sidecar_name = .string
@@ -37,8 +38,15 @@ ragsidecarpublication: class
     _final_path = final_path
     _sidecar_name = sidecar_name
     _state = "prepared"
+    _algorithm = "ivf-flat-v1"
     return
 
+  algorithm: method = .string
+    return _algorithm
+  setalgorithm: method
+    arg algorithm = .string
+    _algorithm = algorithm
+    return
   vector_generation_id: method = .string
     return _vector_generation_id
   semantic_generation: method = .int
@@ -216,7 +224,7 @@ commitsidecar: procedure = .int
     return -6
   end
   prepared = .binary
-  sql = "INSERT INTO vector_generations(vector_generation_id,semantic_generation,embedding_profile_id,state,algorithm,sidecar_name,sidecar_checksum,dimension,row_count,centroid_count,probe_count,created_at,published_at) VALUES(?1,?2,?3,'published','ivf-flat-v1',?4,?5,?6,?7,?8,?9,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  sql = "INSERT INTO vector_generations(vector_generation_id,semantic_generation,embedding_profile_id,state,algorithm,sidecar_name,sidecar_checksum,dimension,row_count,centroid_count,probe_count,created_at,published_at) VALUES(?1,?2,?3,'published',?10,?4,?5,?6,?7,?8,?9,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   if sqliteprepare(store.database(), sql, prepared) \= 0 then return _transactionfailure(store.database(), "prepare sidecar identity", error)
   bind_status = sqlitebindtext(prepared, 1, publication.vector_generation_id())
   bind_status = bind_status | sqlitebindint(prepared, 2, publication.semantic_generation())
@@ -227,6 +235,7 @@ commitsidecar: procedure = .int
   bind_status = bind_status | sqlitebindint(prepared, 7, publication.row_count())
   bind_status = bind_status | sqlitebindint(prepared, 8, publication.centroid_count())
   bind_status = bind_status | sqlitebindint(prepared, 9, publication.probe_count())
+  bind_status = bind_status | sqlitebindtext(prepared, 10, publication.algorithm())
   step_status = sqlitestep(prepared)
   call sqlitefinalize prepared
   if bind_status \= 0 | step_status \= 101 then return _transactionfailure(store.database(), "insert sidecar identity", error)
@@ -237,8 +246,10 @@ commitsidecar: procedure = .int
   return 0
 
 publishannvectorsidecar: procedure = .int
-  arg store = .ragstorehandle, source_path = .string, vector_generation_id = .string, embedding_profile_id = .string, dimension = .int, row_count = .int, centroid_count = .int, probe_count = .int, expected_size = .int, checksum = .string, expose publication = .ragsidecarpublication, expose error = .string
+  arg store = .ragstorehandle, source_path = .string, vector_generation_id = .string, embedding_profile_id = .string, dimension = .int, row_count = .int, centroid_count = .int, probe_count = .int, expected_size = .int, checksum = .string, expose publication = .ragsidecarpublication, expose error = .string, algorithm = "ivf-flat-v1"
+  if algorithm \= "ivf-flat-v1" & algorithm \= "exact-native-v1" then do; error = "unsupported vector algorithm"; return -3; end
   if prepareannvectorsidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, row_count, centroid_count, probe_count, expected_size, checksum, publication, error) \= 0 then return -3
+  call publication.setalgorithm(algorithm)
   if installsidecar(publication, error) \= 0 then do
     call rxfs..delete publication.temporary_path()
     return -3
@@ -487,3 +498,17 @@ _transactionfailure: procedure = .int
   ignored = _sqlitefailure(prefix, error)
   call sqliteexec database, "ROLLBACK"
   return -3
+
+/* The caller has rebuilt and checked the full content identity from SQLite.
+ * Reactivation changes state only, preserving the immutable row and filename. */
+reactivatesidecar: procedure = .int
+  arg store = .ragstorehandle, vector_id = .string, generation = .int, profile_id = .string, input_revision = .int, expose error = .string
+  database = store.database()
+  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("lock sidecar reactivation",error)
+  if _scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1",error) \= generation | _scalarint(database,"SELECT vector_revision FROM embedding_profiles WHERE embedding_profile_id=" || _sqlquote(profile_id),error) \= input_revision then return _transactionfailure(database,"vector inputs changed; retry vector rebuild",error)
+  if _scalarint(database,"SELECT count(*) FROM vector_generations WHERE vector_generation_id=" || _sqlquote(vector_id) || " AND embedding_profile_id=" || _sqlquote(profile_id) || " AND state IN('published','superseded')",error) \= 1 then return _transactionfailure(database,"missing vector identity; run vector rebuild",error)
+  sql = "UPDATE vector_generations SET state='superseded' WHERE state='published' AND semantic_generation=(SELECT semantic_generation FROM vector_generations WHERE vector_generation_id=" || _sqlquote(vector_id) || ") AND embedding_profile_id=" || _sqlquote(profile_id) || " AND vector_generation_id<>" || _sqlquote(vector_id)
+  if sqliteexec(database,sql) \= 0 then return _transactionfailure(database,"supersede reactivated index predecessor",error)
+  if sqliteexec(database,"UPDATE vector_generations SET state='published',published_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE vector_generation_id=" || _sqlquote(vector_id) || " AND embedding_profile_id=" || _sqlquote(profile_id) || " AND state IN('published','superseded')") \= 0 then return _transactionfailure(database,"reactivate vector index",error)
+  if sqliteexec(database,"COMMIT") \= 0 then return _transactionfailure(database,"commit vector reactivation",error)
+  return publishmanifest(store,error)

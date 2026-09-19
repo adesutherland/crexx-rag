@@ -80,7 +80,40 @@ not a server-enforced limit or a guarantee of future usage. Keep the aggregate
 Actual reported tokens remain authoritative; overruns are retained as
 `settlement-exception` events rather than truncated or discarded.
 
-For local embeddings, start llama.cpp and configure an `openai-compatible`
+For in-process local embeddings, use the installed CREXX llama provider and
+the pinned BGE-small F16 model. No inference server is required:
+
+```ini
+provider.local-bge.kind = llama
+provider.local-bge.base_url = llama://local
+provider.local-bge.model = bge-small-en-v1.5
+provider.local-bge.model_path = ./models/bge-small-en-v1.5-f16.gguf
+provider.local-bge.route_class = local
+provider.local-bge.privacy_policy = restricted-ok
+provider.local-bge.credential = none
+provider.local-bge.timeout_ms = 60000
+provider.local-bge.max_attempts = 3
+```
+
+Bind the embedding role to `local-bge`. Format-1/2 files use
+`role.embedding = local-bge` and select the native defaults automatically.
+Format-3 files use `role.embedding.provider = local-bge`, dimensions 384,
+zero output tokens, and provider capabilities of 512 context tokens,
+384 minimum/maximum dimensions and zero generated output. Keep the other
+required role/provider fields. The embedding role's input-token allowance covers
+the **whole chunk**, including overlapping windows; 8192 is the ordinary default.
+The provider's 512-token context applies separately to each window.
+
+The model path resolves relative to the configuration file. The provider verifies
+the pinned artifact SHA-256
+`f0b2fef971e8366438bfd2d9aefea1b0115919389448806d290237f638bae999`.
+Large graph chunks produce several overlapping vectors, stored together or not
+at all. Search returns each original chunk once, using its best window score.
+No source, graph or citation rechunking is needed. Provider history records one
+chunk-level operation and the total input tokens across its windows; local work
+uses the `local-compute` charging basis.
+
+For the existing HTTP local route, start llama.cpp and configure an `openai-compatible`
 provider at `http://127.0.0.1:8081/v1`. The terms are:
 
 - embedding generation: converting text into vectors;
@@ -594,6 +627,16 @@ shares the configured provider limits; eight workers do not multiply the quota.
 The existing maintenance status includes `embedding_missing`, `embedding_total`
 and `embeddings_only`. An embedding window with remaining missing coverage is
 reported as incomplete even if its time window ended normally.
+
+To create a replacement representation, edit the selected embedding provider,
+review/apply the prospective `config plan`, then run this same embedding-only
+maintenance command. It uses existing chunks and does not rerun extraction.
+After complete coverage, rebuild the vector index. Old vectors/links remain
+stored. Switching the selected query configuration before the replacement index
+exists can make automatic queries fall back to lexical search; do not describe
+this as uninterrupted vector cutover. Qualify a scratch copy before changing a
+live corpus. The [local BGE delivery](windowed-embedding-delivery-20260918.md)
+records the small-corpus evidence and full Scottish migration limits.
 
 After draining workers, reconcile covered queued work and duplicate active links
 and publish the vector index without provider calls:
@@ -1278,6 +1321,16 @@ concept a stable source-span citation. Semantic and operational digests are
 separate so a maintenance or vector-publication change does not masquerade as
 a corpus-generation change.
 
+Vector coverage counts distinct parent chunks with embeddings for the most
+recent compatible published model. `covered_chunks` and `coverage_millionths`
+describe those parents; `active_embeddings` counts that model's current window
+links, and `published_rows` counts its index rows. Multiple windows and retained
+old models do not increase parent coverage above 100%. Model, dimension and
+index settings come from the same publication. `index_current=false` means the
+index needs rebuilding; even complete embedding coverage then remains `partial`.
+Before any index is published, coverage is zero and `active_embeddings` retains
+the pending link count across profiles.
+
 Health is deliberately multidimensional. Storage, lexical, vector,
 provenance, graph, maintenance and review each report their state, issue count
 and deterministic detail. There is no opaque overall score. A reconciliation
@@ -1688,3 +1741,30 @@ preserves the original timeout/transport cause with the confirmed final outcome;
 `job items --all --error timeout` or `--error transport` finds these failures.
 An interruption alone is not classified as a timeout. Earlier records retain
 only the facts originally captured.
+
+
+## Native exact vector search
+
+Set `vector.algorithm = exact-native-v1` in the selected configuration (using
+`config set`), review/apply the ordinary configuration change plan, then run
+`vector rebuild`. This reuses stored embeddings; it makes no model calls and
+requires no embedding migration. Existing configurations retain `ivf-flat-v1`.
+This build requires CREXX's `rxvector` with the `.vectorindex` and `openindex`
+API. It uses the installed provider directly; no USearch package is required.
+The current local qualification uses a private installed CREXX cohort. Normal
+installations must receive that provider update before building this RAG version.
+
+Schema 20 adds the native algorithm to the sidecar catalogue while preserving
+existing rows. A native file includes its complete float32 matrix and labels,
+so `vector.maximum_sidecar_bytes` may need to be larger than for an IVF manifest.
+The default 64 MiB remains the bound. `retrieval.vector_scan_limit` bounds the
+whole native index, because exact search examines every vector. Centroids,
+probes and training iterations apply only to IVF; exact catalogues record 1/1/1.
+
+Query inspection reports `active-exact-native` and backend `rxvector-exact`.
+RAG still chooses one best window per parent, checks current visibility and builds
+citations from SQLite source spans. Missing/corrupt native files use the existing
+fallback and `vector rebuild` recovery. Switching back to an already built index
+reactivates its verified immutable identity. Public backup/restore includes the
+selected sidecar. Existing RXVIDX/1 files remain readable without rebuilding.
+[Implementation and qualification](rxvector-consolidation-20260919.md).

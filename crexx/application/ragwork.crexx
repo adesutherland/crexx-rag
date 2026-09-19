@@ -757,11 +757,15 @@ _runworkeronce: procedure = .int
     disposition = "resolution-recorded"; return 0
   end
   if claim.item_type() = "embedding" then do
-    if provider_result.embedding().valid() \= 1 then do
+    embeddings = provider_result.embeddings(); valid_embeddings = embeddings.0 > 0
+    do e = 1 to embeddings.0
+      if embeddings[e].valid() \= 1 then valid_embeddings = 0
+    end
+    if valid_embeddings \= 1 then do
       failure_error = ""; call failattempt store, claim, 0, 1, maximum_attempts, "provider embedding is invalid", failure_error
       error = ""; disposition = "invalid-embedding"; return 0
     end
-    if _completeembedding(store, claim, provider_result.embedding(), provider_run_id, error) \= 0 then do; disposition = "embedding-promotion-failed"; return -3; end
+    if _completeembedding(store, claim, embeddings, provider_run_id, error) \= 0 then do; disposition = "embedding-promotion-failed"; return -3; end
     disposition = "embedded"
     return 0
   end
@@ -986,25 +990,37 @@ _reservationcaps: procedure = .int
   return 0
 
 _completeembedding: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, embedding = .ragworkembedding, provider_run_id = .string, expose error = .string
+  arg store = .ragstorehandle, claim = .ragworkclaim, embeddings = .ragworkembedding[], provider_run_id = .string, expose error = .string
   error = ""; database = store.database()
+  if embeddings.0 < 1 then do; error = "complete embedding list is empty"; return -1; end
+  embedding = embeddings[1]
+  chunk_id = _boundscalartext(database,"SELECT json_extract(input_json,'$.revision_chunk_id') FROM job_items WHERE item_id=?1",claim.item_id())
+  do i = 1 to embeddings.0
+    if embeddings[i].valid() \= 1 | embeddings[i].revision_chunk_id() \= chunk_id | embeddings[i].embedding_profile_id() \= embedding.embedding_profile_id() | embeddings[i].provider_id() \= embedding.provider_id() | embeddings[i].model() \= embedding.model() | embeddings[i].dimension() \= embedding.dimension() | embeddings[i].envelope_fingerprint() \= embedding.envelope_fingerprint() then do; error = "embedding list has incompatible parent, profile or vector"; return -1; end
+  end
   if beginwritetransaction(database,"begin embedding completion",error) \= 0 then return -3
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
   sql = "INSERT OR IGNORE INTO embedding_profiles(embedding_profile_id,provider_id,model,dimension,input_envelope_fingerprint,created_at) VALUES(" || _q(embedding.embedding_profile_id()) || "," || _q(embedding.provider_id()) || "," || _q(embedding.model()) || "," || embedding.dimension() || "," || _q(embedding.envelope_fingerprint()) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot register worker embedding profile", error)
-  embedding_id = "embedding-sha256:" || rxhash..sha256hex((embedding.embedding_profile_id() || "00"x || embedding.input_digest()) as .binary)
-  existing_id = _boundscalartext(database,"SELECT embedding_id FROM embeddings WHERE embedding_profile_id=" || _q(embedding.embedding_profile_id()) || " AND input_digest=?1",embedding.input_digest())
-  if existing_id \= "" then embedding_id = existing_id
-  prepared = .binary
-  sql = "INSERT OR IGNORE INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,provider_run_id,created_at) VALUES(?1,?2,?3,?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
-  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare worker embedding", error)
-  binds = sqlitebindtext(prepared, 1, embedding_id) | sqlitebindtext(prepared, 2, embedding.input_digest()) | sqlitebindtext(prepared, 3, embedding.embedding_profile_id()) | sqlitebindblob(prepared, 4, embedding.vector()) | sqlitebindint(prepared, 5, embedding.dimension()) | sqlitebindtext(prepared, 6, provider_run_id)
-  step = sqlitestep(prepared); call sqlitefinalize prepared
-  if binds \= 0 | step \= 101 then return _rollback(database, "cannot store worker embedding", error)
+  output_identity = ""
   generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
-  sql = "INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) SELECT " || _q(embedding.revision_chunk_id()) || "," || _q(embedding_id) || "," || generation || " WHERE NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings WHERE revision_chunk_id=" || _q(embedding.revision_chunk_id()) || " AND embedding_id=" || _q(embedding_id) || " AND visible_to_generation IS NULL)"
-  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot attach worker embedding", error)
-  output_hash = rxhash..sha256hex(embedding.vector())
+  do i = 1 to embeddings.0
+    embedding = embeddings[i]
+    embedding_id = "embedding-sha256:" || rxhash..sha256hex((embedding.embedding_profile_id() || "00"x || embedding.input_digest()) as .binary)
+    existing_id = _boundscalartext(database,"SELECT embedding_id FROM embeddings WHERE embedding_profile_id=" || _q(embedding.embedding_profile_id()) || " AND input_digest=?1",embedding.input_digest())
+    if existing_id \= "" then embedding_id = existing_id
+    prepared = .binary
+    sql = "INSERT OR IGNORE INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,provider_run_id,created_at) VALUES(?1,?2,?3,?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare worker embedding", error)
+    binds = sqlitebindtext(prepared, 1, embedding_id) | sqlitebindtext(prepared, 2, embedding.input_digest()) | sqlitebindtext(prepared, 3, embedding.embedding_profile_id()) | sqlitebindblob(prepared, 4, embedding.vector()) | sqlitebindint(prepared, 5, embedding.dimension()) | sqlitebindtext(prepared, 6, provider_run_id)
+    step = sqlitestep(prepared); call sqlitefinalize prepared
+    if binds \= 0 | step \= 101 then return _rollback(database, "cannot store worker embedding", error)
+    sql = "INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) SELECT " || _q(embedding.revision_chunk_id()) || "," || _q(embedding_id) || "," || generation || " WHERE NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings WHERE revision_chunk_id=" || _q(embedding.revision_chunk_id()) || " AND embedding_id=" || _q(embedding_id) || " AND visible_to_generation IS NULL)"
+    if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot attach worker embedding", error)
+    output_identity = output_identity || embedding.input_digest() || rxhash..sha256hex(embedding.vector())
+  end
+  output_hash = rxhash..sha256hex(output_identity as .binary)
+  if embeddings.0 = 1 then output_hash = rxhash..sha256hex(embeddings[1].vector())
   sql = "UPDATE attempts SET output_hash=" || _q(output_hash) || ",validation_state='validated-embedding',outcome='succeeded',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(claim.attempt_id()) || " AND outcome='running'"
   if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot complete embedding attempt", error)
   sql = "UPDATE job_items SET state='processed',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(claim.item_id()) || " AND worker_id=" || _q(claim.worker_id()) || " AND fence=" || claim.fence() || " AND state='running'"

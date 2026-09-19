@@ -68,7 +68,7 @@ execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 19")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 20")
     message(FATAL_ERROR "Improvement test human init failed:\n${init_out}${init_err}")
 endif()
 

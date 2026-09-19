@@ -1,0 +1,205 @@
+options levelg
+
+import rxfnsb
+import rxfnsg
+import rxhash
+import rxvector
+import rxjson
+import rxsqlite
+import rxfs
+import ragfile
+import ragstore
+import ragbackup
+import ragembedding
+import ragmaintain
+import ragimprove
+import ragretrieval
+import ragcommand
+import ragconfig
+import ragprofile
+import ragregistry
+import ragreportservice
+import generic_profile
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "ANN_METHODOLOGY_FAIL=" || label
+  return 1
+
+scalartext: procedure = .string
+  arg database = .binary, sql = .string
+  prepared = .binary; value = ""
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
+
+indexdirty: procedure = .string
+  arg database = .binary, profile_id = .string
+  return scalartext(database,"SELECT CAST(p.vector_revision<>v.input_revision AS TEXT) FROM vector_generations v JOIN embedding_profiles p USING(embedding_profile_id) WHERE v.state='published' AND p.embedding_profile_id='" || profile_id || "' AND " || compatiblevectorpredicate("(SELECT published_generation FROM library_meta WHERE singleton=1)","v.") || " ORDER BY v.semantic_generation DESC LIMIT 1")
+
+reportfield: procedure = .string
+  arg result=.ragcommandresult, kind=.string, name=.string
+  records=result.records()
+  do i=1 to records.0
+    if records[i].kind()=kind then do
+      fields=records[i].fields()
+      do j=1 to fields.0
+        if fields[j].name()=name then return fields[j].value()
+      end
+    end
+  end
+  return ""
+
+checkreport: procedure = .int
+  arg store=.ragstorehandle, state=.string, links=.int, rows=.int, coverage=.int, model=.string, dimensions=2, centroids=4, probes=1
+  access=.string[];access[1]="read";report_options=.ragcommandoption[];positionals=.string[]
+  request=.ragcommandrequest(store.path(),"ann-methodology","generic-profile","","json","off",access,"library","report","library.report",report_options,positionals)
+  configs=.ragconfig[];profiles=.ragprofile[]
+  result=libraryreport(request,.ragregistry(configs,profiles))
+  errors=check(result.exit_code()=0,"report readable " || result.message())
+  if errors>0 then return errors
+  errors=errors+check(reportfield(result,"vector-stat","state")=state,"report state " || state || " actual=" || reportfield(result,"vector-stat","state"))
+  errors=errors+check(reportfield(result,"vector-stat","active_embeddings")=links as .string,"report selected-profile link count")
+  errors=errors+check(reportfield(result,"vector-stat","published_rows")=rows as .string,"report selected publication rows")
+  errors=errors+check(reportfield(result,"vector-stat","coverage_millionths")=coverage as .string,"report distinct-parent coverage actual=" || reportfield(result,"vector-stat","coverage_millionths"))
+  errors=errors+check(reportfield(result,"vector-stat","model")=model,"report selected publication model")
+  errors=errors+check(reportfield(result,"vector-stat","dimension")=dimensions as .string & reportfield(result,"vector-stat","centroids")=centroids as .string & reportfield(result,"vector-stat","probes")=probes as .string,"report settings belong to the same publication")
+  generation=reportfield(result,"report-snapshot","generation")
+  storage=reportfield(result,"report-snapshot","storage_verification_issues")
+  repository=reportfield(result,"report-snapshot","repository_verification_issues")
+  digest=reportoperationaldigest(store.database(),generation as .int,storage as .int,repository as .int)
+  errors=errors+check(digest=reportfield(result,"report-snapshot","operational_digest"),"report and narrative recheck use identical operational projection")
+  errors=errors+check(scalartext(store.database(),"SELECT CAST(count(*) AS TEXT) FROM provider_runs")="0","report performs no inference")
+  return errors
+
+insertchunk: procedure = .int
+  arg database = .binary, ordinal = .int, text = .string, x = .float, y = .float, expose error = .string
+  suffix = right("0" || ordinal, 2); content_id = "content-" || suffix; chunk_id = "chunk-" || suffix
+  content_digest = rxhash..sha256hex(text as .binary); input_fingerprint = rxhash..sha256hex(("ann-input" || "00"x || suffix) as .binary)
+  prepared = .binary
+  sql = "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES(?1,?2,?3,?4)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "prepare chunk content"; return -1; end
+  binds = sqlitebindtext(prepared, 1, content_id) | sqlitebindtext(prepared, 2, content_digest) | sqlitebindtext(prepared, 3, text) | sqlitebindtext(prepared, 4, input_fingerprint)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "insert chunk content"; return -1; end
+  start = (ordinal - 1) * 32; finish = start + binlength(text as .binary)
+  prepared = .binary
+  sql = "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES(?1,'revision-ann',?2,?3,?4,?5,?6,'ann-fixture-v1','direct',1)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "prepare revision chunk"; return -1; end
+  binds = sqlitebindtext(prepared, 1, chunk_id) | sqlitebindint(prepared, 2, ordinal) | sqlitebindint(prepared, 3, start) | sqlitebindint(prepared, 4, finish) | sqlitebindtext(prepared, 5, content_id) | sqlitebindtext(prepared, 6, "continuity-" || suffix)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "insert revision chunk"; return -1; end
+  prepared = .binary
+  if sqliteprepare(database, "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES(?1,?2,?3)", prepared) \= 0 then do; error = "prepare FTS row"; return -1; end
+  binds = sqlitebindtext(prepared, 1, chunk_id) | sqlitebindtext(prepared, 2, content_id) | sqlitebindtext(prepared, 3, text)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "insert FTS row"; return -1; end
+  vector = .packedfloat(2); call vector.set(0, x); call vector.set(1, y); wire = rxvector..encodef32le(vector)
+  input_digest = rxhash..sha256hex((content_digest || "00"x || "ann-envelope") as .binary); embedding_id = "embedding-" || suffix
+  prepared = .binary
+  sql = "INSERT INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,provider_run_id,created_at) VALUES(?1,?2,'ann-profile',?3,2,NULL,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "prepare embedding"; return -1; end
+  binds = sqlitebindtext(prepared, 1, embedding_id) | sqlitebindtext(prepared, 2, input_digest) | sqlitebindblob(prepared, 3, wire)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "insert embedding"; return -1; end
+  prepared = .binary
+  if sqliteprepare(database, "INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES(?1,?2,1)", prepared) \= 0 then do; error = "prepare embedding attachment"; return -1; end
+  binds = sqlitebindtext(prepared, 1, chunk_id) | sqlitebindtext(prepared, 2, embedding_id)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "insert embedding attachment"; return -1; end
+  return 0
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  path = args[1]; errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(path, "library-ann-methodology", "snapshot-ann", "ann-methodology", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
+  if errors > 0 then return 1
+  database = store.database()
+  errors=errors+checkreport(store,"empty",0,0,0,"",0,0,0)
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('artifact-ann','raw-ann','text/plain','utf-8',NULL,'fixture://ann',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "artifact")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-ann','text-digest-ann','ANN corpus','fixture-v1','utf8-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "revision text")
+  errors = errors + check(sqliteexec(database, "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-ann','fixture','ann','revision-ann','active','fixture://ann','ANN corpus',1)") = 0, "source")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-ann','source-ann','revision-envelope-ann','artifact-ann','text-ann','metadata-ann','fixture-time',1)") = 0, "revision")
+  errors = errors + check(registerembeddingprofile(store, "ann-profile", "fixture-provider", "fixture-model", 2, copies("a", 64), error) = 0, "profile " || error)
+  errors = errors + check(insertchunk(database, 1, "ann-row-01", 1.0, 0.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 2, "ann-row-02", 1.0, 0.1, error) = 0, error)
+  errors = errors + check(insertchunk(database, 3, "ann-row-03", 1.0, -0.1, error) = 0, error)
+  errors = errors + check(insertchunk(database, 4, "ann-row-04", 0.1, 1.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 5, "ann-row-05", 0.0, 1.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 6, "ann-row-06", -0.1, 1.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 7, "ann-row-07", -1.0, 0.1, error) = 0, error)
+  errors = errors + check(insertchunk(database, 8, "ann-row-08", -1.0, 0.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 9, "ann-row-09", -1.0, -0.1, error) = 0, error)
+  errors = errors + check(insertchunk(database, 10, "ann-row-10", 0.1, -1.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 11, "ann-row-11", 0.0, -1.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 12, "ann-row-12", -0.1, -1.0, error) = 0, error)
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-13','digest-13','ann-missing-13','fingerprint-13');INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-13','revision-ann',13,384,398,'content-13','continuity-13','ann-fixture-v1','direct',1);INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-13','content-13','ann-missing-13')") = 0, "partial coverage chunk")
+  errors = errors + check(publishmanifest(store, error) = 0, "pre-ANN manifest " || error)
+  if errors > 0 then return 1
+
+  /* Forty high-scoring windows for one parent force widening beyond 32 hits. */
+  do n = 1 to 40
+    digest = rxhash..sha256hex(("extra-window-" || n) as .binary)
+    sql = "INSERT INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,created_at) SELECT 'extra-" || n || "','" || digest || "',embedding_profile_id,vector,dimension,created_at FROM embeddings WHERE embedding_id='embedding-01'"
+    errors = errors + check(sqliteexec(database,sql) = 0,"insert extra window")
+    errors = errors + check(sqliteexec(database,"INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES('chunk-01','extra-" || n || "',1)") = 0,"attach extra window")
+  end
+  first = .ragvectorgenerationresult; second = .ragvectorgenerationresult; replay = .ragvectorgenerationresult
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,4,1,3,1048576,first,error,"exact-native-v1") = 0 & first.rows() = 52,"native publication " || error)
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,4,1,3,1048576,replay,error,"exact-native-v1") = 0 & replay.state() = "identical-no-op" & replay.checksum() = first.checksum(),"native deterministic replay " || error)
+  empty_strings = .string[]; empty_scores = .int[]
+  analysis = .ragimproveplan("crexx-rag.improve-plan/1",1,"snapshot-ann","fixture-policy","fixture-prompt",empty_strings,100,0,0,0,0,60000,0,0,0,60000,1,1,"public","fixture-provider","",'{}',empty_strings,empty_strings,empty_strings,empty_scores,'{}',copies("a",64))
+  census = .ragmaintenancecensus
+  errors = errors + check(buildmaintenancecensus(store,analysis,"ann-profile",100,census,error,1,1,1) = 0,"native maintenance census " || error)
+  item_types = census.item_types()
+  do i = 1 to item_types.0; errors = errors + check(item_types[i] \= "vector-publication","clean native index must not schedule another publication"); end
+  query_vector = .packedfloat(2); call query_vector.set(0,1.0); call query_vector.set(1,0.0)
+  policy = .ragretrievaloptions("native-test","ann-profile",rxvector..encodef32le(query_vector),1,3,100,0,3,0,0,60,"both")
+  result = .ragretrievalresult
+  errors = errors + check(retrieveevidence(store,genericprofile(),"zzzznotlexical",policy,result,error) = 0 & result.vector_state() = "active-exact-native","native retrieval " || error)
+  passages = result.evidence().passages()
+  errors = errors + check(passages.0 = 3,"widening returns three distinct parents")
+  if passages.0 = 3 then do
+    errors = errors + check(passages[1].text() = "ann-row-01" & passages[2].text() = "ann-row-02" & passages[3].text() = "ann-row-03","exact oracle ranking and deterministic ties")
+    errors = errors + check(passages[1].citation().citation() \= passages[2].citation().citation(),"independent parent citations")
+  end
+  prepared_sidecar=.ragvectorsidecar()
+  errors=errors+check(preparevectorsidecar(store,"ann-profile",1048576,prepared_sidecar,error)=0,"prefetch native publication")
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,4,1,3,1048576,second,error) = 0,"legacy switch " || error)
+  errors=errors+check(retrieveevidencewithsidecar(store,genericprofile(),"zzzznotlexical",policy,result,error,prepared_sidecar)=0 & result.vector_state()="active-ann-ivf-rxvector","publication change after prefetch selects current legacy index")
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,4,1,3,1048576,replay,error,"exact-native-v1") = 0 & replay.checksum() = first.checksum(),"native reactivation after legacy " || error)
+  errors=errors+check(preparevectorsidecar(store,"ann-profile",1048576,prepared_sidecar,error)=0,"prefetch reactivated native publication")
+  errors = errors + check(ragfile..writebinaryfile(path || "/" || first.sidecar_name(),"tampered" as .binary,error) = 0,"corrupt native file")
+  errors=errors+check(retrieveevidencewithsidecar(store,genericprofile(),"zzzznotlexical",policy,result,error,prepared_sidecar)=0 & result.vector_state()="active-exact-native","in-flight native query uses verified bytes")
+  errors = errors + check(retrieveevidence(store,genericprofile(),"zzzznotlexical",policy,result,error) = 0 & result.vector_state() = "fallback-invalid-ann-sidecar","corrupt native fallback " || error)
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,4,1,3,1048576,replay,error,"exact-native-v1") = 0 & replay.state() = "rebuilt-from-sqlite" & replay.checksum() = first.checksum(),"rebuild corrupt native " || error)
+  errors = errors + check(rxfs..delete(path || "/" || first.sidecar_name()) = 0,"remove native file")
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,4,1,3,1048576,replay,error,"exact-native-v1") = 0 & replay.state() = "rebuilt-from-sqlite","rebuild missing native " || error)
+  graph_generation = 0
+  errors = errors + check(begingeneration(store,1,"snapshot-ann","graph only",graph_generation,error) = 0 & commitgeneration(store,graph_generation,error) = 0 & publishmanifest(store,error) = 0,"publish graph generation " || error)
+  errors = errors + check(buildannvectorgeneration(store,"ann-profile",100,4,1,3,1048576,replay,error,"exact-native-v1") = 0 & replay.checksum() = first.checksum(),"graph-only native reuse " || error)
+  backup_report = .ragbackupreport
+  errors = errors + check(backupragstore(path,path || "-backup",backup_report,error) = 0,"backup native index " || error)
+  errors = errors + check(restoreragstore(path || "-backup",path || "-restored",backup_report,error) = 0,"restore native index " || error)
+  restored = .ragstorehandle
+  errors = errors + check(openragstore(path || "-restored","readonly",restored,error) = 0,"open restored index " || error)
+  errors = errors + check(retrieveevidence(restored,genericprofile(),"zzzznotlexical",policy,result,error) = 0 & result.vector_state() = "active-exact-native","restored native query " || error)
+  errors = errors + check(closeragstore(restored,error) = 0,"close restored")
+  removed_generation = 0
+  errors = errors + check(begingeneration(store,graph_generation,"snapshot-ann","remove indexed parent",removed_generation,error) = 0,"begin removal")
+  errors = errors + check(sqliteexec(database,"UPDATE revision_chunk_embeddings SET visible_to_generation=" || removed_generation || " WHERE revision_chunk_id='chunk-01' AND visible_to_generation IS NULL") = 0,"hide all first-parent windows")
+  errors = errors + check(commitgeneration(store,removed_generation,error) = 0 & publishmanifest(store,error) = 0,"publish removal")
+  errors = errors + check(retrieveevidencewithsidecar(store,genericprofile(),"zzzznotlexical",policy,result,error,prepared_sidecar) = 0 & result.vector_state() = "active-exact-native","native visibility after removal with prefetched bytes " || error)
+  passages = result.evidence().passages()
+  errors = errors + check(passages.0 = 3,"widen through removed windows")
+  do i = 1 to passages.0; errors = errors + check(passages[i].text() \= "ann-row-01","removed parent cannot supply evidence"); end
+  errors = errors + check(scalartext(database,"SELECT CAST(count(*) AS TEXT) FROM provider_runs") = "0","native rebuild and search make no provider calls")
+  verified = .ragverifyresult
+  errors = errors + check(verifyragstore(store,1,verified,error) = 0 & verified.issue_count() = 0,"native verification " || error)
+  errors = errors + check(closeragstore(store,error) = 0,"close native test")
+  if errors > 0 then return 1
+  say "NATIVE_VECTOR_OK"
+  return 0

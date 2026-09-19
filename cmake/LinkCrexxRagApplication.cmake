@@ -30,9 +30,10 @@ if(provider_requirements MATCHES "[\t ]system\\.")
         "linked application retained an unpackaged legacy system dependency")
 endif()
 
-# Do not retain a stale application-owned provider from an earlier build.  The
-# linked image declares rxsqlite and the installed CREXX runtime owns discovery.
-file(REMOVE_RECURSE "${CPRAG_OUTPUT_DIR}/providers")
+# All native providers are installed CREXX components. Clear only the former
+# build-owned incubation files when reusing a build tree.
+file(REMOVE "${CPRAG_OUTPUT_DIR}/providers/rx_sqlite_boundary.rxplugin"
+            "${CPRAG_OUTPUT_DIR}/providers/rxvectorindex.rxplugin")
 
 file(SHA256 "${CPRAG_OUTPUT_DIR}/crexxrag.rxbin" application_sha256)
 file(WRITE "${CPRAG_OUTPUT_DIR}/artifact.txt"

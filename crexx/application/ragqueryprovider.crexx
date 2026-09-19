@@ -6,6 +6,7 @@ import rxfnsb
 import rxfs
 import provider_contract
 import industrial_provider
+import llama_provider
 import codex_provider
 import ragconfig
 import raganswercontract
@@ -20,6 +21,17 @@ generatequeryembedding: procedure = .int
   result = .providerresult(); error = ""
   if question = "" | dimension < 1 | request_identity = "" then do; error = "query embedding input is invalid"; return -1; end
   if provider_config.kind() = "codex" then do; error = "Codex does not provide embedding generation"; return -1; end
+  if provider_config.kind() = "llama" then do
+    local_backend = .llamaprovider(provider_config.model_path(),provider_config.timeout_ms())
+    local_messages = .providermessage[]; local_inputs = .string[]; local_inputs[1] = question
+    local_request = .providerrequest("embed","query-embedding",provider_config.model(),local_messages,local_inputs,"",provider_config.timeout_ms(),1,privacy,request_identity,request_identity,0,dimension)
+    result = local_backend.embed(local_request)
+    call local_backend.close()
+    if result.status() \= 0 then do; error = _providererror(result,"local query embedding failed"); return -2; end
+    local_vectors = result.embeddings()
+    if local_vectors.0 \= 1 | local_vectors[1].valid() \= 1 | local_vectors[1].count() \= dimension then do; error = "local query embedding shape is invalid"; return -2; end
+    return 0
+  end
   host = ""; base_path = ""; port = 0; tls = 0
   if _parseurl(provider_config.base_url(), host, port, tls, base_path) \= 0 then do; error = "query embedding provider URL is invalid"; return -1; end
   secret = _secret(provider_config, error)

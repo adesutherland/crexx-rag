@@ -1,0 +1,167 @@
+options levelg
+
+namespace llama_provider expose llamaprovider llamaembeddingidentity
+
+import rxfnsb
+import rxfnsg
+import rxvector
+import rxplatform
+import llama
+import provider_contract
+
+/* The first native route is deliberately one qualified reference preset.
+ * The engine must agree with this identity before any vector is accepted. */
+llamaembeddingidentity: procedure = .string
+  return "bge-small-en-v1.5|f0b2fef971e8366438bfd2d9aefea1b0115919389448806d290237f638bae999|5266f24da75dc449bd56cbed7addb9c8e4a6a73e|cls|l2|bge-query-prefix|512"
+
+llamaprovider: class implements .provider
+  _path = .string
+  _timeout = .int
+  _config = .llama..configuration
+  _runtime = .llama..runtime
+  _model = .llama..model
+  _session = .llama..embedding_session
+  _owners = .int
+  _ready = .int
+
+  *: factory
+    arg path = .string, timeout_ms = 60000
+    _path = path; _timeout = timeout_ms; _owners = 0; _ready = 0
+    return
+
+  close: method = .void
+    if _owners >= 4 then call _session.close()
+    if _owners >= 3 then call _model.close()
+    if _owners >= 2 then call _runtime.close()
+    if _owners >= 1 then call _config.close()
+    _owners = 0; _ready = 0
+    return
+
+  prepare: method = .int
+    arg expose error = .string
+    error = ""
+    if _ready = 1 then return 0
+    call close()
+    started = time("us") as .int
+    _config = .llama..configuration(); _owners = 1
+    if _config.status() \= 0 then do; error = _config.diagnostic().message(); return -1; end
+    /* A private one-row context keeps per-worker RAM and inference bounded.
+     * embed_batch composes rows and publishes only a complete result list. */
+    if _config.set_int("request_tokens",512) \= 0 | _config.set_int("request_rows",1) \= 0 then do; error = _config.diagnostic().message(); return -1; end
+    _runtime = .llama..runtime(_config); _owners = 2
+    if _runtime.status() \= 0 then do; error = _runtime.diagnostic().message(); return -1; end
+    _model = _runtime.model(_path,"f0b2fef971e8366438bfd2d9aefea1b0115919389448806d290237f638bae999","bge-small-en-v1.5",_config); _owners = 3
+    if _model.status() \= 0 then do; error = _model.diagnostic().message(); return -1; end
+    do forever
+      state = _model.state()
+      if state = "ready" then leave
+      if state \= "loading" then do; error = _model.info_text("error"); return -1; end
+      if _elapsed(started) >= _timeout*1000 then do; error = "local embedding model load timed out"; return -1; end
+      call rxplatform..sleep 1
+    end
+    engine = left(_model.info_text("runtime_build"),40)
+    if engine \= "5266f24da75dc449bd56cbed7addb9c8e4a6a73e" then do; error = "local embedding engine differs from the qualified profile; qualify a new representation before use"; return -1; end
+    _session = _model.embedding_session(_config); _owners = 4
+    if _session.status() \= 0 then do; error = _session.diagnostic().message(); return -1; end
+    do forever
+      state = _session.prepare(512)
+      if _session.status() \= 0 then do; error = _session.diagnostic().message(); return -1; end
+      if state = "ready" then leave
+      if state \= "preparing" | _elapsed(started) >= _timeout*1000 then do; error = "local embedding session preparation timed out"; return -1; end
+    end
+    _ready = 1
+    return 0
+
+  /* 0 fits; 1 is specifically token overflow; -1 is another failure.
+   * Submit tokenizes but process is never called here. */
+  admit: method = .int
+    arg text = .string, role = .string, expose tokens = .int, expose error = .string
+    tokens = 0; error = ""
+    if prepare(error) \= 0 then return -1
+    texts = .string[]; texts[1] = text
+    request = _session.request(_config)
+    if request.status() \= 0 then do; error = request.diagnostic().message(); return -1; end
+    status = request.add_all(texts,role)
+    if status = 0 then status = request.submit()
+    if status \= 0 then error = request.diagnostic().message()
+    else tokens = request.info_int("input_tokens")
+    call request.close()
+    if status = 0 then return 0
+    if error = "request row exceeds context/token limit" then return 1
+    return -1
+
+  capabilities: method = .providercapabilities
+    return .providercapabilities("llama",0,0,1,1,0,0,512,4096,"text","embedding","native",1)
+
+  embed: method = .providerresult
+    arg request = .providerrequest
+    return _embed(request,"embed")
+  embed_batch: method = .providerresult
+    arg request = .providerrequest
+    return _embed(request,"embed_batch")
+
+  _embed: method = .providerresult
+    arg request = .providerrequest, operation = .string
+    started = time("us") as .int; tokens = 0; completed = 0; error = ""
+    output = .providerresult(); vectors = .embeddingrecord[]
+    validation = validateprovideroperation(request,operation)
+    if validation.code() = 0 then validation = validateproviderroute(request,"local")
+    if validation.code() \= 0 then do; call output.set_failure("llama",request.model(),request.request_id(),validation); return output; end
+    if request.model() \= "bge-small-en-v1.5" | request.embedding_dimensions() \= 384 then return _failure(request,"local BGE requires model bge-small-en-v1.5 and 384 dimensions",tokens,completed,started)
+    if prepare(error) \= 0 then return _failure(request,error,tokens,completed,started)
+    inputs = request.inputs(); role = "document"
+    if request.role() = "query-embedding" then role = "query"
+    do i = 1 to inputs.0
+      if _elapsed(started) >= request.timeout_ms()*1000 then return _failure(request,"local embedding request timed out",tokens,completed,started)
+      texts = .string[]; texts[1] = inputs[i]
+      native_request = _session.request(_config)
+      if native_request.status() \= 0 then return _failure(request,native_request.diagnostic().message(),tokens,completed,started)
+      status = native_request.add_all(texts,role)
+      if status = 0 then status = native_request.submit()
+      if status \= 0 then do
+        error = native_request.diagnostic().message(); call native_request.close()
+        return _failure(request,error,tokens,completed,started)
+      end
+      tokens = tokens + native_request.info_int("input_tokens")
+      state = native_request.process(512)
+      if native_request.status() \= 0 | state \= "complete" then do
+        error = native_request.diagnostic().message(); call native_request.close()
+        return _failure(request,"local embedding inference failed: " || error,tokens,completed,started)
+      end
+      result = native_request.result()
+      if result.status() \= 0 | result.rows() \= 1 | result.dimensions() \= 384 then do
+        call native_request.close()
+        return _failure(request,"local embedding result shape is invalid",tokens,completed,started)
+      end
+      wire = rxvector..encodef32le(result.values())
+      call native_request.close()
+      vectors[i] = .embeddingrecord("f32le-v1",384,wire)
+      if vectors[i].valid() \= 1 then return _failure(request,"local embedding vector is invalid",tokens,completed,started)
+      completed = completed + 1
+    end
+    call output.set_embeddings("llama",request.model(),request.request_id(),vectors,.providerusage(tokens,0,completed,0,1,0),_elapsed(started))
+    return output
+
+  _failure: method = .providerresult
+    arg request = .providerrequest, message = .string, tokens = .int, completed = .int, started = .int
+    result = .providerresult()
+    call result.set_failure("llama",request.model(),request.request_id(),.providererror("local-inference",-124,0,1,1,message),.providerusage(tokens,0,completed,0,1,0),_elapsed(started))
+    return result
+
+  generate: method = .providerresult
+    arg request = .providerrequest
+    return _failure(request,"native BGE supports embeddings only",0,0,time("us") as .int)
+  generate_structured: method = .providerresult
+    arg request = .providerrequest
+    return generate(request)
+  cancel: method = .providerresult
+    arg request_id = .string
+    result = .providerresult()
+    call result.set_failure("llama","bge-small-en-v1.5",request_id,.providererror("unsupported",-124,0,0,0,"local embedding calls finish at a bounded row boundary"))
+    return result
+
+_elapsed: procedure = .int
+  arg started = .int
+  value = (time("us") as .int) - started
+  if value < 0 then value = value + 86400000000
+  return value

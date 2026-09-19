@@ -444,6 +444,42 @@ crexxrag_add_test(NAME ann_methodology
 set_tests_properties(ann_methodology PROPERTIES
     TIMEOUT 240 LABELS "ann;retrieval;recall;tamper;rxvector;sqlite")
 
+# Trained weights are provisioned separately. When selected, this is a required
+# local integration case; absence is reported at configure time, never a pass.
+set(CREXXRAG_BGE_MODEL "" CACHE FILEPATH "Pinned BGE-small GGUF for native embedding acceptance")
+if(NOT CREXXRAG_BGE_MODEL AND EXISTS "$ENV{HOME}/Library/Caches/crexx/native-inference/bge-small-en-v1.5-f16.gguf")
+    set(CREXXRAG_BGE_MODEL "$ENV{HOME}/Library/Caches/crexx/native-inference/bge-small-en-v1.5-f16.gguf" CACHE FILEPATH "Pinned BGE-small GGUF for native embedding acceptance" FORCE)
+endif()
+if(CREXXRAG_BGE_MODEL)
+    set(window_sources
+        "${CREXXRAG_APP_DIR}/tests/embedding_windows_scenario.crexx"
+        "${CREXXRAG_APP_DIR}/ragembeddinginput.crexx"
+        "${CREXXRAG_PROVIDER_DIR}/llama_provider.crexx"
+        "${CREXXRAG_APP_DIR}/ragconfig.crexx"
+        "${CREXXRAG_APP_DIR}/ragmodel.crexx"
+        "${CREXXRAG_APP_DIR}/ragworkerdefaults.crexx"
+        "${CREXXRAG_PROVIDER_DIR}/provider_contract.crexx")
+    set(window_probe "${CMAKE_BINARY_DIR}/qa-programs/embedding-windows/window-probe")
+    add_custom_command(OUTPUT "${window_probe}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_BINARY_DIR}/qa-programs/embedding-windows"
+        COMMAND "${CREXX_EXECUTABLE}" --program "${window_probe}" ${window_sources}
+            --jobs 4 --native --noexec --nocolor
+        DEPENDS ${window_sources} "${CREXX_EXECUTABLE}" "${CREXX_BUILDINFO_FILE}"
+        COMMENT "Building native embedding window acceptance" VERBATIM)
+    add_custom_target(crexxrag_window_probe ALL DEPENDS "${window_probe}")
+    crexxrag_add_test(NAME native_embedding_windows
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+            "-DCPRAG_PROBE=${window_probe}"
+            "-DCPRAG_MODEL=${CREXXRAG_BGE_MODEL}"
+            "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-embedding-windows"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeEmbeddingWindows.cmake")
+    set_tests_properties(native_embedding_windows PROPERTIES TIMEOUT 120 LABELS "native;embedding;local-model;zero-outbound")
+else()
+    message(STATUS "Native trained-model acceptance not selected: set CREXXRAG_BGE_MODEL to qualify it")
+endif()
+
 crexxrag_add_test(NAME lifecycle_methodology
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
@@ -959,4 +995,38 @@ crexxrag_add_test(NAME observability_providers
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-observability-providers"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ObservabilityProviders.cmake")
 set_tests_properties(observability_providers PROPERTIES TIMEOUT 90 LABELS "provider;codex;inspection;zero-outbound")
+crexxrag_add_test(NAME native_vector
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/native_vector_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-ann-methodology"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeVector.cmake")
+set_tests_properties(native_vector PROPERTIES
+    TIMEOUT 240 LABELS "ann;retrieval;recall;tamper;rxvector;sqlite")
+
+crexxrag_add_test(NAME vector_provider
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_CREXX=${CREXX_EXECUTABLE}"
+        "-DCPRAG_BIN=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/vector_provider_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-vector-provider"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VectorProvider.cmake")
+set_tests_properties(vector_provider PROPERTIES TIMEOUT 60 LABELS "vector;rxpa;zero-outbound")
+crexxrag_add_test(NAME native_vector_public
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-query.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-vector-public"
+        -DCPRAG_NATIVE_VECTOR_ONLY=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GeminiQuery.cmake")
+set_tests_properties(native_vector_public PROPERTIES
+    TIMEOUT 300 LABELS "gemini;query;embedding;hybrid;answer;citation;privacy;budget")
+
 include("${CMAKE_CURRENT_LIST_DIR}/CrexxRagTestSuites.cmake")

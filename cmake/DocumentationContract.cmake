@@ -31,8 +31,8 @@ foreach(obsolete
         message(FATAL_ERROR "documentation contains obsolete or postponement vocabulary: ${obsolete}")
     endif()
 endforeach()
-if(NOT combined MATCHES "Production vector execution uses the published IVF-flat" OR
-   NOT combined MATCHES "exact cosine scan exists only in QA" OR
+if(NOT combined MATCHES "Production vector execution supports" OR
+   NOT combined MATCHES "exact-native-v1" OR
    NOT combined MATCHES "crexxrag-maintain" OR
    NOT combined MATCHES "[Gg]lossary" OR
    NOT combined MATCHES "drift fails before" OR
@@ -89,5 +89,5 @@ endforeach()
 
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
-    "test=documentation-contract\nobsolete_surface=absent\nann=ivf-flat-only\nworklist=methodology-closure-table\nintegration_ledger=separate\nskill_tools=manifest-and-catalogue-aligned\n")
-message(STATUS "Documentation and installed-skill source describe the implemented maintain and IVF-flat ANN surface without a product-methodology postponement list")
+    "test=documentation-contract\nobsolete_surface=absent\nvector=ivf-flat-and-native-exact\nworklist=methodology-closure-table\nintegration_ledger=separate\nskill_tools=manifest-and-catalogue-aligned\n")
+message(STATUS "Documentation and installed-skill source describe the implemented maintain, IVF-flat and native-exact surface without a product-methodology postponement list")

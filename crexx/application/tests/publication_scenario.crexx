@@ -110,6 +110,51 @@ singleprovider: class implements .ragworkprovider
     mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
     return .ragworkproviderresult(0,"fixture","fixture","single-request",10,10,0,1,0,proposal,"",1,"candidate-single-source","missing-single-target",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
 
+windowprovider: class implements .ragworkprovider
+  _invalid = .int
+  *: factory
+    arg invalid = 0
+    _invalid = invalid
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    empty = .ragextractionproposal; vectors = .ragworkembedding[]
+    vectors[1] = .ragworkembedding("chunk-publication","windows-profile",copies("1",64),"fixture","window-model",1,copies("a",64),"0000803F"x as .binary)
+    wire = "000080BF"x as .binary
+    if _invalid = 1 then wire = ''x as .binary
+    vectors[2] = .ragworkembedding("chunk-publication","windows-profile",copies("2",64),"fixture","window-model",1,copies("a",64),wire)
+    vectors[3] = vectors[1]
+    mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+    result = .ragworkproviderresult(0,"fixture","window-model",claim.attempt_id(),16,0,0,1,0,empty,"",0,"","",vectors[1],"","local-compute",mentions,proposals,notes)
+    call result.set_embeddings(vectors)
+    return result
+
+windowpublication: procedure = .int
+  arg store = .ragstorehandle, policy = .ragclaimpolicy
+  errors = 0; error = ""; database = store.database(); disposition = ""
+  before_runs = scalar(database,"SELECT count(*) FROM provider_runs")
+  before_generation = scalar(database,"SELECT published_generation FROM library_meta")
+  do phase = 1 to 3
+    tag = "windows-" || phase
+    errors = errors + check(sqliteexec(database,"INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('" || tag || "','" || rxhash..sha256hex(tag as .binary) || "','{}','snapshot-publication','queued',1,3,128,0,0,'fixture','fixture')") = 0,"window job")
+    input = '{"revision_chunk_id":"chunk-publication","text":"Alpha Beta","charging_basis":"local-compute"}'
+    errors = errors + check(sqliteexec(database,"INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('" || tag || "','" || tag || "','embedding','queued',1,'" || tag || "','" || rxhash..sha256hex(input as .binary) || "','" || input || "','fixture','fixture')") = 0,"window item")
+    errors = errors + check(configurejobbudget(store,tag,10000,128,0,0,5000,1,3,error) = 0,"window budget " || error)
+    if phase = 2 then errors = errors + check(sqliteexec(database,"CREATE TRIGGER window_link_failure BEFORE INSERT ON revision_chunk_embeddings WHEN NEW.revision_chunk_id='chunk-publication' AND (SELECT count(*) FROM revision_chunk_embeddings WHERE revision_chunk_id='chunk-publication')=1 BEGIN SELECT RAISE(ABORT,'second window failed'); END") = 0,"second-link fault")
+    producer = .windowprovider(phase = 1)
+    status = runworkeronce(store,tag,"window-worker",60,3,policy,producer,disposition,error,genericprofile())
+    if phase = 1 then errors = errors + check(status = 0 & disposition = "invalid-embedding","reject incomplete list before publication " || error)
+    if phase = 2 then do
+      errors = errors + check(status < 0 & disposition = "embedding-promotion-failed","second-link fault rejected " || error)
+      errors = errors + check(sqliteexec(database,"DROP TRIGGER window_link_failure") = 0,"remove second-link fault")
+    end
+    if phase < 3 then errors = errors + check(scalar(database,"SELECT count(*) FROM embeddings WHERE embedding_profile_id='windows-profile'") = 0 & scalar(database,"SELECT count(*) FROM revision_chunk_embeddings WHERE revision_chunk_id='chunk-publication'") = 0 & scalar(database,"SELECT count(*) FROM job_items WHERE item_id='" || tag || "' AND state='processed'") = 0,"no partial window vectors, links or completion")
+    else errors = errors + check(status = 0 & disposition = "embedded" & scalar(database,"SELECT count(*) FROM embeddings WHERE embedding_profile_id='windows-profile'") = 2 & scalar(database,"SELECT count(*) FROM revision_chunk_embeddings WHERE revision_chunk_id='chunk-publication'") = 2 & scalar(database,"SELECT count(*) FROM job_items WHERE item_id='" || tag || "' AND state='processed'") = 1,"complete list publishes once, duplicate input shares link " || error)
+  end
+  errors = errors + check(scalar(database,"SELECT count(*) FROM provider_runs") = before_runs+3 & scalar(database,"SELECT published_generation FROM library_meta") = before_generation,"window attempts retain accounting and source generation")
+  errors = errors + check(scalar(database,"SELECT count(*) FROM chunk_contents WHERE content_id='content-publication' AND text='Alpha Beta'") = 1,"window publication preserves parent source")
+  return errors
+
 retryprovider: class implements .ragworkprovider
   *: factory
     return
@@ -312,6 +357,7 @@ main: procedure = .int
   status = runworkeronce(store,"job-retry","retry-worker",60,3,policy,retry_provider,disposition,error,genericprofile())
   errors = errors + check(status = 0 & scalar(database,"SELECT count(*) FROM job_items WHERE item_id='item-retry1' AND state='queued' AND retry_at-unixepoch() BETWEEN 1 AND 2") = 1,"2000 ms retry becomes two seconds, not remainder " || error)
   errors = errors + citationrecoverycase(store,args[1])
+  errors = errors + windowpublication(store,policy)
   errors = errors + check(closeragstore(store,error) = 0,"close fixture")
   errors = errors + legacyfoldercase(args[1] || "-legacy-folder")
   if errors > 0 then return 1

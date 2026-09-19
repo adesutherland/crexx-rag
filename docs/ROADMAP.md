@@ -1,13 +1,17 @@
 # Master roadmap and defect register
 
-Current decision and status authority — reconciled 17 September 2026.
-Current runtime baseline `4a9a8c3` is published to main and installed in the normal
-user prefix and ScottishHistory. It includes observability, prompt/quotation
-and short-reference improvements, checkpoint/restart follow-up and advanced-call
-accounting. All 126 required local cases pass. [Publication](baseline-publication-20260917.md)
-and [the fresh fifteen-minute soak](maintenance-budget-soak-20260917.md) record
-exact identities and remaining failures. The earlier `858c67f` publication and
-CREXX #701 qualification remain dated evidence in the previous record.
+Current decision and status authority — updated 19 September 2026.
+The [19 September baseline](baseline-publication-20260919.md) builds against
+published CREXX `5949ef27efd8` in the normal user prefix, includes local BGE atomic
+embedding windows and the CREXX rxvector binary owner, and passes all 130 required
+local cases. The qualified artifact is installed in `~/.local`; RAG Git publication
+and automatic CREXX CI closure are being recorded in that delivery record.
+The master Scottish corpus and its configuration are untouched by this phase.
+
+The earlier runtime baseline `4a9a8c3`, its 126-case qualification and its
+Scottish installation remain dated evidence in [the previous publication](baseline-publication-20260917.md)
+and [fifteen-minute soak](maintenance-budget-soak-20260917.md). The observability,
+prompt/quotation, checkpoint/restart and advanced-call repairs remain included.
 
 ## Recent defects and delivery status
 
@@ -16,6 +20,8 @@ qualification. Historical corpus outcomes remain dated evidence.
 
 | ID | Current status | Evidence / remaining acceptance |
 | --- | --- | --- |
+| RAG-VEC-02 | Closed locally — full qualification passed, 18 September | Changing groups and then returning to the original setting reproduces `immutable sidecar target already exists or aliases the source`. Deterministic old identity is superseded, excluded from replay lookup and incorrectly sent through new publication. Preserve immutable guards; add validated reactivation with A → B → A regression, retained embeddings/provenance, one published selection and failure checks. The isolated experiment is preserved; public backup restoration recovers the original corpus/index. The fail-first A/B/A case passes on both VMs, alongside native/legacy switching, missing superseded-file restoration and generation/revision/identity rejection that preserves the prior publication. The final local gate accounts for 131/131 passing cases. [Integration qualification](native-vector-delivery-20260918.md). [Reproduction, owner and acceptance](vector-group-comparison-20260918.md#rag-vec-02--superseded-index-reactivation-fails). |
+| RAG-VEC-01 | Fixed locally and verified on the full corpus, 18 September | The shared report/digest projection selects one published profile and distinguishes its window memberships from distinct covered parents. Fail-first retained-profile/multi-window regression and positive controls pass. Scottish acceptance reports 36,319 covered parents, 36,328 windows, 100% coverage, current index and zero integrity issues. Candidate publication and newer-global-CREXX qualification remain separate. [Migration evidence](scottish-bge-migration-20260918.md#completed-corpus-acceptance). |
 | ESC-VAL-01 | Locally repaired | Empty distinct identity fields rejected before review; [delivery](maintenance-escalation-delivery-20260916.md). |
 | ESC-VAL-02 | Locally repaired | Inactive migration parents rejected before review through shared validation; [delivery](maintenance-escalation-delivery-20260916.md). |
 | ESC-OPS-01 | Locally repaired | Serial revalidation reuses unaffected responses and rejects stale evidence; [delivery](maintenance-escalation-delivery-20260916.md). |
@@ -235,12 +241,37 @@ consolidated delivery and dependency map, not a new feature specification.
 Begin QE-09 baselining and QE-01/02 interface design early. QE-06 should precede
 embedding-model selection; QE-07 should precede freezing a native profile.
 QE-04 needs both upstream capability and a concrete persistent request owner.
-Adrian reports a forthcoming CREXX plugin with a linked llama.cpp bridge
-(11 September). Treat this as a planned QE-04 implementation route. Keep it
-behind the RAG provider interface; confirm model/session lifetime, concurrency,
-cancellation, failure isolation and memory ownership before choosing the worker
-layout. Admission and recovery should remain independent of HTTP versus a
-linked bridge. The installed runtime is not yet qualified for this route.
+The [17 September scratch evaluation](native-scottish-evaluation-20260917.md)
+proves installed native BGE CPU/Metal execution and provides initial Scottish
+retrieval/timing evidence: 339 passages, 20 supported questions, and four
+unsupported controls. SmolLM2 failed the grounded-answer screen. This is partial
+QE-09 evidence. The [18 September window delivery](windowed-embedding-delivery-20260918.md)
+adds the native BGE adapter behind the RAG provider interface, with a persistent
+model/session per process worker, atomic complete-list publication and receipt
+recovery. All 127 required local checks pass, and the 339-passage small-corpus result
+retains 17/20 supported questions at hybrid rank 1 and 19/20 in its top three.
+The bounded native, retrieval and small-corpus acceptance is recorded there;
+wider model/concurrency, memory and standalone-reader qualification remains
+open. Admission and recovery retain the existing worker protocol.
+The [18 September interface review and proposed comparisons](native-model-follow-up-20260918.md)
+records installed common drivers and broader GGUF support, the BGE-small/base
+comparison, a bounded Gemma grounding screen and the separate longer-input trial.
+The [same-day scratch comparison](native-interface-comparison-20260918.md) now
+includes BGE-small, both BGE-base artifacts and Nomic Q4, plus paired common/direct
+API timings. Nomic works at 2048 tokens; 8192 extension remains blocked by current
+admission, and Q4 CPU/Metal ranking differences need qualification. BGE-small is now selected for this bounded local embedding implementation; the
+full Scottish copy rehearsal is now authorized and running with eight workers;
+see the [migration record](scottish-bge-migration-20260918.md). Master replacement
+has not occurred. Gemma answer quality and
+broader QE-09 coverage remain open.
+The agreed [atomic embedding-window design](architecture.md#atomic-embedding-windows--agreed-design)
+keeps one local embedding model and the original larger graph chunks. Each chunk
+produces a complete list of vectors, published atomically; failure retries the
+whole chunk. Search takes the best window score per parent. Window positions and
+per-window recovery state are excluded. The implementation and its targeted
+failure/retrieval evidence are in the delivery record. QE-04/07/08/09 remain open
+for their broader acceptance, particularly complete reader packaging, additional
+profiles/models, uninterrupted live vector cutover and the larger comparison.
 The agreed 12 September decision retains process workers for fault isolation
 and replacement. A bounded attached-thread comparison is an optional QE-04
 experiment alongside the bridge, measuring model lifetime, memory, throughput
@@ -249,6 +280,51 @@ Deliver QE-08 with profile changes rather than adding migration after adoption.
 Qualify QE-03 and QE-05 as complete installed workflows. Operational P1 closure
 remains a parallel prerequisite for unattended work, not an implication of
 better retrieval scores.
+
+### Common CREXX inference interfaces — RAG-PROV-01, deferred
+
+**Decision, 18 September 2026: retain the current adapters.** Staged use of the
+common CREXX interfaces is the intended direction, but this decision authorizes
+recording the work, not implementing a migration. It does not block the current
+BGE work or authorize Scottish corpus replacement. Recheck capabilities against
+the installed CREXX version before scheduling it; the reviewed package is
+`e457f5ec3880`.
+
+`.llm` is the generation interface; `.embedding` is the separate embedding
+interface. Keep the existing RAG `.provider` contract and migrate its
+implementations individually. Generic inference and lifecycle belong to CREXX;
+window splitting, profile compatibility, atomic storage, validation, receipts,
+retry policy, privacy, budgets and recovery remain with their existing RAG owners.
+
+| Route | Direction and current prerequisite |
+| --- | --- |
+| Native BGE embeddings | First migration candidate, after common `.embedding` exposes token admission without inference and actual input-token usage. Retain the current typed `llama` adapter meanwhile. |
+| Future local generation | Prefer `.llm` when adding this capability, subject to model quality and required-control qualification under QE-03/09; no generation implementation is authorized here. |
+| Hosted embeddings | Retain the HTTP adapter: common `.embedding` currently supports native llama only. |
+| Hosted generation | Retain the HTTP adapter until common drivers support schema-constrained output, required message roles/system prompts, actual input/output usage, real provider finish reasons and equivalent timeout/error/cancellation behavior. `generateJson` currently returns the HTTP JSON body; it does not request constrained generation. |
+| Managed Codex generation | Retain the App Server adapter. Common drivers do not supply its managed authentication, progress/usage observation and retained-outcome recovery lifecycle. |
+
+The smallest upstream embedding extension is (1) token counting/admission using
+the exact query/document preprocessing, without inference, with a distinguishable
+over-limit result; and (2) input-token usage on results, including consumed work
+on failure where available. The current window splitter uses typed admission to
+fit BGE's 512-token limit. Calling inference to discover each boundary or guessing
+token counts would lose that behavior. See the
+[integration dependency](integration-issues.md#common-inference-interface-gaps).
+
+Performance is not the reason for deferral. The retained
+[paired comparison](native-interface-comparison-20260918.md#common-interface-versus-direct-llama)
+found identical BGE vectors and no measurable steady-state penalty: Metal query
+medians were 2.502 ms direct and 2.332 ms common. Common startup was somewhat
+slower in those observations; neither result is a universal timing guarantee.
+
+Before closing a migrated route, prove unchanged profile identity and results,
+whole-chunk failure/atomic publication, accurate usage and receipt recovery, and
+bounded persistent ownership. Reuse the existing route regressions and add only
+the missing interface checks; retain offline installed acceptance for native
+inference and Gemini, malformed-output and secret-redaction coverage for hosted
+changes. Record full local qualification once for the resulting candidate.
+This adapter change should require no schema or operator-workflow redesign.
 
 ## Agent and public-surface findings outside the numbered backlogs
 
@@ -393,12 +469,14 @@ raise its priority above the operational P1s.
 | RAG-QA-02 | Open | Representative extraction, cognitive maintenance and fresh-agent operator acceptance on preserved copies; retain mandatory bounded hosted Gemini qualification. [LLM plan item 4](llm-processing-repair-plan.md#4-qualify-extraction-then-cognitive-maintenance-and-the-agent-handoff). QE-09 measures retrieval quality separately. The completed Scottish run is partial acceptance: 708 processed items, 123 applied-change and 127 final no-change decisions, with 551 failed provider runs and an operator restart. Closeout/integrity passed; two illustrative decisions do not establish overall accuracy, and historical failed-response/model attribution remains incomplete. The subsequent 267-call isolated run supplies exact original input/output and model/effort for new attempts, with clean closeout but 90 dead-letter items; this closes the inspection gap, not wider quality/endurance qualification. The [17 September installed soak](maintenance-soak-20260917.md) adds 1303 calls, 808 resolved selected tasks, nine inspected cases and clean integrity/closeout, but seven historical worker failures and remaining validation errors keep endurance/content qualification open. The [follow-up hour](maintenance-follow-up-soak-20260917.md) adds clean eight-worker completion, 1455 calls, 862 resolved selected tasks and nine original examples; remaining quotation/ID failures and unexercised outage/multi-hour behavior keep broad qualification open. [Earlier evidence](observability-delivery-20260916.md), [original triage](maintenance-acceptance-triage-20260916.md). |
 | RAG-QA-03 | Open | Installed Linux replay and non-macOS release/fault coverage, including filesystem/disk-full behavior. [Integration issues](integration-issues.md#installed-linux-replay), [process cases](qa-process-cases.md). |
 | RAG-QA-04 | Open qualification boundary | General malicious-source/prompt-injection behavior is not established by the bounded MCP trials. Preserve untrusted provider/evidence and authorization boundaries; scope any future adversarial qualification explicitly. [MCP trials](mcp-soak-trials.md). |
-| RAG-PERF-01 | Open | Measure long-ledger reservation/admission, census, lock duration, backup and vector loading/rebuild separately. Recent indexed scans and shared transaction-start retries are implemented; eight/sixteen-worker runs do not establish unlimited scaling. HC-07, REL-008 and QE-09 share this evidence. |
+| RAG-QA-05 | Open — observed test-runner cleanup failure, 18 September | During parallel qualification alongside the Scottish migration, `regression_operator_diagnostics` ended with `PermissionError` from `os.killpg` in runner cleanup and no final receipt. No product assertion failure was reported; an isolated retry passed unchanged in 33.23 seconds. Establish the cause and ensure an interrupted/failed cleanup always leaves an honest receipt without signalling unrelated processes. The retry does not qualify that cleanup path. [Evidence](scottish-bge-migration-20260918.md#local-qualification). |
+| RAG-PERF-01 | rxvector consolidation locally qualified; migration contention remains open, 19 September | The generic float32 binary owner, portable codec and exact search now live in CREXX rxvector as C. RAG removes its incubating plugin, USearch vendor and private SDK/C++ packaging. Existing RXVIDX/1 sidecars read unchanged. A paired Release comparison gives identical 0.965 s full-query medians and all twenty passage orders; maximum score difference 9.38e-8, twelve known reference hits per route. Focused retrieval and provider/native-memory checks pass. The 541.25 s full selection exposed a mixed-cohort launcher fixture and a native model-load timeout. The selected-runtime fixture passes in 32.12 s; the unchanged real-model case passes alone in 10.91 s and now declares eight scheduling slots. Closing documentation and exact-input audit account for 130/130 required passing cases; the full selection is not repeated. [Current delivery](rxvector-consolidation-20260919.md). The normal CREXX install now uses published `5949ef27efd8`; rebuilt RAG passes 130/130 in 720.51 s and its qualified artifact is installed. [Publication and automatic CI closure](baseline-publication-20260919.md) supersede the initial private-cohort boundary. RAG other-platform qualification remains separate. The exact route remains opt-in; default IVF settings remain 16/4 following the measured recall comparison. Earlier accepted repairs: [JSON/SQL retrieval](retrieval-profiling-20260918.md), [binary reader/verification](retrieval-tightening-20260919.md), [native publication and RAG-VEC-02 closure](native-vector-delivery-20260918.md), [group comparison](vector-group-comparison-20260918.md). Migration contention remains separate and open (eight workers, 4 h 21 m 35 s, sampled transaction waits; history-size attribution unproven). [Migration evidence](scottish-bge-migration-20260918.md#in-progress-performance-evidence). HC-07, REL-008 and QE-09 share these evidence records. |
 | RAG-RET-01 | Proposed | Retention of bulky resolved payloads with compact outcome/lineage/usage audit, respecting recovery and evidence dependencies. No purge implemented. [Retention follow-up](reliability-coverage-review.md#proposed-retention-follow-up). |
 | RAG-EXP-01 | Proposed research | Source expansion and controlled graph-value comparison; map retrieval measurements to QE-09 rather than claiming higher claim counts prove better answers. [Scottish development](scottish-corpus-development.md). Reconcile that document's old approval/run language against the later metadata-only decision before acting. |
 | RAG-EXP-02 | Optional experiment | Per-support time/provenance assessment is separate from normal document metadata. Broad automatic assessment was rolled back as default; do not reopen it via older proposal wording. [Current contract](time-and-provenance.md), [dated proposal](claim-time-provenance-proposal.md). |
 | CREXX-NI-01–06 | Upstream dependency; RAG integration unqualified | Generic native inference, CPU/GPU, persistent model owner, packaging, artifact identity and qualification. RAG consumes installed capability via QE-04/07/08; no native inference copy in RAG. [Dependency record](integration-issues.md#proposed-native-embedding-capability). |
-| CREXX-NI-07 | Upstream, optional | Local generation; not prerequisite to standalone reader/query support. |
+| CREXX-NI-07 | Investigation after Scottish BGE migration acceptance | Review installed local models for short evidence-grounded answers, then bounded follow-up search/graph traversal; measure cold startup, latency, memory, supported claims/citations and insufficient-evidence decisions. Assess ingestion separately for validated extraction quality and throughput. Keep offline embedding/database retrieval usable with generation disabled. No generation benchmark has yet been qualified by the full-corpus embedding run. |
+| RAG-PROV-01 | Deferred — retain current adapters, agreed 18 September | Staged adoption of common `.llm`/`.embedding` behind the existing RAG provider contract, after capability parity. Native token admission/usage is the first prerequisite; hosted embeddings, structured generation and managed Codex have separate gaps. [Decision and acceptance](#common-crexx-inference-interfaces--rag-prov-01-deferred), [upstream dependency](integration-issues.md#common-inference-interface-gaps). |
 | CREXX #701 — child pipe inheritance | Closed upstream; downstream repaired and locally qualified | Installed CREXX `17e844441ed8` passes all three original worker-exit faults; `worker_unexpected_exit` is enabled without exclusions. Keep the broader T7-10 investigation separate. [Retest](crexx-701-retest-20260916.md), [issue](https://github.com/adesutherland/CREXX/issues/701). |
 | CREXX #699 — source-import compiler failure | Fixed in local CREXX installation, reported by Adrian 16 September | No longer treated as a current local blocker. This planning change did not rerun the original source-import reproduction or recheck upstream issue status. Historical `lineout(stream)` containment remains documented. [Integration evidence](integration-issues.md#installed-compiler-source-import-finding-during-t7-10), [issue](https://github.com/adesutherland/CREXX/issues/699). |
 | Policy publication boundary | Accepted limitation — agreed 12 September | Custom mode/ACL preservation and policy-file power-loss durability are outside active defect work. Process-default metadata and manual policy restoration after power loss are accepted. Retain validation, staged rename, ordinary process-crash recovery and all SQLite/receipt/usage protections. Non-macOS replacement remains QA-03 qualification. [Integration issues](integration-issues.md#policy-file-publication-metadata-and-durability). |

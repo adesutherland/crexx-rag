@@ -131,6 +131,11 @@ parseconfigtext: procedure = .int
     context_tokens = 2000000000; maximum_output_tokens = 2000000000
     embedding_dimensions_minimum = 1; embedding_dimensions_maximum = 1000000; maximum_batch_size = 1024
     input_price = -1; output_price = -1; observed_date = "compatibility-default"
+    if kind = "llama" then do
+      context_tokens = 512; maximum_output_tokens = 0
+      embedding_dimensions_minimum = 384; embedding_dimensions_maximum = 384
+      maximum_batch_size = 8; input_price = 0; output_price = 0
+    end
     if format_three = 1 then do
       if _uint(_required(keys, values, prefix || "context_tokens", error), 1, 2000000000, prefix || "context_tokens", context_tokens, error) \= 0 then return -1
       if _uint(_required(keys, values, prefix || "maximum_output_tokens", error), 0, 2000000000, prefix || "maximum_output_tokens", maximum_output_tokens, error) \= 0 then return -1
@@ -143,8 +148,13 @@ parseconfigtext: procedure = .int
       if error \= "" then return -1
       if length(observed_date) \= 10 then return _fail(prefix || "catalog_observed_date must use YYYY-MM-DD", error)
     end
+    model_path = _optional(keys,values,prefix || "model_path")
+    if model_path \= "" then do
+      if _safesourcepath(model_path) \= 1 then return _fail(prefix || "model_path contains traversal or a control character",error)
+      model_path = resolveconfigpath(model_path,base_directory)
+    end
     reasoning_effort = _optional(keys, values, prefix || "reasoning_effort")
-    providers[i] = .ragproviderconfig(provider_ids[i], kind, base_url, model, route_class, privacy_policy, credential, timeout_ms, max_attempts, requests_per_minute, tokens_per_minute, concurrent_requests, initial_backoff_ms, maximum_backoff_ms, jitter_ms, context_tokens, maximum_output_tokens, embedding_dimensions_minimum, embedding_dimensions_maximum, maximum_batch_size, input_price, output_price, observed_date, reasoning_effort)
+    providers[i] = .ragproviderconfig(provider_ids[i], kind, base_url, model, route_class, privacy_policy, credential, timeout_ms, max_attempts, requests_per_minute, tokens_per_minute, concurrent_requests, initial_backoff_ms, maximum_backoff_ms, jitter_ms, context_tokens, maximum_output_tokens, embedding_dimensions_minimum, embedding_dimensions_maximum, maximum_batch_size, input_price, output_price, observed_date, reasoning_effort, model_path)
   end
 
   roles = .ragrolebinding[]
@@ -185,6 +195,11 @@ parseconfigtext: procedure = .int
     if format_three = 0 & role_name = "extractor" then do
       do j = 1 to providers.0
         if providers[j].provider_id() = provider_id & providers[j].kind() = "codex" then maximum_input_tokens = 32768
+      end
+    end
+    if format_three = 0 & role_name = "embedding" then do
+      do j = 1 to providers.0
+        if providers[j].provider_id() = provider_id & providers[j].kind() = "llama" then do; dimensions = 384; batch_size = 1; end
       end
     end
     if provider_id \= "" then roles[roles.0 + 1] = .ragrolebinding(role_name, provider_id, maximum_input_tokens, maximum_output_tokens, maximum_call_cost, dimensions, batch_size, temperature, system_prompt)
@@ -370,7 +385,7 @@ _validconfigkey: procedure = .int
   if left(key,7) = "worker." & workersettingknown(substr(key,8)) = 1 then return 1
   if wordpos(key, "plan.ttl_seconds format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits budget.codex_turns budget.minimum_codex_allowance_percent worker.processes worker.max_in_flight worker.lease_seconds discovery.mode discovery.glossary_file discovery.ranked_limit discovery.max_mentions discovery.max_relationships discovery.max_notes vector.algorithm vector.centroids vector.probes vector.iterations vector.recall_minimum_millionths vector.maximum_rows vector.maximum_sidecar_bytes vector.embedding_maximum_items retrieval.lexical_candidates retrieval.vector_candidates retrieval.vector_scan_limit retrieval.graph_hops retrieval.passage_limit retrieval.claim_limit retrieval.lead_limit retrieval.rrf_k retrieval.graph_boost_millionths retrieval.graph_decay_millionths retrieval.directness_bonus_millionths retrieval.graph_direction retrieval.maximum_evidence_bytes maintenance.advanced_attempts maintenance.search_reads maintenance.evidence_expected maintenance.advanced_first maintenance.identity_prompt maintenance.connection_prompt maintenance.mode maintenance.provider_time_minutes maintenance.window_seconds maintenance.automatic_actions maintenance.maximum_impact maintenance.maximum_attempts maintenance.retry_seconds maintenance.maximum_evidence_bytes maintenance.resolution_prompt maintenance.sparse_max_degree maintenance.query_gap_min_occurrences maintenance.batch_items observation.capture_threshold observation.cooldown_seconds observation.maximum_staleness_seconds observation.work_minimum_change observation.work_relative_millionths observation.dead_letter_minimum_change observation.review_minimum_change observation.narrative_output_tokens") > 0 then return 1
   if _entitykey(key, "source.", "connector root include stable_key privacy retain_raw_artifact maximum_file_bytes maximum_depth") = 1 then return 1
-  if _entitykey(key, "provider.", "kind base_url model route_class privacy_policy credential timeout_ms max_attempts requests_per_minute tokens_per_minute concurrent_requests initial_backoff_ms maximum_backoff_ms jitter_ms context_tokens maximum_output_tokens embedding_dimensions_minimum embedding_dimensions_maximum maximum_batch_size input_price_microunits_per_million output_price_microunits_per_million catalog_observed_date reasoning_effort") = 1 then return 1
+  if _entitykey(key, "provider.", "kind base_url model route_class privacy_policy credential timeout_ms max_attempts requests_per_minute tokens_per_minute concurrent_requests initial_backoff_ms maximum_backoff_ms jitter_ms context_tokens maximum_output_tokens embedding_dimensions_minimum embedding_dimensions_maximum maximum_batch_size input_price_microunits_per_million output_price_microunits_per_million catalog_observed_date reasoning_effort model_path") = 1 then return 1
   if _entitykey(key, "schedule.", "operation trigger enabled") = 1 then return 1
   if _entitykey(key, "profile.", "file") = 1 then return 1
   if left(key, 5) = "role." then do

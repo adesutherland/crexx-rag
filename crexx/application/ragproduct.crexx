@@ -11,6 +11,7 @@ import ragclaims
 import ragcommand
 import ragcommandutil
 import ragconfig
+import ragembeddinginput
 import ragpolicyfile
 import ragcontinuation
 import ragconfiguration
@@ -133,7 +134,7 @@ _vectorrebuild: procedure = .ragcommandresult
   store = .ragstorehandle
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return commandopenfailure(operation, error)
   if querysnapshotmatches(store, config, profile.profile()) \= 1 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "vector rebuild configuration must match the current library snapshot"); end
-  envelope = "crexx-rag.embedding-input/1|" || provider.provider_id() || "|" || provider.kind() || "|" || provider.model() || "|" || role.embedding_dimensions()
+  envelope = embeddingenvelope(provider,role.embedding_dimensions())
   fingerprint = rxhash..sha256hex(envelope as .binary)
   embedding_profile_id = sqlreadtext(store.database(), "SELECT embedding_profile_id FROM embedding_profiles WHERE input_envelope_fingerprint=" || sqlquote(fingerprint) || " AND dimension=" || role.embedding_dimensions())
   if embedding_profile_id = "" then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "no compatible stored embeddings; vector rebuild never calls a provider"); end
@@ -145,7 +146,7 @@ _vectorrebuild: procedure = .ragcommandresult
   end
   rebuilt = .ragvectorgenerationresult
   if invalidateannindex(store,embedding_profile_id,error) \= 0 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,7,error); end
-  status = buildannvectorgeneration(store, embedding_profile_id, policy.maximum_rows(), policy.centroids(), policy.probes(), policy.iterations(), policy.maximum_sidecar_bytes(), rebuilt, error)
+  status = buildannvectorgeneration(store, embedding_profile_id, policy.maximum_rows(), policy.centroids(), policy.probes(), policy.iterations(), policy.maximum_sidecar_bytes(), rebuilt, error, policy.algorithm())
   close_error = ""; close_status = closeragstore(store, close_error)
   if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return commandfailure(operation, 7, error); end
   fields = .ragresultfield[]
@@ -1355,7 +1356,7 @@ _publishconfiguredvector: procedure = .int
   covered = sqlreadint(store.database(), "SELECT count(DISTINCT rce.revision_chunk_id) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || sqlquote(profile_id) || " AND rce.visible_from_generation<=" || current || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || current || ") AND rc.visible_from_generation<=" || current || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || current || ")")
   if covered = 0 then do; state = "pending-embeddings"; return 0; end
   vector_policy = config.vector(); generation = .ragvectorgenerationresult
-  if buildannvectorgeneration(store, profile_id, vector_policy.maximum_rows(), vector_policy.centroids(), vector_policy.probes(), vector_policy.iterations(), vector_policy.maximum_sidecar_bytes(), generation, error) \= 0 then return -3
+  if buildannvectorgeneration(store, profile_id, vector_policy.maximum_rows(), vector_policy.centroids(), vector_policy.probes(), vector_policy.iterations(), vector_policy.maximum_sidecar_bytes(), generation, error, vector_policy.algorithm()) \= 0 then return -3
   generation_count = 1
   if generation.state() = "published" then state = "published"
   else state = "identical-no-op"
@@ -1677,7 +1678,7 @@ _samechunkset: procedure = .int
 
 _embeddingprofileid: procedure = .string
   arg provider = .ragproviderconfig, dimension = .int
-  envelope = "crexx-rag.embedding-input/1|" || provider.provider_id() || "|" || provider.kind() || "|" || provider.model() || "|" || dimension
+  envelope = embeddingenvelope(provider,dimension)
   return "embedding-" || dimension || "-" || substr(rxhash..sha256hex(envelope as .binary), 1, 12)
 
 _missingembeddingcount: procedure = .int

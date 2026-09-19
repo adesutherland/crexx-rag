@@ -11,9 +11,19 @@ file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt"
     "BillingService depends on CustomerDatabase.\n"
     "Again, BillingService depends on CustomerDatabase.\n")
 set(CPRAG_FIXTURE_PORT 18999)
+if(CPRAG_NATIVE_VECTOR_ONLY)
+    set(CPRAG_FIXTURE_PORT 0)
+endif()
 set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source")
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
     "${CPRAG_WORK_DIR}/crexxrag.conf" @ONLY)
+
+if(CPRAG_NATIVE_VECTOR_ONLY)
+    file(APPEND "${CPRAG_WORK_DIR}/crexxrag.conf" "\nvector.algorithm = exact-native-v1\n")
+    set(expected_vector_state "active-exact-native")
+else()
+    set(expected_vector_state "active-ann-ivf-rxvector")
+endif()
 
 if(NOT EXISTS "${CPRAG_NATIVE_APPLICATION}")
     message(FATAL_ERROR "native crexxrag application is required")
@@ -40,7 +50,7 @@ set(ready FALSE)
 foreach(poll RANGE 1 200)
     if(EXISTS "${server_out}")
         file(READ "${server_out}" current_server_out)
-        if(current_server_out MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+        if(current_server_out MATCHES "READY [0-9]+")
             set(ready TRUE)
             break()
         endif()
@@ -51,11 +61,16 @@ if(NOT ready)
     message(FATAL_ERROR "Gemini query loopback did not become ready")
 endif()
 
+if(CPRAG_NATIVE_VECTOR_ONLY)
+    include("${CMAKE_CURRENT_LIST_DIR}/FixtureEndpoint.cmake")
+    crexxrag_fixture_endpoint("${server_out}" "${CPRAG_WORK_DIR}/crexxrag.conf")
+endif()
+
 execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 19")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 20")
     message(FATAL_ERROR "Query test human init failed:\n${init_out}${init_err}")
 endif()
 
@@ -72,13 +87,13 @@ endif()
 
 # With an answerer in the local config, the enduring shorthand performs one
 # compatible query embedding and one schema-constrained answer call.
-execute_process(COMMAND ${cli} query "What does BillingService depend on?"
+execute_process(COMMAND ${cli} query "What does BillingService depend on?" --mode hybrid
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE query_out ERROR_VARIABLE query_err
     RESULT_VARIABLE query_result TIMEOUT 60)
 if(NOT query_result EQUAL 0 OR
    NOT query_out MATCHES "OK: evidence-backed answer generated with validated citations" OR
-   NOT query_out MATCHES "vector state: active-ann-ivf-rxvector" OR
+   NOT query_out MATCHES "vector state: ${expected_vector_state}" OR
    NOT query_out MATCHES "generated answer: BillingService depends on CustomerDatabase" OR
    NOT query_out MATCHES "retrieval mode: hybrid" OR
    NOT query_out MATCHES "query embedding state: generated" OR
@@ -118,6 +133,40 @@ file(READ "${server_err}" final_server_err)
 if(NOT server_result STREQUAL "0" OR
    NOT final_server_out MATCHES "SUMMARY scenario=product-query connections=4")
     message(FATAL_ERROR "Positive Gemini query loopback failed:\n${final_server_out}${final_server_err}")
+endif()
+
+if(CPRAG_NATIVE_VECTOR_ONLY)
+    set(native_db "${CPRAG_WORK_DIR}/library/library.sqlite")
+    execute_process(COMMAND "${CREXXRAG_SQLITE3}" -readonly "${native_db}"
+        "SELECT sidecar_name FROM vector_generations WHERE state='published' AND algorithm='exact-native-v1'"
+        OUTPUT_VARIABLE native_sidecar OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    execute_process(COMMAND "${CREXXRAG_SQLITE3}" -readonly "${native_db}"
+        "SELECT count(*) FROM provider_runs"
+        OUTPUT_VARIABLE native_calls_before OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    set(native_path "${CPRAG_WORK_DIR}/library/${native_sidecar}")
+    file(COPY_FILE "${native_path}" "${CPRAG_WORK_DIR}/native-index.saved")
+    foreach(damage IN ITEMS missing corrupt)
+        if(damage STREQUAL "missing")
+            file(REMOVE "${native_path}")
+        else()
+            file(WRITE "${native_path}" "corrupt native index")
+        endif()
+        execute_process(COMMAND ${cli} --format json query evidence BillingService --mode hybrid
+            WORKING_DIRECTORY "${CPRAG_WORK_DIR}" RESULT_VARIABLE native_reject
+            OUTPUT_VARIABLE native_reject_out ERROR_VARIABLE native_reject_err TIMEOUT 30)
+        if(NOT native_reject EQUAL 8)
+            message(FATAL_ERROR "Native ${damage} index did not reject before provider work: ${native_reject_out}${native_reject_err}")
+        endif()
+        file(COPY_FILE "${CPRAG_WORK_DIR}/native-index.saved" "${native_path}")
+    endforeach()
+    execute_process(COMMAND "${CREXXRAG_SQLITE3}" -readonly "${native_db}"
+        "SELECT count(*) FROM provider_runs"
+        OUTPUT_VARIABLE native_calls_after OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    if(NOT native_calls_before STREQUAL native_calls_after)
+        message(FATAL_ERROR "Native preflight rejection changed provider history")
+    endif()
+    message(STATUS "Native exact public ingest, grounded answer and zero-call missing/corrupt preflight passed")
+    return()
 endif()
 
 # The deterministic report is a zero-provider, generation-bound view of corpus,

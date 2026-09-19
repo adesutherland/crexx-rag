@@ -645,6 +645,14 @@ representative source-span passages. Exact-schema and known-citation
 validation occurs before a narrative is cached or displayed; advisory output
 has no graph-mutation path.
 
+`ragreportservice` owns one shared vector projection for the report and its
+operational-digest recheck. It selects the latest compatible publication by
+publication time and ID, matching observation snapshots, and counts visible
+links and distinct parents only for that representation. Raw window counts are
+separate from parent coverage. The profile's existing dirty revision marks an
+outdated index as partial and participates in the operational digest; no new
+schema or vector-publication policy is introduced.
+
 ## External maintenance agents
 
 The [task and escalation guide](work-tasks-and-escalation.md) connects the
@@ -793,6 +801,9 @@ The provider factory selects by configured `kind`:
   process and managed ChatGPT OAuth;
 - `openai-compatible`: local llama.cpp generation or embedding endpoints;
 - `openai`: hosted OpenAI-compatible API route when explicitly configured.
+- `llama`: in-process BGE-small embeddings through the installed CREXX provider.
+  It retains one prepared native model/session per worker; query commands own
+  their short-lived session. Separate process workers do not share native handles.
 
 Every route declares local/hosted privacy and a charging basis. Codex is hosted
 even though the client is a local process. Subscription allowance is not
@@ -871,6 +882,86 @@ compatible embedding set for the requested work. Old vector BLOBs, links and
 publications remain stored. Neither operation invalidates source, graph or
 citation evidence. Query compatibility checks may decline an incompatible
 vector route; they do not classify the whole database as invalid.
+
+### Atomic embedding windows — agreed design
+
+Agreed on 18 September 2026; implementation and acceptance are tracked in the
+[delivery record](windowed-embedding-delivery-20260918.md) under
+RAG-QE-04/07/08/09. The standalone reader uses one selected local embedding
+model. Original source chunks remain the units of graph extraction and evidence.
+An oversized chunk is temporarily divided into overlapping, token-bounded
+embedding windows; a short chunk produces one window.
+
+One chunk-level routine returns the complete list of input identities and vectors,
+or fails the operation. If any window fails, discard that attempt's unfinished
+embedding output and retry the whole chunk through existing work/retry controls.
+Do not add per-window tasks, checkpoints or recovery state. Persisted window
+locations are unnecessary because retrieval returns the original parent chunk;
+existing claim and citation spans remain authoritative.
+
+Compute and validate the whole result before opening the SQLite write transaction.
+Store its vectors and parent links and complete the chunk's work atomically.
+Reuse `embeddings` and `revision_chunk_embeddings`; repeated identical window
+inputs may reuse one vector/link. Failure diagnostics and attempt history retain
+their existing recording path: atomicity applies to successful result publication.
+This all-or-none invariant establishes complete chunk coverage without additional
+window-progress counters. The windowing rules are part of the embedding profile
+and input identity, so old whole-chunk embeddings cannot silently satisfy a new
+windowed representation.
+
+Vector retrieval must retain distinct window candidates until scoring, then use
+the best matching score for each parent chunk and apply the final result limit
+to distinct parents. Return each parent once, using its existing evidence and
+graph context. No persisted matching-window location is required for this design.
+
+```mermaid
+flowchart LR
+    C[Original chunk] --> G[Graph extraction and evidence]
+    C --> W[Temporary overlapping windows]
+    W --> E[Complete embedding list or failure]
+    E --> P[Atomic vector and parent-link publication]
+    P --> S[Best matching score per parent]
+```
+
+Acceptance must cover a short chunk, a multi-window chunk, a failed inner window
+followed by whole-chunk retry, transaction rollback without partial membership,
+and retrieval whose best match is a later window. Multiple windows from one
+parent must not crowd distinct parents out of the final result limit. Existing
+source identities, citations, graph evidence and ordinary work history must be
+preserved. The delivery record distinguishes executed evidence from remaining
+qualification.
+
+`ragembeddinginput` owns the common representation envelope and windowing rules;
+workers, maintenance planning, vector rebuilding and query compatibility consume
+it. `llama_provider` owns the pinned BGE/engine identity and CREXX native lifetime.
+The initial rule admits at most 512 tokens per window, including special tokens,
+and overlaps 128 Unicode characters. Admission tokenizes without running the
+model. The native provider embeds the resulting list using its prepared context;
+failure returns no vector prefix. Existing receipts retain the complete list.
+`ragwork` validates a single parent/profile across that list and owns its atomic
+SQLite publication. `ragretrieval` scores each bounded page of windows and retains
+its best distinct parents, then takes each parent's maximum across pages before
+the final parent limit. This preserves the bounded candidate pool and handles
+zero/negative cosine scores. The source text is
+never rewritten and no window offsets are stored. `ragstore` integrity checks
+reject duplicate active links to the same embedding; distinct window embeddings
+within one parent/profile are valid, matching `ragembedding` reconciliation.
+
+ANN member traversal enumerates each selected group's JSON children once.
+An existing `.stem` dictionary detects duplicate parent-plus-input-digest keys;
+separate ordered arrays retain first-seen candidate order. An exact duplicate
+does not consume the vector scan allowance; different windows of one parent
+remain distinct until scoring. CREXX owns efficient immutable JSON access.
+
+`ragretrieval.preparevectorsidecar` owns hybrid preflight selection and verified
+request bytes; `ragqueryservice` composes it before provider work. Retrieval
+rechecks SQLite's current compatible publication, reusing bytes only when path,
+checksum and the current byte ceiling agree. A new publication reloads; no
+cross-request cache is retained. The existing retrieval entry point remains for
+callers without a prepared payload. `ragfile` appends bounded binary blocks;
+IVF scoring uses the native kernel's norm validation and translates its signal
+to the controlled retrieval error. See the
+[19 September measurements and acceptance](retrieval-tightening-20260919.md).
 
 ## Schema and publication
 
@@ -1150,3 +1241,40 @@ that state explicitly. Migration parents remain historical/contextual evidence.
 Shared initial/correction instructions explain split-parent identity and literal
 OCR escapes; final no-change remains a supported conclusion. Old frozen prompt
 identities retain their normal refusal and explicit refresh/reset path.
+
+
+### Native exact vector owner in CREXX rxvector
+
+`ragembedding` owns vector input projection and sidecar content identity;
+`ragbackup` owns publication/reactivation fencing; `ragretrieval` owns visibility,
+window-to-parent collapse and ranking. `ragconfig` selects `ivf-flat-v1` or
+`exact-native-v1`; `ragschema` migration 20 preserves both catalogue formats.
+CREXX's generic C RXPA provider `rxvector` owns immutable float32 vectors,
+opaque labels/metadata, exact cosine, binary encoding and reference lifetime.
+RAG consumes the installed `.vectorindex` factory and checked `openindex` API.
+No RAG vocabulary, SQLite or policy belongs in the provider. Its RXVIDX/1 binary
+format remains compatible with the former incubation, so existing sidecars need
+no conversion. USearch and the RAG-local native plugin have been removed.
+
+```mermaid
+flowchart LR
+    DB[(SQLite embeddings and membership)] --> Build[ragembedding]
+    Build --> File[Immutable native vector sidecar]
+    Q[Query embedding] --> Native[rxvector exact cosine]
+    File --> Native
+    Native --> Hits[Ranked window keys and scores]
+    Hits --> Visible[ragretrieval visibility checks]
+    DB --> Visible
+    Visible --> Parents[Best window per distinct parent]
+    Parents --> Evidence[Hybrid ranking and source citations]
+```
+
+The provider returns deterministic row-order ties. Retrieval widens the result
+request when repeated windows or hidden rows consume the initial results. The
+sidecar is disposable; source spans and embedding truth remain in SQLite.
+[API, compatibility and qualification](rxvector-consolidation-20260919.md).
+
+The owner keeps canonical float32 bytes without widening the whole matrix to
+doubles. Binary loading bypasses the IVF JSON catalogue. SQLite publication,
+checksum validation, visibility and parent aggregation stay in their existing
+Level-G owners; this change adds no schema, configuration or policy layer.

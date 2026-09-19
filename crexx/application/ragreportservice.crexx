@@ -88,12 +88,12 @@ libraryreport: procedure = .ragcommandresult
   support_min=span_counts[1]; support_max=span_counts[2]; support_total=span_counts[3]
   support_average = 0; if supports > 0 then support_average = (support_total / supports) as .int
 
-  embedding_links = sqlreadint(database, "SELECT count(*) FROM revision_chunk_embeddings WHERE " || visible_chunk)
   vector_counts=_vectorreportcounts(database,generation)
   vector_rows=vector_counts[1]; vector_dimension=vector_counts[2]; vector_centroids=vector_counts[3]; vector_probes=vector_counts[4]
+  embedding_links=vector_counts[5]; vector_parents=vector_counts[6]; vector_current=vector_counts[7]
 
-  vector_model = sqlreadtext(database, "SELECT p.model FROM vector_generations v JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state='published' AND " || compatiblevectorpredicate(generation as .string, "v.") || " ORDER BY v.published_at DESC LIMIT 1")
-  vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_rows * 1000000) / chunks) as .int
+  vector_model = sqlreadtext(database, "SELECT p.model FROM (" || _reportvectorselection(generation) || ") v JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id")
+  vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_parents * 1000000) / chunks) as .int
   fts_rows = sqlreadint(database, "SELECT count(*) FROM chunks_fts")
 
   incomplete_runs = sqlreadint(database, "SELECT count(*) FROM maintenance_runs WHERE state<>'complete'")
@@ -130,6 +130,7 @@ libraryreport: procedure = .ragcommandresult
   required_metrics[10] = connected; required_metrics[11] = maximum_degree; required_metrics[12] = unsupported; required_metrics[13] = conflicts
   required_metrics[14] = embedding_links; required_metrics[15] = vector_rows; required_metrics[16] = fts_rows
   required_metrics[17] = incomplete_runs; required_metrics[18] = pending_items; required_metrics[19] = dead_letters; required_metrics[20] = error_jobs; required_metrics[21] = actionable_dead_letters; required_metrics[22] = replaying_dead_letters; required_metrics[23] = resolved_dead_letters
+  required_metrics[24]=vector_parents;required_metrics[25]=vector_current
   do i = 1 to required_metrics.0
     if required_metrics[i] < 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "library report could not read a required metric"); end
   end
@@ -179,7 +180,7 @@ libraryreport: procedure = .ragcommandresult
   semantic = semantic || ']}'
   semantic_digest = rxhash..sha256hex(semantic as .binary)
   operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification.issue_count() || ',' || repository_verification.issue_count() || ',' || fts_rows || '],"reconciliation_warning":' || commandboolean(reconciliation_warning) || '}'
-  operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || ',"operator_dispositions":' || dispositions || '}'
+  operational = substr(operational,1,length(operational)-1) || ',"vector_current":' || commandboolean(vector_current) || ',"durable":' || _durablereportjson(durable) || ',"operator_dispositions":' || dispositions || '}'
   operational_digest = rxhash..sha256hex(operational as .binary)
   report_id = "report-sha256:" || semantic_digest
   provider_context = '{"schema":"crexx-rag.library-report-context/1","semantic":' || semantic || ',"operational":' || operational || ',"passages":[' || passages || ']}'
@@ -202,10 +203,12 @@ libraryreport: procedure = .ragcommandresult
   vector_state = "ready"
   if chunks = 0 then vector_state = "empty"
   else if vector_rows = 0 then vector_state = "missing"
-  else if vector_rows < chunks | embedding_links < chunks then vector_state = "partial"
-  else if vector_rows > chunks | embedding_links > chunks then vector_state = "inconsistent"
+  else if vector_parents < chunks | vector_current = 0 then vector_state = "partial"
+  else if vector_rows \= embedding_links then vector_state = "inconsistent"
   vector_fields = .ragresultfield[]
   vector_fields[1] = .ragresultfield("state", "string", vector_state); vector_fields[2] = .ragresultfield("active_embeddings", "integer", embedding_links); vector_fields[3] = .ragresultfield("published_rows", "integer", vector_rows); vector_fields[4] = .ragresultfield("dimension", "integer", vector_dimension); vector_fields[5] = .ragresultfield("model", "string", vector_model); vector_fields[6] = .ragresultfield("centroids", "integer", vector_centroids); vector_fields[7] = .ragresultfield("probes", "integer", vector_probes); vector_fields[8] = .ragresultfield("coverage_millionths", "integer", vector_coverage)
+  vector_fields[9]=.ragresultfield("covered_chunks","integer",vector_parents)
+  vector_fields[10]=.ragresultfield("index_current","boolean",commandboolean(vector_current))
   records[records.0 + 1] = .ragresultrecord("vector-stat", vector_fields)
   backlog_fields = .ragresultfield[]
   backlog_fields[1] = .ragresultfield("incomplete_runs", "integer", incomplete_runs); backlog_fields[2] = .ragresultfield("pending_items", "integer", pending_items); backlog_fields[3] = .ragresultfield("diagnosed_items", "integer", diagnosed_items); backlog_fields[4] = .ragresultfield("review_items", "integer", review_items); backlog_fields[5] = .ragresultfield("blocked_or_failed_items", "integer", blocked_items); backlog_fields[6] = .ragresultfield("applied_items", "integer", applied_items); backlog_fields[7] = .ragresultfield("active_jobs", "integer", active_jobs); backlog_fields[8] = .ragresultfield("jobs_with_errors", "integer", error_jobs); backlog_fields[9] = .ragresultfield("dead_letters", "integer", dead_letters); backlog_fields[10] = .ragresultfield("extraction_dead_letters", "integer", dead_extraction); backlog_fields[11] = .ragresultfield("improvement_dead_letters", "integer", dead_improvement); backlog_fields[12] = .ragresultfield("embedding_dead_letters", "integer", dead_embeddings); backlog_fields[13] = .ragresultfield("other_dead_letters", "integer", dead_other); backlog_fields[14] = .ragresultfield("actionable_dead_letters", "integer", actionable_dead_letters); backlog_fields[15] = .ragresultfield("replaying_dead_letters", "integer", replaying_dead_letters); backlog_fields[16] = .ragresultfield("resolved_dead_letters", "integer", resolved_dead_letters); backlog_fields[17] = .ragresultfield("reconciliation_warning", "boolean", commandboolean(reconciliation_warning))
@@ -227,7 +230,7 @@ libraryreport: procedure = .ragcommandresult
   lexical_state = "pass"; lexical_issues = 0; if fts_rows \= chunks then do; lexical_state = "attention"; lexical_issues = 1; end
   records[records.0 + 1] = _healthrecord("lexical", lexical_state, lexical_issues, "fts_rows=" || fts_rows || ",active_chunks=" || chunks)
   vector_issues = 0; if vector_state \= "ready" & vector_state \= "empty" then vector_issues = 1
-  records[records.0 + 1] = _healthrecord("vector", vector_state, vector_issues, "published_rows=" || vector_rows || ",active_chunks=" || chunks || ",active_embeddings=" || embedding_links)
+  records[records.0 + 1] = _healthrecord("vector", vector_state, vector_issues, "published_rows=" || vector_rows || ",active_chunks=" || chunks || ",active_embeddings=" || embedding_links || ",covered_chunks=" || vector_parents)
   provenance_state = "pass"; if unsupported > 0 | conflicts > 0 then provenance_state = "attention"
   records[records.0 + 1] = _healthrecord("provenance", provenance_state, unsupported + conflicts, "unsupported_claims=" || unsupported || ",conflicts=" || conflicts)
   graph_state = "pass"; graph_issues = 0
@@ -411,11 +414,14 @@ _persistreportnarrative: procedure = .int
 reportoperationaldigest: procedure = .string
   arg database = .binary, generation = .int, verification_issues = .int, repository_issues = .int
   visible = "visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
-  embedding_links = sqlreadint(database, "SELECT count(*) FROM revision_chunk_embeddings WHERE " || visible)
   vector_counts=_vectorreportcounts(database,generation)
   vector_rows=vector_counts[1]; vector_dimension=vector_counts[2]; vector_centroids=vector_counts[3]; vector_probes=vector_counts[4]
+  embedding_links=vector_counts[5]; vector_parents=vector_counts[6]; vector_current=vector_counts[7]
+  do i=1 to vector_counts.0
+    if vector_counts[i]<0 then return ""
+  end
 
-  chunks = sqlreadint(database, "SELECT count(*) FROM revision_chunks WHERE " || visible); vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_rows * 1000000) / chunks) as .int
+  chunks = sqlreadint(database, "SELECT count(*) FROM revision_chunks WHERE " || visible); vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_parents * 1000000) / chunks) as .int
   incomplete_runs = sqlreadint(database, "SELECT count(*) FROM maintenance_runs WHERE state<>'complete'")
   maintenance_counts=_maintenancereportcounts(database,generation)
   pending_items=maintenance_counts[1];diagnosed_items=maintenance_counts[2];review_items=maintenance_counts[3];blocked_items=maintenance_counts[4];applied_items=maintenance_counts[5]
@@ -433,7 +439,7 @@ reportoperationaldigest: procedure = .string
   end
   dispositions=_dispositionreportjson(database,reconciliation_counts[4])
   if dispositions="" then return ""
-  operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || ',"operator_dispositions":' || dispositions || '}'
+  operational = substr(operational,1,length(operational)-1) || ',"vector_current":' || commandboolean(vector_current) || ',"durable":' || _durablereportjson(durable) || ',"operator_dispositions":' || dispositions || '}'
   return rxhash..sha256hex(operational as .binary)
 _durablereportcensus: procedure = .int[]
   arg database = .binary
@@ -482,12 +488,20 @@ _healthrecord: procedure = .ragresultrecord
   fields = .ragresultfield[]; fields[1] = .ragresultfield("dimension", "string", dimension); fields[2] = .ragresultfield("state", "string", state); fields[3] = .ragresultfield("issue_count", "integer", issue_count); fields[4] = .ragresultfield("detail", "string", detail)
   return .ragresultrecord("health", fields)
 
+/* One coherent publication, matching the observation snapshot selection.
+ * Retained representations and multiple windows cannot inflate parent coverage.
+ * A dirty index remains partial even when all parent embeddings are present. */
+_reportvectorselection: procedure = .string
+  arg generation=.int
+  return "SELECT v.* FROM vector_generations v WHERE v.state='published' AND " || compatiblevectorpredicate(generation as .string,"v.") || " ORDER BY v.published_at DESC,v.vector_generation_id DESC LIMIT 1"
+
 _vectorreportcounts: procedure = .int[]
   arg database=.binary, generation=.int
   values=.int[]
-  sql="SELECT coalesce(max(row_count),0),coalesce(max(dimension),0),coalesce(max(centroid_count),0),coalesce(max(probe_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string)
-  if sqlreadints(database,sql,values,4)<>0 then do
-    do i=1 to 4;values[i]=-1;end
+  visible="visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
+  sql="WITH selected AS (" || _reportvectorselection(generation) || "), membership AS (SELECT l.revision_chunk_id FROM selected v JOIN embeddings e ON e.embedding_profile_id=v.embedding_profile_id JOIN revision_chunk_embeddings l ON l.embedding_id=e.embedding_id JOIN revision_chunks c ON c.revision_chunk_id=l.revision_chunk_id WHERE l.visible_from_generation<=" || generation || " AND (l.visible_to_generation IS NULL OR l.visible_to_generation>" || generation || ") AND c.visible_from_generation<=" || generation || " AND (c.visible_to_generation IS NULL OR c.visible_to_generation>" || generation || ")) SELECT coalesce((SELECT row_count FROM selected),0),coalesce((SELECT dimension FROM selected),0),coalesce((SELECT centroid_count FROM selected),0),coalesce((SELECT probe_count FROM selected),0),CASE WHEN EXISTS(SELECT 1 FROM selected) THEN count(m.revision_chunk_id) ELSE (SELECT count(*) FROM revision_chunk_embeddings WHERE " || visible || ") END,count(DISTINCT m.revision_chunk_id),coalesce((SELECT v.input_revision=p.vector_revision FROM selected v JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id),0) FROM membership m"
+  if sqlreadints(database,sql,values,7)<>0 then do
+    do i=1 to 7;values[i]=-1;end
   end
   return values
 

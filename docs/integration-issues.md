@@ -10,6 +10,34 @@ maps these dependencies and qualification limits to the product backlog.
 These are current boundaries, accepted limitations and recorded repairs. Any
 source-level containment used by the product is stated explicitly.
 
+## Large JSON accessor buffer copying — published upstream 18 September 2026
+
+Scottish query profiling identifies a generic `rxjson` cost independently of
+SQLite and native inference. The 6.9 MB index contains 109,045 JSON nodes.
+Reading 13,674 member records takes 4.008 s with repeated element lookup, or
+3.667 s with existing bulk child enumeration. A private, namespace-renamed
+diagnostic copy borrowing the source/node/key binary inputs in five read helpers
+takes 0.365 s and 0.028 s respectively; parsing remains approximately 0.61 s.
+The unchanged library was also compiled privately as the comparison control.
+Production OS samples independently show 72–79% of sampled main-thread stacks
+in runtime value copying. These are the original diagnostic measurements.
+
+The generic repair is now published through CREXX hotfix to `origin/develop`
+as [65275452d](https://github.com/adesutherland/CREXX/commit/65275452d90dd1d9ed8146650f7059b27ff9c56c).
+Its five read-only helpers borrow the existing buffers; ownership tests and
+451 unique local functional/core checks pass. Hosted publication checks are
+tracked separately. RAG uses `children()` once per selected group and the
+existing `.stem` dictionary for full parent-plus-input identity. Combined,
+these changes reduced the same query from 10.47 seconds to 3.41/1.64/1.63
+seconds with identical passages, scores and claims.
+
+The measured RAG package uses a private copy of installed CREXX 15c8a3ba4200
+with only its JSON module rebuilt from the byte-identical published repair.
+Normal `~/.local` remains unchanged. A later ordinary rebuild must select an
+installed package containing the repair; checking only its older BUILDINFO
+does not establish the private module patch. The retained library/source hashes
+identify this candidate. [Reproduction, ownership and qualification](retrieval-profiling-20260918.md).
+
 ## Test 7 long-run controller lifetime — open, 15 September 2026
 
 The Scottish soak's first Boswell controller was absent with no launcher
@@ -214,19 +242,48 @@ transport recovery. Evidence is in
 HTTP adapters use operation-scoped provider instances. The Codex adapter keeps
 one App Server child and its byte channels for the lifetime of a worker.
 
-### Proposed native embedding capability
+### Native embedding capability
 
-The current local embedding integration uses the OpenAI-compatible llama.cpp
-endpoint. An in-process inference provider is proposed in
-[CREXX-NI-01 through NI-06](https://github.com/adesutherland/CREXX/blob/develop/docs/planning/native-inference-backlog.md),
-captured 2026-09-11; it is not supplied by the installed CREXX package described
-here. CREXX owns its native library, model lifecycle, CPU/Metal support and
+The RAG local routes now include the OpenAI-compatible llama.cpp endpoint and
+the [native BGE adapter](windowed-embedding-delivery-20260918.md). The latter
+keeps one model/session per existing process worker and composes the lower-level
+typed CREXX `llama` embedding API; runtime libraries and trained weights remain CREXX/model
+artifacts. The in-process inference provider described in
+[CREXX-NI-01 through NI-06](https://github.com/adesutherland/CREXX/blob/develop/docs/planning/native-inference-backlog.md)
+on 11 September was supplied by CREXX `d0feda283857`.
+The [17 September Scottish scratch evaluation](native-scottish-evaluation-20260917.md)
+exercised its pinned BGE CPU/Metal and SmolLM2 Metal models. Installed CREXX is
+now `e457f5ec3880`: the [18 September review](native-model-follow-up-20260918.md)
+records general compatible GGUF profiles, common generation drivers and the
+separate native embedding interface. Additional BGE-base artifacts and a narrow
+Gemma E4B generation path have upstream evidence. The
+[18 September four-model comparison](native-interface-comparison-20260918.md)
+adds initial Scottish embedding evidence and common/direct API parity. Nomic's
+official GGUF runs at 2048 tokens; 8192 needs unexposed context-scaling/admission
+support. Q4 CPU/Metal differences and Gemma answer quality still need qualification.
+The bounded BGE integration and small-corpus results are recorded separately
+from those open experiments. CREXX owns its native
+library, model lifecycle, CPU/Metal support and
 packaging. The product's provider selection, persistent request scheduling,
 embedding profiles and migration requirements are in
 [RAG-QE-04, QE-07 and QE-08](query-engine-backlog.md).
 Use existing long-lived worker facilities; a new attached-worker architecture
-or durable-service framework is not a prerequisite. This is a future capability
-dependency, not a regression in the supported HTTP route.
+or durable-service framework is not a prerequisite. Upstream availability does
+not close the RAG integration, migration or retrieval acceptance requirements.
+
+### Common inference interface gaps
+
+Reviewed installed CREXX `e457f5ec3880` on 18 September 2026. Common `.embedding`
+supports native llama, but does not expose token admission without inference or
+input-token usage. Both are needed to preserve the current BGE windowing and
+accounting contract. Hosted embedding drivers are absent; common hosted `.llm`
+also lacks the structured-output, message-role, usage and finish-reason controls
+used by RAG. Managed Codex App Server is a separate unsupported route.
+These are shared-interface capability gaps, not failures of the current adapters.
+The agreed deferral, smallest upstream additions, route sequencing and acceptance
+are recorded solely in [RAG-PROV-01](ROADMAP.md#common-crexx-inference-interfaces--rag-prov-01-deferred).
+Keep the current adapters until the relevant capability and regression evidence
+exist; this record does not claim an upstream issue has been filed or work scheduled.
 
 ### Long-lived Codex channels: completed-request retention
 
@@ -375,3 +432,53 @@ It stores no policy and no library data. Native process death releases its lock;
 an orphan staging file is never selected as policy. External editors do not use
 this lock. Rechecking the target hash catches ordinary stale edits but cannot
 make their arbitrary writes participate in an atomic compare-and-swap protocol.
+
+## 19 September 2026 — rxvector consolidation
+
+The generic C owner/codec/search is published in CREXX `5949ef27efd8` through
+hotfix/develop and installed in `~/.local`. RAG consumes that normal installed
+cohort and removes its incubating
+plugin, USearch vendor, private SDK staging and extra C++ link configuration.
+The existing provider metadata/static archive discovery works without a new
+compiler, RXBIN or host ABI. The same binary sidecar is read directly. Local
+qualification and API ownership are recorded in
+[the initial delivery](rxvector-consolidation-20260919.md). The rebuilt RAG gate
+passes 130/130; [publication and installed acceptance](baseline-publication-20260919.md)
+record exact artifacts and the remaining platform boundaries.
+
+The following notes retain the earlier integration state and explain why its
+packaging workaround existed; they are superseded by this consolidation.
+
+## 18 September 2026 — incubating native vector package (historical)
+
+The approved `rxvectorindex` implementation is local to RAG pending donation.
+The installed CREXX native driver resolves provider archives only under its
+selected `CREXX_HOME/bin/providers`, and links through its C compiler. RAG's
+build therefore stages a private package view, copies the declared provider
+cohort (package validation correctly rejects escaping symlinks), adds the vector
+archive and supplies the platform C++ runtime in that private link configuration.
+Neither the installed prefix nor the sibling CREXX checkout is modified.
+After donation, CREXX should own this provider and its native runtime dependency;
+RAG can consume the installed component and remove incubation staging.
+[Scope, tests and qualification](native-vector-delivery-20260918.md).
+
+The 19 September comparison separates this packaging choice from query speed:
+existing native `rxvector` searches the complete matrix in 12 ms versus 1.4 ms
+for USearch. Most of the whole-command benefit comes from compact binary loading
+and avoiding JSON traversal. Adrian authorized investigating C float32 support
+in `rxvector`; a disposable direct-float32 prototype passes the frozen oracle in
+about 10 ms and avoids expanding the matrix to doubles. Consolidating a generic
+binary matrix owner/search into the existing provider is recommended for review
+before donation. That full route and its RXPA/platform contracts are not yet
+implemented or qualified; the current opt-in plugin remains available locally.
+[Measurements, prototype scope and tradeoffs](retrieval-tightening-20260919.md).
+
+
+The follow-up [binary-owner review](rxvector-binary-review-20260919.md) proves the
+complete path without USearch in a scratch provider: 0.950 s versus 0.940 s
+medians with identical ordered passages across twenty questions. Backend-owned
+binary sidecars are the user-confirmed direction. CREXX work is now bounded to
+the generic C/RXPA float32 owner, codec, search, lifetime and packaging contracts;
+RAG retains publication/visibility policy. This is not yet an installed rxvector
+extension. The experiment retains the current C++ wrapper, so removing its
+runtime dependency remains part of that port.

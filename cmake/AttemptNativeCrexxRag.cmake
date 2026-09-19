@@ -11,8 +11,11 @@ file(MAKE_DIRECTORY "${package_dir}")
 configure_file("${CPRAG_APPLICATION_PROJECT_RXBIN}"
     "${package_dir}/crexxrag.rxbin" COPYONLY)
 
+get_filename_component(crexx_bin "${CPRAG_CREXX_EXECUTABLE}" DIRECTORY)
+get_filename_component(crexx_prefix "${crexx_bin}" DIRECTORY)
+
 execute_process(
-    COMMAND "${CPRAG_CREXX_EXECUTABLE}"
+    COMMAND "${CMAKE_COMMAND}" -E env "CREXX_HOME=${crexx_prefix}" "${CPRAG_CREXX_EXECUTABLE}"
         -native -nocompile -noexec -nocolor -verbose2
         --linkmap "${package_dir}/crexxrag-native.map"
         crexxrag.crexx

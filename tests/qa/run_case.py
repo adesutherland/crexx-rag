@@ -65,7 +65,7 @@ def main():
     identity = {'command': command, 'inputs': {p: digest(p) for p in inputs},
                 'artifacts': {p: digest(p) for p in artifacts},
                 'runner': digest(__file__), 'python': sys.version, 'timeout': args.timeout, 'ports': sorted(args.port), 'environment': {
-                    k: os.environ.get(k, '') for k in ['PATH', 'TZ', 'LANG', 'LC_ALL', 'CREXXRAG_TEST_TIMEOUT', 'CPRAG_CONFIG_FIXTURE']}}
+                    k: os.environ.get(k, '') for k in ['PATH', 'TZ', 'LANG', 'LC_ALL', 'CREXXRAG_TEST_TIMEOUT', 'CPRAG_CONFIG_FIXTURE', 'CREXX_PROVIDER_PATH']}}
     key = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     receipt = root / 'results' / args.name / (key + '.json')
     if args.inspect:

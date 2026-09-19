@@ -737,7 +737,7 @@ verifyragstore: procedure = .int
     issues = issues + 1
     summary = _addissue(summary, "embedding-dimensions")
   end
-  if _scalarint(store.database(), "SELECT count(*) FROM (SELECT l.revision_chunk_id,e.embedding_profile_id FROM revision_chunk_embeddings l JOIN embeddings e ON e.embedding_id=l.embedding_id WHERE l.visible_to_generation IS NULL GROUP BY l.revision_chunk_id,e.embedding_profile_id HAVING count(*)>1)", error) \= 0 then do
+  if _scalarint(store.database(), "SELECT count(*) FROM (SELECT revision_chunk_id,embedding_id FROM revision_chunk_embeddings WHERE visible_to_generation IS NULL GROUP BY revision_chunk_id,embedding_id HAVING count(*)>1)", error) \= 0 then do
     issues = issues + 1
     summary = _addissue(summary, "embedding-membership-duplicates")
   end
@@ -746,7 +746,7 @@ verifyragstore: procedure = .int
     issues = issues + 1
     summary = _addissue(summary, "configuration-state")
   end
-  sidecar_sql = "SELECT count(*) FROM vector_generations v LEFT JOIN published_generations g ON g.generation=v.semantic_generation LEFT JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state NOT IN('published','superseded') OR v.algorithm<>'ivf-flat-v1' OR v.row_count<1 OR v.centroid_count<1 OR v.centroid_count>v.row_count OR v.probe_count<1 OR v.probe_count>v.centroid_count OR g.generation IS NULL OR p.embedding_profile_id IS NULL OR length(v.sidecar_checksum)<>64 OR v.sidecar_checksum GLOB '*[^0-9a-f]*' OR v.sidecar_name='' OR instr(v.sidecar_name,'/')>0 OR instr(v.sidecar_name,char(92))>0 OR (v.state='published' AND v.published_at IS NULL)"
+  sidecar_sql = "SELECT count(*) FROM vector_generations v LEFT JOIN published_generations g ON g.generation=v.semantic_generation LEFT JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state NOT IN('published','superseded') OR v.algorithm NOT IN('ivf-flat-v1','exact-native-v1') OR v.row_count<1 OR v.centroid_count<1 OR v.centroid_count>v.row_count OR v.probe_count<1 OR v.probe_count>v.centroid_count OR g.generation IS NULL OR p.embedding_profile_id IS NULL OR length(v.sidecar_checksum)<>64 OR v.sidecar_checksum GLOB '*[^0-9a-f]*' OR v.sidecar_name='' OR instr(v.sidecar_name,'/')>0 OR instr(v.sidecar_name,char(92))>0 OR (v.state='published' AND v.published_at IS NULL)"
   if _scalarint(store.database(), sidecar_sql, error) \= 0 | _activesidecarfilesvalid(store.database(), generation, store.path(), error) \= 1 then do
     issues = issues + 1
     summary = _addissue(summary, "sidecars")
@@ -868,7 +868,7 @@ _manifestsidecarstate: procedure = .int
     item = document.element(sidecars, i)
     vector_generation_id = ""; semantic_generation = 0; embedding_profile_id = ""; sidecar_name = ""; sidecar_checksum = ""; dimension = 0; algorithm = ""; row_count = 0; centroid_count = 0; probe_count = 0
     if document.node_type(item) \= "object" | document.node_string(document.member(item, "vector_generation_id"), vector_generation_id) \= 0 | document.node_int(document.member(item, "semantic_generation"), semantic_generation) \= 0 | document.node_string(document.member(item, "embedding_profile_id"), embedding_profile_id) \= 0 | document.node_string(document.member(item, "name"), sidecar_name) \= 0 | document.node_string(document.member(item, "sha256"), sidecar_checksum) \= 0 | document.node_int(document.member(item, "dimension"), dimension) \= 0 | document.node_string(document.member(item, "algorithm"), algorithm) \= 0 | document.node_int(document.member(item, "row_count"), row_count) \= 0 | document.node_int(document.member(item, "centroid_count"), centroid_count) \= 0 | document.node_int(document.member(item, "probe_count"), probe_count) \= 0 then return -1
-    if semantic_generation > generation | dimension < 1 | algorithm \= "ivf-flat-v1" | row_count < 1 | centroid_count < 1 | centroid_count > row_count | probe_count < 1 | probe_count > centroid_count | _safesidecarname(sidecar_name) \= 1 | _validsha256(sidecar_checksum) \= 1 | rxfs..isfile(path || "/" || sidecar_name) \= 1 then return -1
+    if semantic_generation > generation | dimension < 1 | (algorithm \= "ivf-flat-v1" & algorithm \= "exact-native-v1") | row_count < 1 | centroid_count < 1 | centroid_count > row_count | probe_count < 1 | probe_count > centroid_count | _safesidecarname(sidecar_name) \= 1 | _validsha256(sidecar_checksum) \= 1 | rxfs..isfile(path || "/" || sidecar_name) \= 1 then return -1
     sql = "SELECT count(*) FROM vector_generations WHERE state='published' AND vector_generation_id=" || _sqlquote(vector_generation_id) || " AND semantic_generation=" || semantic_generation || " AND embedding_profile_id=" || _sqlquote(embedding_profile_id) || " AND sidecar_name=" || _sqlquote(sidecar_name) || " AND sidecar_checksum=" || _sqlquote(sidecar_checksum) || " AND dimension=" || dimension || " AND algorithm=" || _sqlquote(algorithm) || " AND row_count=" || row_count || " AND centroid_count=" || centroid_count || " AND probe_count=" || probe_count
     sql = sql || " AND " || compatiblevectorpredicate(generation as .string)
     if _scalarint(database, sql, error) \= 1 then return -1

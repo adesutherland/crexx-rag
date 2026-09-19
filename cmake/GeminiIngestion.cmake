@@ -79,7 +79,7 @@ set(cli "${CMAKE_COMMAND}" -E env
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     --profile it-architecture-profile --access admin --format json library init
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":19")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":20")
     message(FATAL_ERROR "Gemini product library init failed:\n${init_out}${init_err}")
 endif()
 
@@ -360,6 +360,17 @@ endif()
 file(COPY "${CPRAG_NATIVE_APPLICATION}" DESTINATION "${CPRAG_WORK_DIR}"
     FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+# A relocated native application must retain CREXX's declared runtime cohort.
+# This also applies when this driver is composed by prompt/installed tests.
+get_filename_component(native_package "${CPRAG_NATIVE_APPLICATION}" DIRECTORY)
+file(READ "${native_package}/rxllama.native.json" native_manifest)
+string(JSON runtime_count LENGTH "${native_manifest}" runtime_files)
+math(EXPR runtime_last "${runtime_count}-1")
+foreach(index RANGE 0 ${runtime_last})
+    string(JSON runtime_file GET "${native_manifest}" runtime_files ${index} path)
+    file(COPY "${native_package}/${runtime_file}" DESTINATION "${CPRAG_WORK_DIR}")
+endforeach()
+file(COPY "${native_package}/rxllama.native.json" DESTINATION "${CPRAG_WORK_DIR}")
 set(human_application "${CPRAG_WORK_DIR}/crexxrag")
 set(human_cli "${CMAKE_COMMAND}" -E env
     "CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key"

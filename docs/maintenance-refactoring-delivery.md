@@ -1,5 +1,47 @@
 # Maintenance refactoring delivery
 
+## rxvector consolidation — 19 September 2026
+
+`ragembedding` and `ragretrieval` switch to CREXX's installed binary float32
+owner. Publication/reactivation stays with `ragbackup`; visibility and distinct
+parent ranking stay in `ragretrieval`. No product policy or SQL moves into C.
+The installed-provider consumer and unchanged public ingestion, query preflight,
+receipt, recovery and backup journeys are the acceptance surface.
+[Qualification](rxvector-consolidation-20260919.md).
+
+## Native vector integration — 18 September 2026, locally qualified
+
+`ragembedding`, `ragbackup`, `ragretrieval` and `ragconfig` retain their existing ownership. A generic native provider adds no product policy. Shared binary publication supports both formats and verified reactivation. Both VMs passed the new 52-window/distinct-parent, removal, recovery, backup/restore fixture and the fail-first A/B/A regression, including changed-generation/revision rejection. `ragqueryservice` accepts native indexes in hybrid preflight, and `ragmaintain` recognises a clean native publication so it converges without repeated rebuilding; public ingestion/answer and maintenance-census assertions cover both fixes. The complete local gate accounts for 131/131 passing cases. [Acceptance and evidence](native-vector-delivery-20260918.md).
+
+
+## Vector report correction — 18 September 2026, locally verified
+
+`ragreportservice` remains the owner of the public report and its operational
+digest. A shared projection distinguishes parent coverage, current window links
+and published index rows for one representation. `ragobservationservice`
+continues to consume the report fields; its publication ordering already agrees.
+Narrative cache validation uses the same projection and existing dirty revision.
+No command adapter, provider, schema or worker behavior changes. Fail-first
+`ann_methodology` checks cover retained profiles and multiple windows with
+empty/partial positive controls. Final targeted acceptance passed on both VMs
+in 8.66 seconds; the preserved installation also reports correct complete
+coverage and zero issues for the full 36,319-parent/36,328-window Scottish copy.
+[Acceptance and qualification boundaries](scottish-bge-migration-20260918.md#completed-corpus-acceptance).
+
+## Atomic embedding windows — 18 September 2026, locally qualified
+
+`ragembeddinginput` now owns representation envelopes previously repeated by
+worker, backlog, product and query composition. It also owns temporary window
+splitting; the native adapter owns token admission, model/session lifetime and
+the pinned BGE/engine identity. `ragworktypes` carries a complete list while
+preserving singular construction for existing providers. `ragwork` retains
+transaction ownership; `ragretrieval` retains scoring and bounded parent aggregation.
+`ragstore` verifies uniqueness by parent/embedding ID, agreeing with existing
+`ragembedding` reconciliation while allowing distinct windows in one profile.
+No schema, task type, durable window state or CREXX implementation change.
+Baseline and boundary regressions are recorded in the
+[delivery evidence](windowed-embedding-delivery-20260918.md).
+
 ## Essential observability — 16 September 2026, locally qualified
 
 Existing owners remain in place: application request serialization/redaction in
@@ -787,3 +829,28 @@ continues to own distinct provider-run counts and reset baselines; no policy
 moves into adapters. The [ESC-OPS-02 record](advanced-call-budget-delivery-20260917.md)
 retains baseline passes, the isolated failing worker sequence, three/five-call
 acceptance and final qualification status.
+
+## Retrieval traversal repair (18 September 2026)
+
+`ragretrieval._vector` retains ownership of ANN selection, member validation,
+candidate bounds and parent scoring. It now enumerates selected JSON members
+once and uses the existing dictionary to deduplicate full parent/window keys
+while retaining first-seen order. No SQL, transaction, prompt, configuration or
+adapter ownership changed. Generic immutable JSON buffer borrowing belongs to
+CREXX and is published separately. The expanded ANN baseline, focused acceptance
+and full-corpus result equivalence are recorded in
+[the profiling and repair record](retrieval-profiling-20260918.md). Full local
+qualification accounts for 127/127 passing cases in 763.96 seconds, including
+two reused exact-input passes and scratch-installed acceptance.
+
+## Retrieval verification ownership (19 September 2026)
+
+`ragretrieval` now owns both preflight selection/verified request bytes and final
+current-publication checks. `ragqueryservice` composes that owner before provider
+work; workers and other callers retain the six-argument entry point. `ragfile`
+retains bounded I/O ownership. Native `rxvector` norm validation replaces the
+duplicate component loop with the same controlled zero-norm failure. No schema,
+configuration, transaction or generic provider contract changes. Boundary tests
+cover path/checksum/ceiling invalidation, changed publication, current visibility,
+independent bytes and early rejection without provider work. See
+[delivery and full-gate status](retrieval-tightening-20260919.md).

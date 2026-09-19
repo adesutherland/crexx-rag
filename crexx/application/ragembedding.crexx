@@ -180,6 +180,7 @@ embedmissing: procedure = .int
   profile_provider = ""; model = ""; dimension = 0; envelope = ""
   if _profile(store.database(), embedding_profile_id, profile_provider, model, dimension, envelope, error) \= 0 then return -3
   capabilities = backend.capabilities()
+  if capabilities.provider() = "llama" then do; error = "native windowed embedding uses the atomic chunk worker; use maintain --embeddings-only"; return -2; end
   if capabilities.provider() \= profile_provider | capabilities.embeddings() \= 1 | capabilities.batch_embeddings() \= 1 then do; error = "embedding provider capabilities do not match the selected profile"; return -2; end
   batch_size = requested_batch_size
   if capabilities.batch_size() > 0 & capabilities.batch_size() < batch_size then batch_size = capabilities.batch_size()
@@ -233,16 +234,18 @@ embedmissing: procedure = .int
   return 0
 
 buildannvectorgeneration: procedure = .int
-  arg store = .ragstorehandle, embedding_profile_id = .string, maximum_rows = .int, requested_centroids = .int, requested_probes = .int, iterations = .int, maximum_sidecar_bytes = .int, expose result = .ragvectorgenerationresult, expose error = .string
+  arg store = .ragstorehandle, embedding_profile_id = .string, maximum_rows = .int, requested_centroids = .int, requested_probes = .int, iterations = .int, maximum_sidecar_bytes = .int, expose result = .ragvectorgenerationresult, expose error = .string, algorithm = "ivf-flat-v1"
   result = .ragvectorgenerationresult(-1, "error", "", 0, embedding_profile_id, 0, 0, "", "", "vector generation input is invalid")
   error = ""
   if store.writable() \= 1 | _safeid(embedding_profile_id) \= 1 | maximum_rows < 1 | maximum_rows > 1000000 | requested_centroids < 1 | requested_centroids > 4096 | requested_probes < 1 | requested_probes > requested_centroids | iterations < 1 | iterations > 16 | maximum_sidecar_bytes < 1048576 | maximum_sidecar_bytes > 2000000000 then do; error = "vector generation input is invalid"; return -1; end
+  if algorithm \= "ivf-flat-v1" & algorithm \= "exact-native-v1" then do; error = "unsupported vector algorithm"; return -1; end
+  if algorithm = "exact-native-v1" then do; requested_centroids = 1; requested_probes = 1; iterations = 1; end
   generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   provider_id = ""; model = ""; dimension = 0; envelope = ""
   if generation < 1 | _profile(store.database(), embedding_profile_id, provider_id, model, dimension, envelope, error) \= 0 then return -3
   input_revision = _scalarint(store.database(),"SELECT vector_revision FROM embedding_profiles WHERE embedding_profile_id=" || _q(embedding_profile_id))
   if input_revision < 0 then do; error = "cannot read vector dirty marker"; return -3; end
-  reused = _reusecleanindex(store,generation,embedding_profile_id,dimension,input_revision,maximum_rows,requested_centroids,requested_probes,iterations,maximum_sidecar_bytes,result,error)
+  reused = _reusecleanindex(store,generation,embedding_profile_id,dimension,input_revision,maximum_rows,requested_centroids,requested_probes,iterations,maximum_sidecar_bytes,result,error,algorithm)
   if reused < 0 then return -3
   if reused = 1 then return 0
   invalid = _scalarint(store.database(), "SELECT count(*) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || _q(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || ") AND rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ") AND (e.dimension<>" || dimension || " OR length(e.vector)<>" || dimension * 4 || ")")
@@ -269,6 +272,15 @@ buildannvectorgeneration: procedure = .int
   if probe_count > centroid_count then probe_count = centroid_count
   chunk_ids = .string[]; input_digests = .string[]; matrix = .packedfloat(0)
   if _loadmatrix(store.database(), generation, embedding_profile_id, rows, dimension, chunk_ids, input_digests, matrix, error) \= 0 then return -3
+  if algorithm = "exact-native-v1" then do
+    labels = .string[]
+    do row = 1 to chunk_ids.0; labels[row] = chunk_ids[row] || "00"x || input_digests[row]; end
+    metadata = generation || "|" || embedding_profile_id
+    native_index = .vectorindex(rxvector..encodef32le(matrix),dimension,labels,metadata)
+    payload = native_index.encode()
+    call native_index.close()
+    return _publishindexpayload(store,generation,generation,embedding_profile_id,dimension,rows,1,1,input_revision,1,maximum_sidecar_bytes,payload,algorithm,result,error)
+  end
   centroids = .packedfloat(centroid_count * dimension); assignments = .int[]
   if _trainivf(matrix, rows, dimension, centroid_count, iterations, centroids, assignments, error) \= 0 then return -3
   centroid_wire = rxvector..encodef32le(centroids)
@@ -296,10 +308,15 @@ buildannvectorgeneration: procedure = .int
     call sqlitefinalize compatible
     if compatible_step \= 101 then do; error = "cannot read compatible vector replay"; return -3; end
   end
-  checksum = rxhash..sha256hex(payload_text as .binary)
+  return _publishindexpayload(store,generation,target_generation,embedding_profile_id,dimension,rows,centroid_count,probe_count,input_revision,iterations,maximum_sidecar_bytes,payload_text as .binary,algorithm,result,error)
+
+_publishindexpayload: procedure = .int
+  arg store = .ragstorehandle, generation = .int, target_generation = .int, embedding_profile_id = .string, dimension = .int, rows = .int, centroid_count = .int, probe_count = .int, input_revision = .int, iterations = .int, maximum_sidecar_bytes = .int, payload = .binary, algorithm = .string, expose result = .ragvectorgenerationresult, expose error = .string
+  if binlength(payload) > maximum_sidecar_bytes then do; error = "vector index exceeds vector.maximum_sidecar_bytes; raise that policy ceiling or retain the current index"; return -2; end
+  checksum = rxhash..sha256hex(payload)
   vector_generation_id = "vg-" || substr(checksum, 1, 24)
   prepared = .binary
-  sql = "SELECT sidecar_name FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND semantic_generation=?1 AND embedding_profile_id=?2 AND sidecar_checksum=?3 AND dimension=?4 AND row_count=?5 AND centroid_count=?6 AND probe_count=?7 ORDER BY vector_generation_id LIMIT 1"
+  sql = "SELECT sidecar_name FROM vector_generations WHERE state IN('published','superseded') AND algorithm=" || _q(algorithm) || " AND semantic_generation=?1 AND embedding_profile_id=?2 AND sidecar_checksum=?3 AND dimension=?4 AND row_count=?5 AND centroid_count=?6 AND probe_count=?7 ORDER BY vector_generation_id LIMIT 1"
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, embedding_profile_id) \= 0 | sqlitebindtext(prepared, 3, checksum) \= 0 | sqlitebindint(prepared, 4, dimension) \= 0 | sqlitebindint(prepared, 5, rows) \= 0 | sqlitebindint(prepared, 6, centroid_count) \= 0 | sqlitebindint(prepared, 7, probe_count) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare vector generation replay"; return -3; end
   if sqlitestep(prepared) = 100 then do
     sidecar_name = ""; column_status = sqlitecolumntext(prepared, 0, sidecar_name); call sqlitefinalize prepared
@@ -308,18 +325,19 @@ buildannvectorgeneration: procedure = .int
     if sidecar_name \= expected_name then do; error = "stored sidecar name conflicts with its content identity"; return -3; end
     raw = .binary; bytes = 0; read_error = ""; state = "identical-no-op"
     if readbinaryfilebounded(store.path() || "/" || sidecar_name, maximum_sidecar_bytes, raw, bytes, read_error) \= 0 | rxhash..sha256hex(raw) \= checksum then do
-      if _restorederivedsidecar(store, generation, vector_generation_id, sidecar_name, payload_text, error, target_generation) \= 0 then return -3
+      if _restorederivedsidecar(store, generation, vector_generation_id, sidecar_name, payload, error, target_generation) \= 0 then return -3
       state = "rebuilt-from-sqlite"
     end
+    if reactivatesidecar(store,vector_generation_id,target_generation,embedding_profile_id,input_revision,error) \= 0 then return -3
     result = .ragvectorgenerationresult(0, state, vector_generation_id, generation, embedding_profile_id, dimension, rows, sidecar_name, checksum, "")
     return _markindexbuilt(store,vector_generation_id,input_revision,iterations,error)
   end
   call sqlitefinalize prepared
   source_path = store.path() || "/." || vector_generation_id || ".rxvec.build"
   if rxfs..isfile(source_path) = 1 then call rxfs..delete source_path
-  if writebinaryfile(source_path, payload_text as .binary, error) \= 0 then return -3
+  if writebinaryfile(source_path, payload, error) \= 0 then return -3
   publication = .ragsidecarpublication
-  publish_status = publishannvectorsidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, rows, centroid_count, probe_count, length(payload_text), checksum, publication, error)
+  publish_status = publishannvectorsidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, rows, centroid_count, probe_count, binlength(payload), checksum, publication, error, algorithm)
   delete_status = rxfs..delete(source_path)
   if publish_status \= 0 then return -3
   if delete_status \= 0 then do; error = "published vector generation but could not remove its build input"; return -3; end
@@ -340,9 +358,9 @@ _markindexbuilt: procedure = .int
   return 0
 
 _reusecleanindex: procedure = .int
-  arg store = .ragstorehandle, generation = .int, profile_id = .string, dimension = .int, input_revision = .int, maximum_rows = .int, requested_centroids = .int, requested_probes = .int, iterations = .int, maximum_bytes = .int, expose result = .ragvectorgenerationresult, expose error = .string
+  arg store = .ragstorehandle, generation = .int, profile_id = .string, dimension = .int, input_revision = .int, maximum_rows = .int, requested_centroids = .int, requested_probes = .int, iterations = .int, maximum_bytes = .int, expose result = .ragvectorgenerationresult, expose error = .string, algorithm = "ivf-flat-v1"
   prepared = .binary
-  sql = "SELECT vector_generation_id,semantic_generation,sidecar_name,sidecar_checksum,row_count FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND embedding_profile_id=" || _q(profile_id) || " AND dimension=" || dimension || " AND input_revision=" || input_revision || " AND build_iterations=" || iterations || " AND row_count BETWEEN 1 AND " || maximum_rows || " AND centroid_count=min(" || requested_centroids || ",row_count) AND probe_count=min(" || requested_probes || ",centroid_count) AND " || compatiblevectorpredicate(generation as .string) || " ORDER BY semantic_generation DESC LIMIT 1"
+  sql = "SELECT vector_generation_id,semantic_generation,sidecar_name,sidecar_checksum,row_count FROM vector_generations WHERE state='published' AND algorithm=" || _q(algorithm) || " AND embedding_profile_id=" || _q(profile_id) || " AND dimension=" || dimension || " AND input_revision=" || input_revision || " AND build_iterations=" || iterations || " AND row_count BETWEEN 1 AND " || maximum_rows || " AND centroid_count=min(" || requested_centroids || ",row_count) AND probe_count=min(" || requested_probes || ",centroid_count) AND " || compatiblevectorpredicate(generation as .string) || " ORDER BY semantic_generation DESC LIMIT 1"
   if sqliteprepare(store.database(),sql,prepared) \= 0 then do; error = "cannot inspect vector dirty marker"; return -1; end
   step = sqlitestep(prepared)
   if step = 101 then do; call sqlitefinalize prepared; return 0; end
@@ -364,17 +382,17 @@ _reusecleanindex: procedure = .int
   return 1
 
 _restorederivedsidecar: procedure = .int
-  arg store = .ragstorehandle, generation = .int, vector_generation_id = .string, sidecar_name = .string, payload = .string, expose error = .string, target_generation = .int
+  arg store = .ragstorehandle, generation = .int, vector_generation_id = .string, sidecar_name = .string, payload = .binary, expose error = .string, target_generation = .int
   database = store.database(); error = ""
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot lock vector recovery"; return -1; end
-  if _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1") \= target_generation | _scalarint(database, "SELECT count(*) FROM vector_generations WHERE vector_generation_id=" || _q(vector_generation_id) || " AND state='published' AND semantic_generation=" || generation || " AND " || compatiblevectorpredicate(target_generation as .string,"",1,1)) \= 1 then do
+  if _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1") \= target_generation | _scalarint(database, "SELECT count(*) FROM vector_generations WHERE vector_generation_id=" || _q(vector_generation_id) || " AND state IN('published','superseded') AND semantic_generation=" || generation || " AND (semantic_generation=" || target_generation || " OR " || compatiblevectorpredicate(target_generation as .string,"",1,1) || ")") \= 1 then do
     call sqliteexec database, "ROLLBACK"; error = "vector publication changed during recovery"; return -1
   end
   temporary = store.path() || "/." || sidecar_name || ".recovery"
   /* The database writer lock serialises recovery. The complete replacement is
    * written before the atomic rename; interruption leaves the old index intact.
    * A retry can replace an unfinished derived temporary, never SQLite data. */
-  if writebinaryfile(temporary, payload as .binary, error) \= 0 then do; call sqliteexec database, "ROLLBACK"; return -1; end
+  if writebinaryfile(temporary, payload, error) \= 0 then do; call sqliteexec database, "ROLLBACK"; return -1; end
   if rxfs..rename(temporary, store.path() || "/" || sidecar_name) \= 0 then do
     call sqliteexec database, "ROLLBACK"; error = "cannot atomically restore vector sidecar"; return -1
   end

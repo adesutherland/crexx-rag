@@ -1,0 +1,44 @@
+options levelg
+namespace ragembeddinginput expose embeddingenvelope embeddingwindows
+
+import rxfnsb
+import ragconfig
+import llama_provider
+
+embeddingenvelope: procedure = .string
+  arg provider = .ragproviderconfig, dimension = .int
+  envelope = "crexx-rag.embedding-input/1|" || provider.provider_id() || "|" || provider.kind() || "|" || provider.model() || "|" || dimension
+  if provider.kind() = "llama" then envelope = envelope || "|" || llamaembeddingidentity() || "|windows-v1:token-admission-512:overlap-128-characters"
+  return envelope
+
+/* Offsets are temporary and count Unicode characters, never sliced bytes.
+ * A positive fit is always checked by the model itself; binary search only
+ * chooses a useful size, it never assumes that characters equal tokens. */
+embeddingwindows: procedure = .int
+  arg body = .string, backend = .llamaprovider, expose windows = .string[], expose error = .string
+  empty = .string[]; windows = empty; error = ""
+  if body = "" then do; error = "embedding text is empty"; return -1; end
+  first = 1; tokens = 0
+  do while first <= length(body)
+    remaining = length(body)-first+1
+    /* Admission has a bounded input-byte envelope. A source can be larger. */
+    high = remaining; if high > 65536 then high = 65536
+    low = 1; fit = 0; middle = .int
+    status = backend.admit(substr(body,first,high),"document",tokens,error)
+    if status < 0 then do; windows = empty; return -1; end
+    if status = 0 then fit = high
+    else do while low <= high
+      middle = (low+high)/2
+      status = backend.admit(substr(body,first,middle),"document",tokens,error)
+      if status < 0 then do; windows = empty; return -1; end
+      if status = 0 then do; fit = middle; low = middle+1; end
+      else high = middle-1
+    end
+    if fit < 1 then do; windows = empty; error = "local model cannot admit a source character"; return -1; end
+    windows[windows.0+1] = substr(body,first,fit)
+    if fit = remaining then leave
+    overlap = 128; if fit <= overlap then overlap = fit-1
+    first = first + fit - overlap
+  end
+  error = ""
+  return 0

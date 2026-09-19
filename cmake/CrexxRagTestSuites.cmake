@@ -1,8 +1,8 @@
 # Disjoint tiers: widening coverage never selects an aggregate over its children.
-set(fast_tests regression_command_metadata regression_command_catalogue
+set(fast_tests vector_provider regression_command_metadata regression_command_catalogue
     regression_claim_policy regression_prompt_inspection linked_application
     documentation_contract qa_execution regression_smoke_stale_workers regression_smoke_terminal_state)
-set(component_tests regression_policy_file_vm regression_rule_simplification
+set(component_tests native_vector regression_policy_file_vm regression_rule_simplification
     configuration_contract regression_supervision provider_durability codex_protocol
     ann_methodology lifecycle_methodology evidence_methodology maintenance_methodology
     quotation_grounding temporal_provenance durable_backlog durable_backlog_escalation durable_backlog_budget regression_lifecycle
@@ -32,7 +32,10 @@ foreach(test IN LISTS tests)
     set_property(TEST "${test}" PROPERTY COST ${priority})
     # These spawn pools internally. Most tests consume one scheduling slot;
     # wider process matrices must not overcommit the host.
-    if(test MATCHES "^(regression_supervision$|controller_recovery_|native_supervision_(outage|outage24|bad-task)$|process_workers$)")
+    # The real-model case starts two inference workers plus native model-loader
+    # threads. Its 10-second load assertion timed out in a two-slot allocation
+    # but passed unchanged in isolation; reserve the eight-slot local lane.
+    if(test MATCHES "^(regression_supervision$|controller_recovery_|native_supervision_(outage|outage24|bad-task)$|process_workers$|native_embedding_windows$)")
         set_property(TEST "${test}" PROPERTY PROCESSORS 8)
     elseif(test MATCHES "^embedding_(recovery|exhaustion)$")
         set_property(TEST "${test}" PROPERTY PROCESSORS 8)

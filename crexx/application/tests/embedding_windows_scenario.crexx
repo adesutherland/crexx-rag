@@ -1,0 +1,67 @@
+options levelg
+import rxfnsb
+import rxfnsg
+import rxhash
+import rxvector
+import provider_contract
+import llama_provider
+import ragembeddinginput
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "EMBEDDING_WINDOWS_FAIL=" || label
+  return 1
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  errors = 0; error = ""
+  backend = .llamaprovider(args[1],60000)
+  inputs = .string[]
+  errors = errors + check(embeddingwindows("A short Scottish passage.",backend,inputs,error) = 0 & inputs.0 = 1 & inputs[1] = "A short Scottish passage.","one short window " || error)
+  say "WINDOW_CHECK short errors=" || errors
+  body = copies("The travellers visited Edinburgh and the Hebrides. ",150) || "At the end they reached Iona."
+  errors = errors + check(embeddingwindows(body,backend,inputs,error) = 0 & inputs.0 > 1,"long chunk windows " || error)
+  say "WINDOW_CHECK long count=" || inputs.0
+  reconstructed = ""; previous = ""; tokens = 0
+  do i = 1 to inputs.0
+    errors = errors + check(backend.admit(inputs[i],"document",tokens,error) = 0 & tokens <= 512,"real token bound " || error)
+    if i = 1 then reconstructed = inputs[i]
+    else do
+      overlap = min(128,length(previous)-1)
+      errors = errors + check(left(inputs[i],overlap) = right(previous,overlap),"literal overlap")
+      reconstructed = reconstructed || substr(inputs[i],overlap+1)
+    end
+    previous = inputs[i]
+  end
+  errors = errors + check(reconstructed = body,"windows preserve every source character")
+  say "WINDOW_CHECK reconstruction errors=" || errors
+  repeated = .string[]
+  errors = errors + check(embeddingwindows(body,backend,repeated,error) = 0 & repeated.0 = inputs.0,"deterministic count")
+  do i = 1 to inputs.0
+    errors = errors + check(inputs[i] = repeated[i],"deterministic input " || i)
+  end
+  messages = .providermessage[]
+  request = .providerrequest("embed_batch","embedding","bge-small-en-v1.5",messages,inputs,"",60000,1,"local","windows","windows",0,384)
+  output = backend.embed_batch(request); vectors = output.embeddings()
+  errors = errors + check(output.status() = 0 & vectors.0 = inputs.0 & output.usage().input_tokens() > 512,"complete window set " || output.error().message())
+  do i = 1 to vectors.0
+    errors = errors + check(vectors[i].valid() = 1 & vectors[i].count() = 384,"vector shape " || i)
+  end
+  invalid = .string[]; invalid[1] = inputs[1]; invalid[2] = body
+  bad_request = .providerrequest("embed_batch","embedding","bge-small-en-v1.5",messages,invalid,"",60000,1,"local","bad","bad",0,384)
+  failed = backend.embed_batch(bad_request); partial = failed.embeddings()
+  errors = errors + check(failed.status() \= 0 & partial.0 = 0,"failed inner window discards all output")
+  retried = backend.embed_batch(request); retry_vectors = retried.embeddings()
+  errors = errors + check(retried.status() = 0 & retry_vectors.0 = inputs.0,"whole chunk retry succeeds")
+  do i = 1 to vectors.0
+    errors = errors + check(vectors[i].payload() = retry_vectors[i].payload(),"whole retry vector " || i)
+  end
+  call backend.close()
+  missing = .llamaprovider(args[1] || ".missing",1000)
+  errors = errors + check(missing.admit("positive input","document",tokens,error) < 0 & error \= "","missing artifact refused")
+  call missing.close()
+  if errors > 0 then return 1
+  say "EMBEDDING_WINDOWS_OK windows=" || inputs.0 || " tokens=" || output.usage().input_tokens() || " dimensions=384 atomic-retry=complete"
+  return 0

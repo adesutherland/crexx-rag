@@ -212,7 +212,7 @@ buildmaintenancecensus: procedure = .int
   call sqlitefinalize prepared
 
   active_chunks = _scalarint(store.database(), "SELECT count(*) FROM revision_chunks WHERE visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")")
-  active_vectors = _scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE " || currentvectorpredicate(generation as .string) || " AND embedding_profile_id=" || _q(embedding_profile_id) || " AND state='published' AND algorithm='ivf-flat-v1'")
+  active_vectors = _scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE " || currentvectorpredicate(generation as .string) || " AND embedding_profile_id=" || _q(embedding_profile_id) || " AND state='published' AND algorithm IN('ivf-flat-v1','exact-native-v1')")
   if active_chunks > 0 & active_vectors \= 1 then call census.add("vector-publication", "embedding-profile", embedding_profile_id, 990000, '{"signals":["missing-ann-publication"],"published":' || active_vectors || '}', '{"state":"repair-required"}', '{"operation":"ann-publication"}', maximum_items)
 
   item_types = census.item_types(); subject_types = census.subject_types(); subject_ids = census.subject_ids(); scores = census.scores()
@@ -303,7 +303,7 @@ refreshmaintenance: procedure = .int
   generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
   sql = "UPDATE maintenance_items SET state='applied',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id) || " AND item_type='stale-embedding' AND state='pending' AND EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=maintenance_items.subject_id AND e.embedding_profile_id=json_extract((SELECT canonical_plan FROM maintenance_runs WHERE run_id=" || _q(run_id) || "),'$.embedding_profile_id') AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || "))"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot refresh embedding maintenance items", error)
-  sql = "UPDATE maintenance_items SET state='applied',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id) || " AND item_type='vector-publication' AND state='pending' AND (SELECT count(*) FROM vector_generations WHERE " || currentvectorpredicate("(SELECT published_generation FROM library_meta WHERE singleton=1)") || " AND embedding_profile_id=maintenance_items.subject_id AND state='published' AND algorithm='ivf-flat-v1')=1"
+  sql = "UPDATE maintenance_items SET state='applied',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id) || " AND item_type='vector-publication' AND state='pending' AND (SELECT count(*) FROM vector_generations WHERE " || currentvectorpredicate("(SELECT published_generation FROM library_meta WHERE singleton=1)") || " AND embedding_profile_id=maintenance_items.subject_id AND state='published' AND algorithm IN('ivf-flat-v1','exact-native-v1'))=1"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot refresh vector maintenance items", error)
   pending = _boundcount(database, "SELECT count(*) FROM maintenance_items WHERE run_id=?1 AND state IN('pending','leased','approved','failed','blocked')", run_id)
   reviews = _boundcount(database, "SELECT count(*) FROM maintenance_items WHERE run_id=?1 AND state='review-required'", run_id)

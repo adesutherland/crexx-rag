@@ -16,7 +16,7 @@ set(modules ragsupervision ragenrich ragproposalio ragperiod ragprovenance ragas
     ragstore ragbackup ragrepository ragcanonical ragplanning ragtrace ragcommandcatalog ragcommand ragmcp ragworkerdefaults ragpolicypublication ragpolicyfile ragingest
     ragfolder ragquotationcontract ragextractioncontract ragresolutioncontract raganswercontract ragreportcontract ragpromptdefaults ragpromptinspection ragcommandutil ragsqlsupport ragdirectcalls ragreportservice ragobservationservice ragqueryservice ragoperationsquery ragclaimrules ragclaims ragimprove ragmaintain ragbacklog ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragallowance ragwork ragquery ragembedding
     ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics raggrounding ragapplicationprovider ragqueryprovider
-    ragquerypolicy ragcontinuation ragproduct provider_contract provider_catalog provider_http industrial_provider codex_provider architecture_local_config
+    ragquerypolicy ragcontinuation ragproduct provider_contract provider_catalog provider_http industrial_provider llama_provider ragembeddinginput codex_provider architecture_local_config
     generic_profile it_architecture_profile operator_registry rxsqlite rx_hash rx_system rxfs rxplatform
     rxvector rxfnsg library)
 
@@ -51,7 +51,7 @@ foreach(runtime_name IN ITEMS rxvme rxbvm)
     endif()
     set(library "${CPRAG_WORK_DIR}/library-${runtime_name}")
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env "TZ=Europe/London" "${runtime}"
-        --provider-path "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers"
+        --provider-path "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}"
         -l "${imports}" "${CPRAG_WORK_DIR}/backlog_scenario" ${modules}
         -a "${library}" "${CPRAG_CASE}"
         RESULT_VARIABLE run_result OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err TIMEOUT 120)

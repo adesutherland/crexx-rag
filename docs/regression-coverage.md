@@ -1,5 +1,158 @@
 # Regression coverage baseline — REG-01
 
+## Published CREXX cohort — 19 September 2026
+
+The normal installed CREXX source `5949ef27efd8` replaces the private qualification
+cohort. RAG rebuilt against it and passed **130/130 required cases in 720.51 s**,
+with one execution per case and no failures or disabled cases. The BGE window
+case passed in 12.18 s; process workers selected the correct installed cohort and
+passed in 32.43 s. Installed artifact hashes agree with the qualified build;
+fresh CLI/MCP scratch checks and one network-denied local-BGE query pass, with
+all twelve ordered passages/scores/claims matching the retained reference.
+The final documentation-only check and receipt audit do not repeat unchanged
+product cases. [Publication and remaining boundaries](baseline-publication-20260919.md).
+
+## rxvector consolidation — 19 September 2026
+
+Provider contract coverage now belongs in CREXX: `rxvector_index_core` covers
+malformed wire lengths, overflow, finite/nonzero float32 norms, 257-way ties and
+100 comparisons with the existing double kernel. Both VMs pass old and new
+contracts with optimization on/off; the native consumer and focused ASan/UBSan
+core/owner checks pass. Baseline new-interface compilation failed before the
+implementation, while existing packed-vector controls remained green.
+
+RAG's `vector_provider` checks the installed provider on both VMs and through
+native packaging. It replaces the incubation's two local cases; generic core
+coverage moves upstream rather than being disabled. There are now **130 required
+RAG cases**, plus the separate scale lane. The six affected public/retrieval
+checks pass in 17.34 s. The full 541.25 s selection exposed a mixed-cohort
+launcher fixture and a real-model load timeout. The latter passes unchanged
+in isolation (10.91 s); its scheduling demand is corrected to eight slots.
+The launcher fixture now selects the configured cohort on PATH and passes in
+32.12 s. Closing documentation and the exact-input audit account for **130/130
+required passing cases** without repeating the full selection. Twenty paired
+Scottish queries preserve passage order and evidence within the declared score
+tolerance and expected backend label change. [Delivery](rxvector-consolidation-20260919.md).
+
+## Binary owner feasibility — 19 September 2026
+
+A scratch provider omits USearch while retaining the existing binary owner/API.
+Unchanged core and both-VM/native interface controls pass. Forty offline public
+queries produce identical passage order for all twenty frozen questions; all
+other evidence fields match except 61 cosine score values, differing by at most
+9.38e-8. This qualifies the bounded experiment, not a new installed `rxvector`
+API. Product inputs and their 131/131 qualified receipts remain unchanged;
+only documentation is refreshed. [Scope and remaining acceptance](rxvector-binary-review-20260919.md).
+
+## Retrieval tightening — 19 September 2026
+
+Reader characterization passed on both VMs before the product edit. Expanded
+`ann_methodology` covers binary block boundaries, byte ceilings, hash agreement,
+request-byte independence and invalidation, in-flight verified bytes versus fresh
+corruption rejection, and zero-norm IVF rejection with its positive control.
+`native_vector` covers publication change after prefetch and current visibility
+with retained bytes; `native_vector_public` proves missing/corrupt preflight adds
+no provider history. Those tests and `gemini_query` pass in 13.31 seconds.
+All forty final Scottish query evidence objects equal their respective frozen
+baselines. The final local selection passes in 528.38 seconds with 127 fresh
+executions and four retained targeted passes; the closing documentation check
+and exact-input audit account for **131/131 required passing cases**. The scale
+lane, hosted calls and other-platform qualification remain separate.
+[Delivery](retrieval-tightening-20260919.md).
+
+## Native vector integration — 18 September 2026, locally qualified
+
+`vectorindex_core` covers exact neighbours, 257-way deterministic ties and malformed/numeric rejection. `vectorindex_interface` covers both VMs and the native packager, binary UTF-8/NUL labels, copy/close lifetime and checked invalid import. `native_vector` covers 52 windows with widening, three distinct parents, source citations, legacy/native switching, missing/corrupt recovery, graph-only reuse, backup/restore, clean maintenance census and post-publication visibility removal. `native_vector_public` checks ingestion, automatic native publication, hybrid answer preflight, citations and durable provider records. `ann_methodology` first reproduced RAG-VEC-02, then passed A/B/A reactivation, missing superseded-file restoration and rejection of changed generation/revision or unknown identity without disturbing the prior publication. The required local gate accounts for 131/131 passing cases. Twenty frozen Scottish queries return exactly the exhaustive-IVF passage order; the copy verifies with zero issues. Other-platform qualification remains pending. [Delivery, timing and retained failures](native-vector-delivery-20260918.md).
+
+
+## USearch POC — 18 September 2026
+
+The isolated native C API probe passes known-neighbour/exact controls,
+save/load/view parity, stable repeats, explicit malformed/zero-vector rejection,
+synthetic later-window selection and 18/18 real multiwindow self-probes.
+An independent Level-G rxvector exact oracle validates all 20 frozen question
+results within recorded float32/cutoff-tie tolerance. Approximate HNSW misses
+remain measured findings; no production integration acceptance is claimed.
+No product/test/build input changed. The existing full gate is retained and
+only documentation_contract is refreshed after these new records.
+[Scope, numerical evidence and limitations](usearch-poc-20260918.md).
+
+## Vector grouping experiment — 18 September 2026
+
+The unchanged qualified binary completed 80 offline public hybrid queries on
+the isolated full Scottish corpus: 20 frozen questions across 16/4, 64/8,
+128/8 and exhaustive 16/16 settings. Speed/quality evidence recommends retaining
+16/4. These are measured comparisons, not new passing CTest cases. One initial
+all-groups query exceeded the response-size limit and is retained separately;
+raising that limit for the reference does not change its ranking policy.
+
+Restoration exposes **RAG-VEC-02**: an A → B → A index change attempts to create
+the original immutable sidecar again. That acceptance is missing from the
+existing 127-case gate and was unimplemented at that experiment's close. The
+later native integration above adds and qualifies the repair. No product code was changed
+or broad suite repeated for this configuration experiment. [Results, missing
+regression and recovery](vector-group-comparison-20260918.md).
+
+## Retrieval traversal repair — 18 September 2026, locally qualified
+
+Before the repair, expanded `ann_methodology` passed on both VMs (5.91 seconds).
+It repeats one exact sidecar member while preserving distinct windows, then
+checks scan-allowance handling, candidate/passages counts, complete citation
+order and every score name/value against the unduplicated control. Existing
+exact-oracle, later-window winner, distinct-parent, publication and corruption
+controls remain. The repaired candidate passes this case in 6.55 seconds.
+Three full-corpus query trials also preserve complete ordered passage objects,
+claims and counts. The native window-recovery check had one model-load timeout
+followed by an unchanged passing replay; the original failure remains evidence.
+The accepted candidate's full local gate passed in 763.96 seconds: 125 executed
+cases plus two exact-input retained passes. The independent require-complete
+audit confirms **127/127**, including scratch-installed acceptance. The measured
+native executable remains `6a9f6930ac61c3c9cada2388ddfebb29e437358e722212b62d2ebb824900e951`.
+Closing documentation is followed by its targeted contract check, preserving
+the unchanged product receipts. Global runtime/master installation, RAG commit
+and publication remain separate. [Scope, runtime identity and results](retrieval-profiling-20260918.md).
+
+## Vector coverage reporting — 18 September 2026, locally verified
+
+`ann_methodology` now checks the public report service on the existing private,
+provider-free ANN fixture: empty and missing indexes, genuine partial coverage,
+retained old representations, complete replacement, dirty same-size indexes,
+and multiple windows per parent. Report and narrative-cache recheck digests must
+agree, with zero provider calls. The unchanged product passed empty/partial
+controls and failed the retained-profile and multi-window cases (coverage
+1230769 millionths). The initial test-only compile typo was corrected before
+recording that behavioral baseline. Final targeted acceptance passed on both
+VMs in 8.66 seconds. The preserved candidate also passed full-corpus acceptance:
+36,319 parents, 36,328 windows, current index, zero integrity issues, twenty
+unchanged citations and 24 local hybrid queries. All 127 functional cases have
+passing executions; the two failed attempts/retries and newer-global-CREXX
+qualification boundary remain explicit in the linked record. Corpus acceptance
+did not rerun that suite or use the partially rebuilt development tree.
+See [migration evidence](scottish-bge-migration-20260918.md#reporting-follow-up).
+
+## Atomic local embedding windows — 18 September 2026, locally qualified
+
+Baseline `e949884` / installed CREXX `e457f5ec3880`: `configuration_contract`,
+`local_embedding_protocol`, `publication` and `embedding_recovery` passed in a
+48.14-second focused selection. Extended `ann_methodology` failed only its new
+later-window best-parent assertion; its existing exact-oracle/publication
+controls passed. The original code discarded later windows before scoring.
+
+`publication` now includes an invalid second vector and an injected second-link
+failure, asserting no partial vectors, links or processed task, plus successful
+complete-list and duplicate-input controls. `native_embedding_windows` adds real
+pinned BGE token admission, literal overlap/complete source coverage, inner-window
+failure and whole-list retry, offline public ingestion/query and embedding-only
+profile replacement, nonempty graph preservation, exact duplicate-link rejection
+and no-op repetition. The bounded-candidate assertion failed alone before the
+last scoring correction; see the delivery record for the stopped superseded
+gate and final candidate receipts. The native case requires separately provisioned weights
+selected by `CREXXRAG_BGE_MODEL`; configuration reports absence explicitly.
+The final native candidate accounts for all **127 required cases**, including
+11 retained exact-input passes; the final gate took **528.58 seconds**.
+Detailed results and remaining wider qualification are in the
+[delivery record](windowed-embedding-delivery-20260918.md).
+
 ## Advanced-call accounting — ESC-OPS-02, 17 September 2026
 
 New isolated `durable_backlog_budget` covers ordinary escalation followed by

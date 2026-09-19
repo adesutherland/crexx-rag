@@ -7,6 +7,7 @@ import rxjson
 import rxhash
 import rxsqlite
 import ragconfig
+import ragembeddinginput
 import ragprofile
 import ragusage
 import ragallowance
@@ -151,7 +152,7 @@ backlogpolicy: procedure = .string
   embedding_input = embedding_role.maximum_input_tokens(); if embedding_input > budget.input_tokens() / inflight then embedding_input = budget.input_tokens() / inflight
   embedding_cost = embedding_role.maximum_call_cost_microunits(); if embedding_cost > budget.cost_microunits() / inflight then embedding_cost = budget.cost_microunits() / inflight
   if embedding_provider.charging_basis() \= "monetary-api" then embedding_cost = 0
-  embedding_envelope = "crexx-rag.embedding-input/1|" || embedding_provider.provider_id() || "|" || embedding_provider.kind() || "|" || embedding_provider.model() || "|" || embedding_role.embedding_dimensions()
+  embedding_envelope = embeddingenvelope(embedding_provider,embedding_role.embedding_dimensions())
   embedding_profile = "embedding-" || embedding_role.embedding_dimensions() || "-" || substr(_hash(embedding_envelope),1,12)
   embedding_json = '{"embedding_profile":' || jsonquote(embedding_profile) || ',"embedding_envelope":' || jsonquote(embedding_envelope) || ',"embedding_provider":' || jsonquote(embedding_provider.provider_id()) || ',"embedding_model":' || jsonquote(embedding_provider.model()) || ',"embedding_charging":' || jsonquote(embedding_provider.charging_basis()) || ',"embedding_dimension":' || embedding_role.embedding_dimensions() || ',"embedding_input":' || embedding_input || ',"embedding_cost":' || embedding_cost || ',"embedding_time":' || embedding_provider.timeout_ms() || ','
   if embedding_only = 1 then do

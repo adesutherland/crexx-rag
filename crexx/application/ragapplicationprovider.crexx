@@ -8,6 +8,7 @@ import rxjson
 import rxhash
 import rxsqlite
 import ragconfig
+import ragembeddinginput
 import ragprofile
 import ragglossary
 import ragcanonical
@@ -28,6 +29,7 @@ import ragbacklog
 import ragtrace
 import provider_contract
 import industrial_provider
+import llama_provider
 import codex_provider
 
 /* Product binding for the generic provider contract.  It owns RAG-shaped
@@ -43,14 +45,20 @@ ragapplicationprovider: class implements .ragworkprovider
   _codex_ready = .int
   _codex_directory = .string
   _health_error = .string
+  _llama_backend = .llamaprovider
+  _llama_ready = .int
+  _llama_path = .string
 
   *: factory
     arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, tracer = .ragtracer
     _store = store; _config = config; _profile = profile; _tracer = tracer
     _codex_ready = 0; _codex_directory = ""
+    _llama_ready = 0; _llama_path = ""
     return
 
   close: method = .void
+    if _llama_ready = 1 then call _llama_backend.close()
+    _llama_ready = 0
     if _codex_ready = 1 then do
       call _codex_backend.close()
       if _codex_backend.health_error() \= "" then _health_error = _codex_backend.health_error()
@@ -127,7 +135,7 @@ ragapplicationprovider: class implements .ragworkprovider
     provider_config = _providerconfig(_config, provider_id)
     if provider_config.provider_id() \= provider_id | provider_config.model() \= model | provider_config.charging_basis() \= charging_basis then return _failedwork(provider_id, model, claim, empty_proposal, "provider configuration does not match durable work", 0)
     kind = provider_config.kind()
-    if kind \= "gemini" & kind \= "openai" & kind \= "openai-compatible" & kind \= "anthropic" & kind \= "codex" then return _failedwork(provider_id, model, claim, empty_proposal, "provider kind is unsupported", 0)
+    if kind \= "gemini" & kind \= "openai" & kind \= "openai-compatible" & kind \= "anthropic" & kind \= "codex" & kind \= "llama" then return _failedwork(provider_id, model, claim, empty_proposal, "provider kind is unsupported", 0)
     receipt_body = ""; original_attempt = ""; receipt_error = ""
     receipt_state = recoverproviderresponse(_store,claim,receipt_body,original_attempt,receipt_error)
     if receipt_state < 0 | receipt_state = 2 then return _failedwork(provider_id,model,claim,empty_proposal,"provider request requires receipt reconciliation: " || receipt_error,0)
@@ -148,6 +156,10 @@ ragapplicationprovider: class implements .ragworkprovider
       codex_error = ""
       if _ensurecodex(codex_error) \= 0 then return _failedwork(provider_id, model, claim, empty_proposal, codex_error, 0)
       backend = _codex_backend
+    end
+    else if kind = "llama" then do
+      call _ensurellama(provider_config)
+      backend = _llama_backend
     end
     else do
       host = ""; base_path = ""; port = 0; tls = 0
@@ -529,6 +541,14 @@ ragapplicationprovider: class implements .ragworkprovider
     _codex_ready = 1
     return 0
 
+  _ensurellama: method = .void
+    arg config = .ragproviderconfig
+    if _llama_ready = 1 & _llama_path = config.model_path() then return
+    if _llama_ready = 1 then call _llama_backend.close()
+    _llama_backend = .llamaprovider(config.model_path(),config.timeout_ms())
+    _llama_path = config.model_path(); _llama_ready = 1
+    return
+
   _cachedembedding: method = .ragworkproviderresult
     arg document = .jsondocument, root = .int, claim = .ragworkclaim, config = .ragproviderconfig
     empty_proposal = .ragextractionproposal
@@ -537,7 +557,7 @@ ragapplicationprovider: class implements .ragworkprovider
     dimension = rolebinding(_config,"embedding").embedding_dimensions()
     input_dimension = 0; ignored = document.node_int(document.member(root,"embedding_dimension"),input_dimension)
     if _jsonstring(document,root,"text") = "" | _jsonstring(document,root,"revision_chunk_id") = "" | length(_jsonstring(document,root,"content_digest")) \= 64 | input_dimension \= dimension | rolebinding(_config,"embedding").provider_id() \= config.provider_id() then return _failedwork(config.provider_id(),config.model(),claim,empty_proposal,"durable embedding input is invalid",0)
-    envelope = "crexx-rag.embedding-input/1|" || config.provider_id() || "|" || config.kind() || "|" || config.model() || "|" || dimension
+    envelope = embeddingenvelope(config,dimension)
     profile_id = "embedding-" || dimension || "-" || substr(rxhash..sha256hex(envelope as .binary),1,12)
     digest = rxhash..sha256hex((_jsonstring(document,root,"content_digest") || "00"x || envelope) as .binary)
     prepared = .binary
@@ -560,13 +580,19 @@ ragapplicationprovider: class implements .ragworkprovider
     role_policy = rolebinding(_config, "embedding")
     if body = "" | revision_chunk_id = "" | length(content_digest) \= 64 | role_policy.provider_id() \= provider_config.provider_id() | dimension \= role_policy.embedding_dimensions() then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "durable embedding input is invalid", 0)
     inputs[1] = body; request_id = "embed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
+    if provider_config.kind() = "llama" then do
+      call _ensurellama(provider_config)
+      window_error = ""
+      if embeddingwindows(body,_llama_backend,inputs,window_error) \= 0 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,window_error,1,"",provider_config.charging_basis())
+    end
     /* Read the exact immutable input; the count spans ingestion and repair. */
     prior_calls = embeddingcallcount(_store.database(),_iteminput(_store.database(),claim.item_id()))
     if receipt_body = "" & prior_calls >= provider_config.max_attempts() then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"embedding provider attempt allowance exhausted",0)
     if prior_calls < 0 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"cannot inspect embedding provider attempt history",0)
     retry_base = provider_config.initial_backoff_ms()
     do retry = 1 to min(prior_calls,30); retry_base = min(provider_config.maximum_backoff_ms(),retry_base*2); end
-    request = .providerrequest("embed", "embedding", provider_config.model(), messages, inputs, "", provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, 0, dimension, 0, -1, retry_base, provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
+    embedding_operation = "embed"; if inputs.0 > 1 then embedding_operation = "embed_batch"
+    request = .providerrequest(embedding_operation, "embedding", provider_config.model(), messages, inputs, "", provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, 0, dimension, 0, -1, retry_base, provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
     provider_output = .providerresult()
     if receipt_body \= "" then do
       provider_output = _receiptoutput(receipt_body); receipt_document = .jsondocument(receipt_body)
@@ -575,7 +601,8 @@ ragapplicationprovider: class implements .ragworkprovider
     else do
       receipt_error = ""
       if beginproviderrequest(_store,claim,request_id,receipt_error,_requestjson(request,provider_config,claim)) \= 0 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,receipt_error,0)
-      provider_output = backend.embed(request)
+      if embedding_operation = "embed_batch" then provider_output = backend.embed_batch(request)
+      else provider_output = backend.embed(request)
       receipt_body = _receiptjson(provider_output,provider_config,request_id)
       if recordproviderresponse(_store,claim,receipt_body,receipt_error) \= 0 then return _receiptfailure(provider_config,request_id,claim,empty_proposal,provider_output,receipt_error)
       receipt_document = .jsondocument(receipt_body); omitted = _jsonstring(receipt_document,receipt_document.root(),"omitted")
@@ -584,12 +611,20 @@ ragapplicationprovider: class implements .ragworkprovider
     end
     if provider_output.status() \= 0 then return _providerfailure(provider_config, request_id, claim, empty_proposal, provider_output)
     vectors = provider_output.embeddings()
-    if provider_output.provider() \= _backendidentity(provider_config.kind()) | provider_output.model() \= provider_config.model() | provider_output.request_id() \= request_id | vectors.0 \= 1 | vectors[1].valid() \= 1 | vectors[1].count() \= dimension then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider embedding failed application validation")
-    envelope = "crexx-rag.embedding-input/1|" || provider_config.provider_id() || "|" || provider_config.kind() || "|" || provider_config.model() || "|" || dimension
-    input_digest = rxhash..sha256hex((content_digest || "00"x || envelope) as .binary)
+    if provider_output.provider() \= _backendidentity(provider_config.kind()) | provider_output.model() \= provider_config.model() | provider_output.request_id() \= request_id | vectors.0 \= inputs.0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider embedding failed application validation")
+    envelope = embeddingenvelope(provider_config,dimension)
     profile_id = "embedding-" || dimension || "-" || substr(rxhash..sha256hex(envelope as .binary), 1, 12)
-    embedding = .ragworkembedding(revision_chunk_id, profile_id, input_digest, provider_config.provider_id(), provider_config.model(), dimension, rxhash..sha256hex(envelope as .binary), vectors[1].payload())
-    return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, empty_proposal, 0, "", "", embedding, "", provider_config.charging_basis())
+    embeddings = .ragworkembedding[]
+    do i = 1 to vectors.0
+      if vectors[i].valid() \= 1 | vectors[i].count() \= dimension then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider embedding list contains an invalid vector")
+      window_digest = content_digest
+      if provider_config.kind() = "llama" then window_digest = rxhash..sha256hex(inputs[i] as .binary)
+      input_digest = rxhash..sha256hex((window_digest || "00"x || envelope) as .binary)
+      embeddings[i] = .ragworkembedding(revision_chunk_id,profile_id,input_digest,provider_config.provider_id(),provider_config.model(),dimension,rxhash..sha256hex(envelope as .binary),vectors[i].payload())
+    end
+    result = _success(provider_config.provider_id(),provider_config.model(),request_id,provider_output,empty_proposal,0,"","",embeddings[1],"",provider_config.charging_basis())
+    call result.set_embeddings(embeddings)
+    return result
 
 _receiptjson: procedure = .string
   arg output = .providerresult, config = .ragproviderconfig, expected_request_id = .string, provider_run_id = ""

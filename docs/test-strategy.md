@@ -89,10 +89,34 @@ benchmark. Real hosted, corpus endurance and platform qualification remain
 separate and require their existing authority. Slow tests are findings to
 investigate; a timeout increase is not a speed improvement.
 
+The real-model `native_embedding_windows` case declares eight scheduling slots:
+it runs two native inference workers plus model-loader threads. Its former
+two-slot allocation exposed a 10-second model-load timeout during the parallel
+gate; the unchanged case passed alone in 10.91 seconds. At `-j8` the corrected
+demand gives it the isolated slot window it needs, while other tests retain
+parallel scheduling. No model or test timeout is increased. The process-worker
+fixture also selects the configured runtime on PATH for its launcher check.
+[Failure evidence and qualification](rxvector-consolidation-20260919.md).
+
 ## Historical qualification checkpoints
+
+The 19 September retrieval tightening gate passes all 131 required cases in
+528.38 seconds: 127 fresh executions and four unchanged targeted passes reused.
+Closing documentation receives its own contract check; the final exact-input
+report requires all 131 current receipts. The scale lane remains separate.
+[Measured behavior, artifact identity and audit](retrieval-tightening-20260919.md).
 
 The following results retain the runtime and artifact at their recorded date.
 Old disabled/pending labels do not override the master or current test inventory.
+
+The 18 September retrieval CPU repair completed the 127-case local gate in
+763.96 seconds on its isolated Release candidate: 125 fresh executions and two
+verified retained passes, with `report.py --require-complete` confirming all
+127. Documentation closeout reruns only `documentation_contract`; unchanged
+product evidence is reused. This qualifies the measured 15c8a3ba4200 installed
+runtime copy plus its repaired JSON module, not an unperformed global install
+or a later rebuild with another toolchain. See the
+[repair record](retrieval-profiling-20260918.md#accepted-rag-qualification--passed).
 
 Task-reset implementation and its original QA are tracked in
 [task reset delivery](task-reset-delivery-20260915.md). `task_reset` exercises
@@ -586,3 +610,22 @@ must fail. Apply preserves the retained job policy, atomic settlement and usage,
 and repeated apply remains a no-op. Normal execution still rejects a changed
 request configuration before claiming work. Its baseline passes original-config
 inspection and route rejection, then fails changed-config inspection with exit 6.
+
+## Native trained-model acceptance — 18 September 2026
+
+`native_embedding_windows` uses a separately provisioned pinned BGE-small GGUF,
+selected with `-DCREXXRAG_BGE_MODEL=/absolute/path/model.gguf`. The known local
+cache is detected when available; otherwise configuration explicitly reports
+that trained-model acceptance is not selected. An absent model is not a passing
+native qualification. No test downloads weights or calls a hosted provider.
+
+With a model selected, the case is a required integration test, isolated like
+other cases and denied network access on macOS. Its receipt includes the probe,
+model, product binary, installed provider cohort and scenario sources. It covers
+real token admission/inference, whole-list failure/retry, second-link rollback,
+multi-vector receipt recovery without repeated inference, public query and
+embedding-only replacement, retained graph/source rows and no-op maintenance.
+ANN methodology separately checks best-window parent ranking and distinguishes
+valid distinct windows from duplicate links during integrity verification.
+The [delivery record](windowed-embedding-delivery-20260918.md) retains the measured
+small Scottish corpus run separately from the repeatable regression fixture.

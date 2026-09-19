@@ -303,12 +303,21 @@ dimension. Retrieval also requires an aligned manifest and exactly one
 published `.rxvec` generation for the current semantic generation, model
 profile, and dimension.
 
-Production vector execution uses the published IVF-flat approximate
-nearest-neighbour index for every library size. The reviewed profile binds the
-centroid count, probes, training iterations and minimum recall. Index identity,
-embedding profile, dimension, semantic generation, membership and checksum are
-verified before use. An exact cosine scan exists only in QA as the frozen
-correctness oracle; it is not a production retrieval route.
+Production vector execution supports the existing `ivf-flat-v1` approximate
+index and the opt-in `exact-native-v1` backend. IVF remains the compatibility
+default, with configured centroids, probes and training iterations. Exact native
+search scans every float32 window in its binary sidecar using CREXX `rxvector`,
+then checks only returned identities against SQLite visibility. It widens the
+request until enough distinct visible parents exist and selects the highest
+scoring window per parent. Exact-score ties use original row order (publication
+orders by parent identity and embedding identity). The existing double `rxvector`
+kernel and independently constructed wire/numeric controls remain in provider QA. Exact scanning is linear in index size, not an
+approximate scale claim.
+
+Both routes validate the profile, dimension, generation, membership and checksum.
+The exact file stores vectors, opaque window labels and a small generation/profile
+header, avoiding the IVF route's JSON membership traversal and per-window vector
+reads. SQLite remains authoritative; native files are rebuilt from stored vectors.
 
 Approximate search must meet a documented recall target against the exact oracle
 on the same frozen inputs. Backend selection, rows searched, candidate count,

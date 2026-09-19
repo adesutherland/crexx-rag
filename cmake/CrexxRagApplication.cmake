@@ -15,6 +15,8 @@ set(CREXXRAG_APPLICATION_SOURCES
     "${CREXXRAG_PROVIDER_DIR}/provider_catalog.crexx"
     "${CREXXRAG_PROVIDER_DIR}/provider_http.crexx"
     "${CREXXRAG_PROVIDER_DIR}/industrial_provider.crexx"
+    "${CREXXRAG_PROVIDER_DIR}/llama_provider.crexx"
+    "${CREXXRAG_APP_DIR}/ragembeddinginput.crexx"
     "${CREXXRAG_PROVIDER_DIR}/codex_provider.crexx"
     "${CREXXRAG_APP_DIR}/ragmodel.crexx"
     "${CREXXRAG_APP_DIR}/ragevidence.crexx"
@@ -120,6 +122,7 @@ add_custom_command(
     DEPENDS
         ${CREXXRAG_APPLICATION_SOURCES}
         "${CREXXRAG_SQLITE_DYNAMIC_PROVIDER}"
+        "${CREXXRAG_VECTOR_DYNAMIC_PROVIDER}"
         "${CREXX_EXECUTABLE}"
         "${CREXX_BUILDINFO_FILE}"
         "${CMAKE_CURRENT_LIST_FILE}"
@@ -146,6 +149,7 @@ add_custom_command(
     DEPENDS
         "${CREXXRAG_APPLICATION_PROJECT_RXBIN}"
         "${CREXXRAG_SQLITE_DYNAMIC_PROVIDER}"
+        "${CREXXRAG_VECTOR_DYNAMIC_PROVIDER}"
         "${CREXX_RXLINK_EXECUTABLE}"
         "${CMAKE_CURRENT_LIST_DIR}/LinkCrexxRagApplication.cmake"
     COMMENT "Publishing the linked Level-G crexxrag application"
@@ -173,6 +177,7 @@ add_custom_command(
         "${CREXXRAG_ADDRESS_SOURCE}"
         ${CREXXRAG_APPLICATION_SOURCES}
         "${CREXXRAG_SQLITE_DYNAMIC_PROVIDER}"
+        "${CREXXRAG_VECTOR_DYNAMIC_PROVIDER}"
         "${CREXX_EXECUTABLE}"
         "${CREXX_BUILDINFO_FILE}"
         "${CMAKE_CURRENT_LIST_FILE}"
