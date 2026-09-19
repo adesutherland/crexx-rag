@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragquerypolicy expose queryrouteallowed querypreflight queryansweroutputlimit queryusagewithin queryprivacy
+namespace ragquerypolicy expose queryrouteallowed querypreflight queryansweroutputlimit queryanswercontextlimit queryusagewithin queryprivacy
 
 import ragconfig
 import provider_contract
@@ -53,6 +53,20 @@ queryansweroutputlimit: procedure = .int
   maximum = budget.output_tokens()
   if maximum > configured_maximum then maximum = configured_maximum
   return maximum
+
+queryanswercontextlimit: procedure = .int
+  arg budget=.ragbudget, provider=.ragproviderconfig, role_input=.int, output_tokens=.int, embedding_planned=.int, prompt_schema_bytes=.int, evidence_bytes=.int, expose error=.string
+  error=""
+  input_limit=budget.input_tokens()/(1+embedding_planned)
+  if input_limit>role_input then input_limit=role_input
+  if input_limit>provider.context_tokens()-output_tokens then input_limit=provider.context_tokens()-output_tokens
+  /* Same conservative three-byte estimate as maintenance, with prompt/schema
+   * bytes and 256 framing tokens reserved. This is not a model tokenizer;
+   * provider-reported input/output usage is checked after generation as well. */
+  limit=input_limit*3-prompt_schema_bytes-768
+  if limit<1 then do;error="answer context cannot fit prompt, schema and output within the configured token envelope";return -1;end
+  if limit>evidence_bytes then limit=evidence_bytes
+  return limit
 
 queryusagewithin: procedure = .int
   arg budget = .ragbudget, embedding_provider = .ragproviderconfig, embedding_usage = .providerusage, embedding_called = .int, answer_provider = .ragproviderconfig, answer_usage = .providerusage, answer_called = .int

@@ -1,5 +1,24 @@
 # Regression coverage baseline — REG-01
 
+## Local answer follow-up — 19 September 2026, locally qualified
+
+| Contract / journey | Regression evidence |
+| --- | --- |
+| Request-local citation aliases and exact source/graph values | `regression_prompt_inspection`: deterministic projection/map, known restoration, unknown/full-ID rejection, independent requests, literal text and metadata preservation. |
+| Query input/output/context budgeting | `query_policy`: role, provider-context-minus-output, prompt/schema/framing and explicit byte ceilings; overflow refusal. `gemini_query`: public reported-output rejection and durable canonical maps. |
+| Small-context evidence selection | `evidence_methodology`: reproduced loss of the answering source to a related graph claim; roomy source-plus-graph control; retain the source with provenance and explicit omissions when only one fits. |
+| Real public answer routes | `gemini_query`: alias request plus canonical output, duplicate/unknown/missing/extra-field and usage-overrun rejection; supported, partial and insufficient controls. |
+| Effective prompts / compatibility | `regression_prompt_contract`: reviewed answer-only digest change; all schemas and extraction/resolution/report prompts retained. |
+
+The five original exact-input passes were audited before edits. The final required
+selection passes in **520.27 s**, with 80 fresh executions and 50 retained passes.
+The documentation closeout and exact-input audit account for **130/130 current
+passing cases**. The earlier full selection stopped on a shared fixture's
+incorrect alias-only smoke assertion; both distinct request contracts and their
+negative controls now pass. Frozen local semantic examples live in
+`tests/fixtures/local-search`; their correctness is reviewed separately from
+transport/schema success. [Delivery and remaining limitations](local-search-followup-20260919.md).
+
 ## Published CREXX cohort — 19 September 2026
 
 The normal installed CREXX source `5949ef27efd8` replaces the private qualification

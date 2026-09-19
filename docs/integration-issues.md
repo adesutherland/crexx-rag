@@ -261,6 +261,17 @@ Gemma E4B generation path have upstream evidence. The
 adds initial Scottish embedding evidence and common/direct API parity. Nomic's
 official GGUF runs at 2048 tokens; 8192 needs unexposed context-scaling/admission
 support. Q4 CPU/Metal differences and Gemma answer quality still need qualification.
+
+19 September follow-up: the installed published cohort is now `5949ef27efd8`
+([publication](baseline-publication-20260919.md)). The explicitly authorized
+CREXX hotfix locally repairs valid per-layer KV-head/feed-forward metadata;
+the exact Gemma 4 12B Q4_0 artifact prepares and generates at 512 context tokens
+on Metal. A 4K context still fails conservative resource admission; no budget
+bypass was added. This fix is local, not yet installed/published. RAG retains
+its typed BGE adapter and existing HTTP answerer; no native generation adapter
+or common-interface migration is part of the
+[bounded query follow-up](local-search-followup-20260919.md).
+
 The bounded BGE integration and small-corpus results are recorded separately
 from those open experiments. CREXX owns its native
 library, model lifecycle, CPU/Metal support and

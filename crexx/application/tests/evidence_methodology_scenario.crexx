@@ -100,6 +100,20 @@ main: procedure = .int
   encoded = ""; answer_context = ""
   errors = errors + check(encodeevidence(outbound.evidence(), 65536, encoded, error) = 0 & pos('"analysis_notes":[{"note_id":"note-alpha"', encoded) > 0, "evidence serialization " || error)
   errors = errors + check(encodeanswercontext(outbound.evidence(), 65536, answer_context, error) = 0 & pos('"factual_status":"analysis-only"', answer_context) > 0, "analysis-only answer context " || error)
+  /* A small context must not replace its best source passage with a related
+   * graph claim that does not contain the requested fact. Provenance travels
+   * intact with whichever whole records fit. */
+  metadata='{"qualification":"' || copies("q",1100) || '"}'
+  citation=.ragcitation("crexx-rag:source-answer","source","revision",0,43)
+  packet_passages=.ragpassage[];channels=.string[];scores=.ragscore[]
+  packet_passages[1]=.ragpassage(citation,"Source","The manuscript was lost in France.","book",1.0,"","","","direct","direct",channels,scores,metadata)
+  packet_supports=.ragsupportcitation[];packet_supports[1]=.ragsupportcitation(citation,"support","assertion","","independent","","direct","{}",metadata)
+  packet_claims=.ragacceptedclaim[];empty_strings=.string[]
+  packet_claims[1]=.ragacceptedclaim("related-claim","manuscript","located-in","College", "outbound",1.0,"","","",packet_supports,scores,empty_strings)
+  empty_leads=.raggraphlead[];empty_notes=.raganalysisnote[]
+  packet=.ragevidence("crexx-rag.evidence/2","fixture",1,"In which country was it lost?",empty_strings,packet_passages,packet_claims,empty_strings,empty_leads,empty_notes,empty_strings,outbound.evidence().trace(),"Preserve uncertainty.")
+  errors=errors+check(encodeanswercontext(packet,65536,answer_context,error)=0 & pos('"claim_id":"related-claim"',answer_context)>0 & pos("lost in France",answer_context)>0,"source and graph retained when both fit")
+  errors=errors+check(encodeanswercontext(packet,2500,answer_context,error)=0 & pos("lost in France",answer_context)>0 & pos('"truncation":{"incomplete":true',answer_context)>0 & pos(metadata,answer_context)>0,"best source survives tight context with provenance and explicit omissions " || error)
   trace_json = ""; paths_json = ""; timeline_json = ""
   errors = errors + check(encodetraceprojection(outbound.evidence(), 65536, trace_json, error) = 0 & pos('"schema":"crexx-rag.query-trace/1"', trace_json) > 0, "dedicated trace projection " || error)
   errors = errors + check(encodepathprojection(outbound.evidence(), 65536, paths_json, error) = 0 & pos('"schema":"crexx-rag.query-paths/2"', paths_json) > 0 & pos('"follow_question":', paths_json) > 0, "dedicated path and follow-up projection " || error)

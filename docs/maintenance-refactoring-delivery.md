@@ -854,3 +854,23 @@ configuration, transaction or generic provider contract changes. Boundary tests
 cover path/checksum/ceiling invalidation, changed publication, current visibility,
 independent bytes and early rejection without provider work. See
 [delivery and full-gate status](retrieval-tightening-20260919.md).
+
+## Bounded answer context and references (19 September 2026)
+
+`raganswercontract` owns the shared alias instruction, schema and contract/2
+version, including effective prompt inspection. `raganswerreferences` owns the
+request-local context/3 projection and reverse map; `ragqueryservice` composes it
+with existing canonical citation validation and durable direct-call accounting.
+`ragquerypolicy` owns the existing-role/model-derived context ceiling and
+`ragevidencejson` owns whole-record selection and omission qualifications.
+No command adapter, SQL repository, embedding profile or provider-selection
+ownership changes. Workers retain their separate resolution reference contract.
+
+The baseline public query first reproduced full-ID output; new direct controls
+cover deterministic maps, canonical restoration, literal text/provenance and
+graph preservation, unknown/full-ID bypass rejection and cross-request isolation.
+The small-context source-versus-related-claim regression failed before the
+selection repair. Public loopback tests additionally reject reported output
+overruns and independently assert retained canonical maps in provider history.
+Only the answer system-prompt digest changes; all response schemas and other
+prompt digests remain unchanged. [Acceptance and final QA record](local-search-followup-20260919.md).

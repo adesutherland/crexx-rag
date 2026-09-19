@@ -77,7 +77,9 @@ encodeanswercontext: procedure = .int
   return 0
 
 /* Drop only whole records. Qualifications and citations travel with each
- * retained claim; ambiguity, gaps and answer guidance are never stripped. */
+ * retained claim; ambiguity, gaps and answer guidance are never stripped.
+ * Keep the highest-ranked source passage when only it or a related graph
+ * claim fits: a claim's support metadata need not include the answering text. */
 _boundedanswercontext: procedure = .int
   arg evidence=.ragevidence, maximum_bytes=.int, expose output=.string, expose error=.string
   passages=evidence.passages(); claims=evidence.claims(); leads=evidence.leads(); notes=evidence.analysis_notes()
@@ -89,9 +91,11 @@ _boundedanswercontext: procedure = .int
   pc=passages.0; cc=claims.0; lc=leads.0; nc=notes.0
   do forever
     if nc>0 then nc=nc-1
+    else if pc>1 then pc=pc-1
+    else if cc>1 then cc=cc-1
     else if lc>0 then lc=lc-1
-    else if pc>0 then pc=pc-1
     else if cc>0 then cc=cc-1
+    else if pc>0 then pc=pc-1
     else do; error="answer context cannot retain mandatory qualifications within the byte ceiling"; output=""; return -2; end
     omitted='{"passages":' || (passages.0-pc) || ',"claims":' || (claims.0-cc) || ',"leads":' || (leads.0-lc) || ',"analysis_notes":' || (notes.0-nc) || '}'
     output='{"schema":"crexx-rag.answer-context/2","question":' || jsonquote(evidence.original_question()) || ',"passages":' || _prefixobjects(passage_rows,pc) || ',"accepted_claims":' || _prefixobjects(claim_rows,cc) || ',"ambiguities":' || _strings(evidence.ambiguities()) || ',"graph_leads":' || _prefixobjects(lead_rows,lc) || ',"analysis_notes":' || _prefixobjects(note_rows,nc) || ',"gaps":' || _strings(evidence.gaps()) || ',"answer_guidance":' || jsonquote(evidence.answer_guidance() || " Context is incomplete: whole records were omitted to meet the byte ceiling. Report this limitation; absence is not negative evidence.") || ',"truncation":{"incomplete":true,"omitted":' || omitted || '}}'

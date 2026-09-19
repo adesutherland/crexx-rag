@@ -53,7 +53,7 @@ and subsequent owners. Operator settings still enter through `crexxrag.conf`.
 | `ragresolutioncontract` | Effective resolution messages, selected-span context, action field examples, shared initial/correction ordinary/final-route controls, bounded search/read/extraction requests, schema and subject/workflow action vocabulary. Both `ragapplicationprovider` and `ragbacklog` validation consume this vocabulary. |
 | `ragresolutionreferences` | Versioned model-facing subject/concept/evidence references from one frozen resolution input. The message builder projects IDs; the provider boundary retains the map and expands response fields before normal backlog validation. |
 | `ragquotationcontract` | Shared literal-quotation instructions and bounded correction feedback; normal `raggrounding` validation remains independent and authoritative. |
-| `raganswercontract` / `ragreportcontract` | Answer and advisory-report message/schema pairs; consumed by `ragqueryprovider`. |
+| `raganswercontract` / `raganswerreferences` / `ragreportcontract` | Answer and advisory-report message/schema pairs; answer references project a bounded context and restore canonical citations. Consumed by `ragqueryprovider` and `ragqueryservice`; token/byte ceilings remain in `ragquerypolicy`. |
 | `ragpromptinspection` | Public projection of those same builders, including exact system/schema hashes; no provider or library access. |
 
 `ragapplicationprovider` retains execution, input-envelope checks, receipt
@@ -626,6 +626,26 @@ context. A supported answer must return schema-valid citations already present
 in that context. An explicitly insufficient answer returns no citations and is
 rendered as a deterministic refusal, so irrelevant retrieval cannot become an
 uncited generated claim or a false command failure.
+
+Answer-contract/2 uses answer-context/3 request-local citation aliases (`E1`,
+`E2`, ...). The map is made only from records retained in that context; response
+citations must be supplied aliases and are expanded before canonical evidence
+validation and public rendering. Source text, names, direction, provenance and
+qualifications are not substituted. Provider history retains the map in
+`recovery_json.reference_map`, including for rejected responses.
+
+The existing evidence byte ceiling still bounds the public evidence packet.
+The answer context has an additional ceiling derived from the answer role,
+per-command input allowance and model context minus requested output. It uses
+the existing maintenance convention of three UTF-8 bytes per estimated token,
+subtracts system-prompt/schema bytes and reserves 256 framing tokens. This is a
+conservative estimate, not exact tokenizer admission or proof of a remote
+server's effective context. Mandatory-context overflow fails before the answer
+call; provider-reported role/context/output overruns reject the result. Bounded
+encoding removes whole records with an explicit omission marker, keeping the
+first passage and accepted claim ahead of lower-ranked records and graph
+leads where space permits. If only the final passage or final claim fits, retain
+the passage's source text. Ambiguities, gaps and guidance remain mandatory.
 
 For ordinary MCP Q&A, the external assistant consumes `query.inspect` evidence,
 resolves citations and composes the answer in its existing conversation.

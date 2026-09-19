@@ -1286,6 +1286,18 @@ for evidence that answers none of the question. Trace, path, and timeline are
 distinct bounded projections; path results include follow-up leads, and
 `citation show` resolves a public citation to its exact stored source span.
 
+The answerer sees short citation references such as `E1`; returned citations
+are validated and restored to full source IDs. Source footnotes are not these
+references. The reference map is retained with the provider run for inspection.
+Small models also receive a context bounded by the existing answer-role input
+limit and provider context/output limits. The three-byte token estimate leaves
+room for prompt/schema text and framing; it is not an exact tokenizer count.
+Whole-record omissions are explicitly marked. Prompt/mandatory-context overflow
+and reported token overruns fail visibly. Keep useful passage and graph limits;
+reducing retrieval to one passage and zero graph hops lost supporting evidence
+in the local-model investigation. Model correctness still needs independent
+evaluation even when JSON and citations validate.
+
 When recording JSON command output, do not pipe the command directly through
 `jq` if the command's exit status matters: a successful `jq` can hide a failed
 `crexxrag` status. Capture output and status first, then format it, for example:

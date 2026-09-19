@@ -30,9 +30,9 @@ function(run_provider_smoke mode port expected_requests)
     set(server_out "${CPRAG_WORK_DIR}/${mode}-loopback.out")
     set(server_err "${CPRAG_WORK_DIR}/${mode}-loopback.err")
     set(server_status "${CPRAG_WORK_DIR}/${mode}-loopback.status")
-    set(scenario product-query)
+    set(scenario product-provider-smoke)
     if(mode STREQUAL "invalid")
-        set(scenario product-query-invalid)
+        set(scenario product-provider-smoke-invalid)
     endif()
     execute_process(COMMAND /bin/sh -c
         "( \"$1\" \"$2\" ${expected_requests} \"$6\"; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"

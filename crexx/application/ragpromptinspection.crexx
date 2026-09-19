@@ -40,7 +40,7 @@ promptrecords: procedure = .ragresultrecord[]
     schema=resolutionresponseschema();version=resolutioncontractversion()
     scope=scope || " This schema lists all actions; maintain inspect returns the narrower task-specific schema."
   end
-  if role="answerer" then do;schema=answerresponseschema();version=answercontractversion();end
+  if role="answerer" then do;system=answerprompt(objective);schema=answerresponseschema();version=answercontractversion();end
   if role="advisory" then do;schema=reportresponseschema();version=reportcontractversion();end
   fields[1]=.ragresultfield("role","string",role)
   fields[2]=.ragresultfield("contract_version","string",version)

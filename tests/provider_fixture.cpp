@@ -64,6 +64,8 @@ std::string escaped_candidate_for_label(const std::string& request, const std::s
 
 std::string escaped_citation(const std::string& request)
 {
+    if (request.find("crexx-rag.answer-context/3") != std::string::npos
+        && request.find("\\\"citation\\\":\\\"E1\\\"") != std::string::npos) return "E1";
     const std::size_t value_start = request.find("crexx-rag:");
     if (value_start == std::string::npos) return {};
     const std::size_t value_end = request.find("\\\"", value_start);
@@ -293,9 +295,14 @@ int main(int argc, char** argv)
                         + json_string(resolution)
                         + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":210,\"candidatesTokenCount\":64}}";
                 }
-            } else if (request.find("crexx-rag.answer-context/2") != std::string::npos) {
+            } else if (request.find("crexx-rag.answer-context/2") != std::string::npos
+                       || request.find("crexx-rag.answer-context/3") != std::string::npos) {
                 const std::string citation = escaped_citation(request);
                 const bool valid_answer = valid_auth && valid_structured && !citation.empty()
+                    && (scenario.find("product-query") != 0 || request.find("\\\"citation\\\":\\\"E1\\\"") != std::string::npos)
+                    && (scenario.find("product-provider-smoke") != 0
+                        || (request.find("crexx-rag.answer-context/2") != std::string::npos
+                            && citation.rfind("crexx-rag:", 0) == 0))
                     && request.find("only citation IDs present") != std::string::npos
                     && request.find("grounding") != std::string::npos;
                 if (!valid_answer) {
@@ -314,7 +321,7 @@ int main(int argc, char** argv)
                         grounding = "partial";
                         answer_text = "The evidence establishes the documented dependency, but does not establish its operational impact.";
                     }
-                    if (scenario == "product-query-invalid") {
+                    if (scenario == "product-query-invalid" || scenario == "product-provider-smoke-invalid") {
                         if (index == 0) citations = "[\"crexx-rag:unknown-citation\"]";
                         if (index == 1) citations = "[\"" + citation + "\",\"" + citation + "\"]";
                         if (index == 2) citations = "[]";
@@ -324,7 +331,8 @@ int main(int argc, char** argv)
                         + (scenario == "product-query-invalid" && index == 3 ? ",\"extra\":true}" : "}");
                     body = "{\"responseId\":\"product-gemini-answer-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
                         + json_string(answer)
-                        + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":210,\"candidatesTokenCount\":32}}";
+                        + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":210,\"candidatesTokenCount\":"
+                        + (scenario == "product-query-invalid" && index == 4 ? "1025" : "32") + "}}";
                 }
             } else {
                 const std::string source_id = escaped_candidate_for_label(request, "billingservice");

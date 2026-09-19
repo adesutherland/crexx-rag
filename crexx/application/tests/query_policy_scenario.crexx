@@ -59,6 +59,15 @@ errors = errors + check(queryusagewithin(normal, hosted, .providerusage(100, 0, 
 errors = errors + check(queryusagewithin(normal, local, .providerusage(100, 0, 1, -1, 1, 0), 1, codex, .providerusage(200, 40, 1, -1, 1, 0), 1) = 1, "non-monetary usage is not recorded as zero cost")
 errors = errors + check(queryusagewithin(normal, hosted, .providerusage(999, 999, 1, 999, 1, 0), 0, hosted, answer_exact, 1) = 1, "uncalled provider usage excluded")
 
+/* Context leaves room for output and framing, even with a large evidence cap. */
+small_model=.ragproviderconfig("small","openai-compatible","http://127.0.0.1:8080/v1","local","local","restricted-ok",empty_secret,30000,1,60000,2000000000,64,1000,60000,250,4096,1024)
+context_budget=.ragbudget(2,2,2,8192,1024,0,0,1)
+limit=queryanswercontextlimit(context_budget,small_model,3000,768,1,1000,65536,error)
+errors=errors+check(limit=7232,"small-model context accounts for prompt/schema and framing " || error)
+errors=errors+check(queryanswercontextlimit(context_budget,small_model,4000,1024,0,1000,65536,error)=7448,"provider context reserves generated output")
+errors=errors+check(queryanswercontextlimit(normal,small_model,3000,40,1,1000,65536,error)<0 & pos("context",error)>0,"mandatory prompt overflow refused")
+errors=errors+check(queryanswercontextlimit(context_budget,small_model,3000,768,1,1000,4096,error)=4096,"explicit byte ceiling retained")
+
 if errors > 0 then return 1
 say "QUERY_POLICY_OK privacy=local+hosted calls=bounded codex_turns=bounded input_tokens=bounded output_tokens=bounded cost=bounded aggregate=postchecked"
 return 0

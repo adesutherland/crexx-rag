@@ -3,6 +3,8 @@ options levelg
 namespace ragqueryservice expose citationshow querycommand
 
 import provider_contract
+import raganswercontract
+import raganswerreferences
 import ragcommand
 import ragcommandutil
 import ragconfig
@@ -180,30 +182,38 @@ querycommand: procedure = .ragcommandresult
   retrieval = .ragretrievalresult
   if retrieveevidencewithsidecar(store, profile, positionals[1], retrieval_options, retrieval, error, prepared_sidecar) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 1, error); end
   if mode = "hybrid" & (retrieval.vector_state() \= "active-ann-ivf-rxvector" & retrieval.vector_state() \= "active-exact-native") then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "hybrid query requires a valid vector sidecar; run vector rebuild to recover it from SQLite"); end
-  evidence = retrieval.evidence(); answer_context = ""
+  evidence = retrieval.evidence(); answer_context = ""; canonical_answer_context=""; answer_references=.raganswerreferences("{}")
   query_gaps_recorded = 0
   if operation \= "query.inspect" then if recordquerygaps(store, evidence, query_gaps_recorded, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
   if answer_planned = 1 then do
-    if encodeanswercontext(evidence, retrieval_policy.maximum_evidence_bytes(), answer_context, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 1, error); end
+    prompt_bytes=binlength((answerprompt(answer_role.system_prompt()) || answerresponseschema()) as .binary)
+    context_limit=queryanswercontextlimit(budget,answer_provider,answer_role.maximum_input_tokens(),requested_output,embedding_planned,prompt_bytes,retrieval_policy.maximum_evidence_bytes(),error)
+    if context_limit<1 then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,6,error);end
+    if encodeanswercontext(evidence, context_limit, canonical_answer_context, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 1, error); end
+    answer_references=.raganswerreferences(canonical_answer_context);answer_context=answer_references.input()
   end
   evidence_json = ""
   close_error = ""
   if closeragstore(store, close_error) \= 0 then return commandfailure(operation, 7, close_error)
   answer_output = .providerresult(); allowance_before = -1; allowance_after = -1; generated_answer = ""; answer_grounding = ""; answer_citations_json = "[]"; answer_citation = ""; answer_called = 0; answer_provider_run = ""
   if answer_planned = 1 then do
-    answer_identity = "query-answer-" || substr(rxhash..sha256hex((answer_context || "00"x || answer_provider.provider_id() || "00"x || answer_provider.model()) as .binary), 1, 32)
+    answer_identity = "query-answer-" || substr(rxhash..sha256hex((canonical_answer_context || "00"x || answer_provider.provider_id() || "00"x || answer_provider.model()) as .binary), 1, 32)
     call tracer.emit("answer", "start", plan.fingerprint(), answer_provider.provider_id() || " " || answer_provider.model())
     answer_status = generatequeryanswer(answer_provider, answer_context, privacy, requested_output, budget.minimum_codex_allowance_percent(), answer_identity, answer_output, allowance_before, allowance_after, error, answer_role.system_prompt(), answer_role.temperature_millionths())
     answer_provider_error = error; answer_validation = -1; answer_validation_error = ""
-    if answer_status = 0 then answer_validation = _answeroutput(answer_output.content(), evidence, generated_answer, answer_grounding, answer_citations_json, answer_citation, answer_validation_error)
+    if answer_status = 0 then do
+      answer_validation = _answeroutput(answer_output.content(), evidence, answer_references, generated_answer, answer_grounding, answer_citations_json, answer_citation, answer_validation_error)
+      actual_usage=answer_output.usage()
+      if actual_usage.input_tokens()>answer_role.maximum_input_tokens() | actual_usage.output_tokens()>requested_output | actual_usage.input_tokens()+actual_usage.output_tokens()>answer_provider.context_tokens() then do;answer_validation=-1;answer_validation_error="query answer provider usage exceeds the configured role or model context/output envelope";end
+    end
     if answer_output.request_id() \= "" then do
       answer_outcome = "succeeded"
       if answer_status \= 0 then do; answer_outcome = "rejected"; if answer_output.status() \= 0 then answer_outcome = "failed"; end
       else if answer_validation \= 0 then answer_outcome = "rejected"
       answer_store = .ragstorehandle; persistence_error = ""
       if openragstore(request.library(), "readwrite", answer_store, persistence_error) \= 0 then return commandopenfailure(operation, persistence_error)
-      recovery_json = ""
-      if answer_outcome = "rejected" & answer_validation_error \= "" then recovery_json = '{"schema":"crexx-rag.provider-recovery/1","stage":"product-validation","error":' || jsonquote(answer_validation_error) || '}'
+      recovery_json = '{"schema":"crexx-rag.provider-recovery/1","stage":"answer-references","reference_map":' || answer_references.mapping() || '}'
+      if answer_outcome = "rejected" & answer_validation_error \= "" then recovery_json = '{"schema":"crexx-rag.provider-recovery/1","stage":"product-validation","error":' || jsonquote(answer_validation_error) || ',"reference_map":' || answer_references.mapping() || '}'
       persistence_status = persistdirectproviderrun(answer_store.database(), config_snapshot_id, operation, "query-answer", answer_provider, answer_context, answer_output, answer_outcome, allowance_before, allowance_after, recovery_json, answer_provider_run, persistence_error)
       state_changed = currentconfigsnapshotid(answer_store.database(), persistence_error) \= config_snapshot_id | sqlreadint(answer_store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1") \= query_generation
       ignored = ""; close_status = closeragstore(answer_store, ignored)
@@ -337,7 +347,7 @@ _querysidecaravailable: procedure = .int
   error = ""
   return preparevectorsidecar(store,profile_id,maximum_bytes,sidecar,error) = 0
 _answeroutput: procedure = .int
-  arg content = .string, evidence = .ragevidence, expose answer = .string, expose grounding = .string, expose citations_json = .string, expose first_citation = .string, expose error = .string
+  arg content = .string, evidence = .ragevidence, references=.raganswerreferences, expose answer = .string, expose grounding = .string, expose citations_json = .string, expose first_citation = .string, expose error = .string
   answer = ""; grounding = ""; citations_json = "[]"; first_citation = ""; error = ""; document = .jsondocument(content)
   if document.valid() \= 1 | document.node_type(document.root()) \= "object" then do; error = "query answer is not a JSON object"; return -1; end
   root = document.root()
@@ -346,16 +356,20 @@ _answeroutput: procedure = .int
   if document.node_string(document.member(root, "answer"), answer) \= 0 | answer = "" | length(answer) > 8192 then do; error = "query answer text is invalid"; return -1; end
   citations = document.member(root, "citations")
   if document.node_type(citations) \= "array" | document.node_count(citations) > 12 then do; error = "query answer citations are invalid"; return -1; end
-  seen = .string[]
+  seen = .string[];canonical_citations="["
   do i = 1 to document.node_count(citations)
     citation = ""
-    if document.node_string(document.element(citations, i), citation) \= 0 | citation = "" | evidencehascitation(evidence, citation) \= 1 | containscitation(seen, citation) = 1 then do; error = "query answer contains an unknown or duplicate citation"; return -1; end
+    if document.node_string(document.element(citations, i), citation) \= 0 then do;error="query answer citation must be a string";return -1;end
+    citation=references.canonical(citation)
+    if citation = "" | evidencehascitation(evidence, citation) \= 1 | containscitation(seen, citation) = 1 then do; error = "query answer contains an unknown or duplicate citation"; return -1; end
     seen[seen.0 + 1] = citation
+    if i>1 then canonical_citations=canonical_citations || ","
+    canonical_citations=canonical_citations || jsonquote(citation)
     if first_citation = "" then first_citation = citation
   end
   if grounding = "supported" & seen.0 = 0 then do; error = "supported query answer omitted citations"; return -1; end
   if grounding = "partial" & seen.0 = 0 then do; error = "partial query answer omitted citations"; return -1; end
   if grounding = "insufficient" & seen.0 > 0 then do; error = "insufficient query answer included citations"; return -1; end
   if grounding = "insufficient" then answer = "The available evidence is insufficient to answer this question."
-  citations_json = encodecitationarray(document, citations)
+  citations_json = canonical_citations || "]"
   return 0

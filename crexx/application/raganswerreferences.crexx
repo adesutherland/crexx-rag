@@ -1,0 +1,77 @@
+options levelg
+namespace raganswerreferences expose raganswerreferences
+import rxfnsb
+import rxjson
+
+/* One immutable, already bounded answer context. Only contract citation fields
+ * are projected; literal text, provenance and arbitrary nested metadata stay
+ * byte-for-byte values. Public/storage identities remain canonical. */
+raganswerreferences: class
+  _document=.jsondocument
+  _input=.string
+  _ids=.string[]
+  _ready=.int
+
+  *: factory
+    arg context=.string
+    _document=.jsondocument(context);_input="";_ready=0
+    return
+
+  _prepare: method = .void
+    if _ready=1 then return
+    _ready=1
+    if _document.valid()=1 then _input=_walk(_document.root(),"",0)
+    return
+
+  input: method = .string
+    call _prepare()
+    return _input
+
+  mapping: method = .string
+    call _prepare()
+    output="{"
+    do i=1 to _ids.0
+      if i>1 then output=output || ","
+      output=output || jsonquote("E" || i) || ":" || jsonquote(_ids[i])
+    end
+    return output || "}"
+
+  canonical: method = .string
+    arg value=.string
+    call _prepare()
+    do i=1 to _ids.0
+      if value="E" || i then return _ids[i]
+    end
+    return ""
+
+  _reference: method = .string
+    arg citation=.string
+    do i=1 to _ids.0
+      if _ids[i]=citation then return "E" || i
+    end
+    index=_ids.0+1;_ids[index]=citation
+    return "E" || index
+
+  _walk: method = .string
+    arg node=.int,path=.string,depth=.int
+    kind=_document.node_type(node)
+    if kind="string" then do
+      value=_document.node_get(node)
+      if path="schema" then value="crexx-rag.answer-context/3"
+      if wordpos(path,"passages[].citation accepted_claims[].supports[].citation analysis_notes[].citations[]")>0 then value=_reference(value)
+      return jsonquote(value)
+    end
+    if depth>16 | (kind<>"array" & kind<>"object") then return _document.node_get(node)
+    children=.int[];ignored=_document.children(node,children);output="["
+    if kind="object" then output="{"
+    do i=1 to children.0
+      if i>1 then output=output || ","
+      child_path=path || "[]"
+      if kind="object" then do
+        name=_document.node_name(children[i]);output=output || jsonquote(name) || ":"
+        child_path=name;if path<>"" then child_path=path || "." || name
+      end
+      output=output || _walk(children[i],child_path,depth+1)
+    end
+    if kind="object" then return output || "}"
+    return output || "]"

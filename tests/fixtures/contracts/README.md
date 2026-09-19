@@ -47,3 +47,12 @@ instructions. All four response-schema hashes and the extraction/answer/report
 system hashes remain unchanged. Short-reference projection, canonical expansion,
 rejection, correction and native receipt recovery have behavioral tests in
 `docs/resolution-references-delivery-20260917.md`.
+
+19 September approved local-search follow-up: only the answer system hash changes
+from `4103233c…` to `4fc41304…`. The added contract explains request-local citation
+references, excludes source footnotes/speaker labels and keeps IDs in the citation
+array. All four schemas and the other three system prompts are unchanged.
+`regression_prompt_inspection` and the public `gemini_query` cases verify canonical
+restoration, literal source preservation and rejection. See
+`docs/local-search-followup-20260919.md`; this is not the failed partial-answer
+prompt experiment.

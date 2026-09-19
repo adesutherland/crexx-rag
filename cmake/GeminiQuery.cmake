@@ -458,12 +458,12 @@ if(NOT failed_embedding_history_result EQUAL 0 OR NOT failed_embedding_history_o
 endif()
 
 # Provider JSON is untrusted. Unknown and duplicate citations, a supported
-# answer without citations, and extra fields are rejected before display.
+# answer without citations, extra fields and output overruns are rejected before display.
 set(invalid_out "${CPRAG_WORK_DIR}/invalid-loopback.out")
 set(invalid_err "${CPRAG_WORK_DIR}/invalid-loopback.err")
 set(invalid_status "${CPRAG_WORK_DIR}/invalid-loopback.status")
 execute_process(COMMAND /bin/sh -c
-    "( \"$1\" \"$2\" 4 product-query-invalid; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
+    "( \"$1\" \"$2\" 5 product-query-invalid; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
     p5r-01-invalid "${CPRAG_LOOPBACK}" "${CPRAG_FIXTURE_PORT}" "${invalid_out}"
     "${invalid_err}" "${invalid_status}"
     RESULT_VARIABLE invalid_launch_result)
@@ -488,7 +488,8 @@ foreach(expected_error IN ITEMS
         "unknown or duplicate citation"
         "unknown or duplicate citation"
         "supported query answer omitted citations"
-        "fields outside the exact schema")
+        "fields outside the exact schema"
+        "provider usage exceeds the configured role or model context/output envelope")
     execute_process(COMMAND ${cli} --format json query answer
         "What does BillingService depend on?" --mode lexical
         WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
@@ -513,14 +514,14 @@ file(READ "${invalid_status}" invalid_result)
 file(READ "${invalid_out}" final_invalid_out)
 file(READ "${invalid_err}" final_invalid_err)
 if(NOT invalid_result STREQUAL "0" OR
-   NOT final_invalid_out MATCHES "SUMMARY scenario=product-query-invalid connections=4")
+   NOT final_invalid_out MATCHES "SUMMARY scenario=product-query-invalid connections=5")
     message(FATAL_ERROR "Invalid-answer loopback failed:\n${final_invalid_out}${final_invalid_err}")
 endif()
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
-    "SELECT count(*) || ':' || count(CASE WHEN recovery_json<>'' THEN 1 END) FROM provider_runs WHERE purpose='query-answer' AND outcome='rejected' AND cost_microunits>=0;"
+    "SELECT count(*) || ':' || count(CASE WHEN json_extract(recovery_json,'$.reference_map.E1') LIKE 'crexx-rag:%' THEN 1 END) FROM provider_runs WHERE purpose='query-answer' AND outcome='rejected' AND cost_microunits>=0;"
     OUTPUT_VARIABLE rejected_answer_history_out ERROR_VARIABLE rejected_answer_history_err
     RESULT_VARIABLE rejected_answer_history_result OUTPUT_STRIP_TRAILING_WHITESPACE)
-if(NOT rejected_answer_history_result EQUAL 0 OR NOT rejected_answer_history_out STREQUAL "4:4")
+if(NOT rejected_answer_history_result EQUAL 0 OR NOT rejected_answer_history_out STREQUAL "5:5")
     message(FATAL_ERROR "Rejected direct answer history was not durable:\n${rejected_answer_history_out}${rejected_answer_history_err}")
 endif()
 
@@ -653,7 +654,7 @@ endif()
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "test=gemini-query\nprovider=gemini\ningest_requests=2\nquery_requests=2\n"
     "retrieval=hybrid\nanswer=structured-and-cited\nlexical_outbound=0\n"
-    "invalid_answers=unknown+duplicate+supported-omitted+extra-field\ninsufficient_answer=accepted-without-citations\nauto_fallback=attempt-reported\nhybrid_required=no-silent-fallback\n"
+    "invalid_answers=unknown+duplicate+supported-omitted+extra-field+output-overrun\nreference_maps=durable\ninsufficient_answer=accepted-without-citations\nauto_fallback=attempt-reported\nhybrid_required=no-silent-fallback\n"
     "surface=crexxrag-query\n${init_out}${ingest_out}${ingest_err}${query_out}${query_err}"
     "${lexical_out}${lexical_err}${hybrid_fail_out}${hybrid_fail_err}${verify_out}${verify_err}")
 message(STATUS "Gemini query passed human hybrid retrieval and cited answer generation, explicit zero-outbound lexical mode, required-hybrid failure, citation rejection, valid insufficient-evidence handling, and post-query integrity")

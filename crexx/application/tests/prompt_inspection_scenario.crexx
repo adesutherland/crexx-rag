@@ -9,6 +9,8 @@ import operator_registry
 import ragextractioncontract
 import ragresolutioncontract
 import ragresolutionreferences
+import raganswerreferences
+import raganswercontract
 import ragquotationcontract
 import ragassessment
 import ragenrich
@@ -17,6 +19,17 @@ import generic_profile
 main: procedure = .int
   arg args=.string[]
   errors=0
+  answer_input='{"schema":"crexx-rag.answer-context/2","passages":[{"citation":"crexx-rag:long-source-one","text":"Literal E1 and crexx-rag:long-source-one","source_metadata":{"citation":"untouched"}}],"accepted_claims":[{"subject":"Philip Miller","object":"Johnson","direction":"outbound","supports":[{"citation":"crexx-rag:long-source-two","stance":"assertion"},{"citation":"crexx-rag:long-source-one"}]}],"analysis_notes":[{"citations":["crexx-rag:long-source-two"],"text":"Philips is a different person"}],"graph_leads":[{"limitation":"unproved"}],"gaps":["unknown"]}'
+  answer_refs=.raganswerreferences(answer_input);answer_error=""
+  projected=answer_refs.input()
+  if pos('"citation":"E1"',projected)=0 | pos('"citation":"E2"',projected)=0 | pos('"citations":["E2"]',projected)=0 | pos('"schema":"crexx-rag.answer-context/3"',projected)=0 then do;say "PROMPT_FAIL answer reference projection";return 1;end
+  if pos('Literal E1 and crexx-rag:long-source-one',projected)=0 | pos('"source_metadata":{"citation":"untouched"}',projected)=0 | pos('"direction":"outbound"',projected)=0 | pos('"limitation":"unproved"',projected)=0 then do;say "PROMPT_FAIL answer source or graph altered";return 1;end
+  if answer_refs.mapping()<>'{"E1":"crexx-rag:long-source-one","E2":"crexx-rag:long-source-two"}' then do;say "PROMPT_FAIL answer mapping";return 1;end
+  if answer_refs.canonical("E2")<>"crexx-rag:long-source-two" | answer_refs.canonical("E99")<>"" | answer_refs.canonical("crexx-rag:long-source-one")<>"" then do;say "PROMPT_FAIL unknown or full answer ID bypass";return 1;end
+  different_refs=.raganswerreferences(changestr("long-source-two",answer_input,"other-source"))
+  if different_refs.canonical("E2")=answer_refs.canonical("E2") then do;say "PROMPT_FAIL answer mapping leaked across requests";return 1;end
+  if binlength(projected as .binary)>=binlength(answer_input as .binary) then do;say "PROMPT_FAIL aliases did not reduce context";return 1;end
+  if pos("short references",answerprompt("objective"))=0 then do;say "PROMPT_FAIL answer reference instruction missing";return 1;end
   ordinary=resolutioninputprompt('{"required_capability":"ordinary","evidence_expected":0}',"Ordinary objective","alias-issue")
   advanced=resolutioninputprompt('{"required_capability":"advanced-reasoning","evidence_expected":0}',"Final objective","alias-issue")
   if pos("target_concept_id must be a concept_id from evidence.subject.candidates",ordinary)=0 then do;say "PROMPT_FAIL reuse target mapping";errors=errors+1;end
