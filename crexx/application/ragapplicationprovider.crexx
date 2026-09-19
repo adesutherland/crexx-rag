@@ -223,6 +223,7 @@ ragapplicationprovider: class implements .ragworkprovider
       if schema = "" then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"cannot construct enriched response schema",0)
     end
     resolution_work = claim.item_type() = "maintenance-resolution"
+    objective = ""; subject_type = ""
     if resolution_work then do
       evidence_node = document.member(root,"evidence")
       subject_node = document.member(evidence_node,"subject")
@@ -244,9 +245,18 @@ ragapplicationprovider: class implements .ragworkprovider
     correction = citationcorrectioncontext(_store,claim,previous_response,correction_feedback)
     if correction < 0 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"citation correction context is unavailable",0)
     if correction = 1 then do
+      correction_input = input_json
+      if resolution_work & receipt_body = "" then do
+        allowance_error = ""
+        correction_input = resolutioncorrectioninput(_store.database(),input_json,allowance_error)
+        if correction_input = "" then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,allowance_error,0)
+        /* Verify the frozen prompt above before projecting current operational
+         * context. Evidence, reference mapping and request identity stay frozen. */
+        messages = resolutionmessages(_profile,correction_input,objective,subject_type)
+      end
       messages[3] = .providermessage("assistant",previous_response)
       correction_instruction=correctionmessage(correction_feedback)
-      if resolution_work then correction_instruction=resolutioncorrectionmessage(input_json,correction_feedback)
+      if resolution_work then correction_instruction=resolutioncorrectionmessage(correction_input,correction_feedback)
       messages[4]=.providermessage("user",correction_instruction)
       maximum_input = 0
       ignored = document.node_int(document.member(reservation,"input_tokens"),maximum_input)

@@ -63,6 +63,12 @@ evidence validation and transactional lifecycle application. Its search/read
 steps compose `ragretrieval` and `ragevidence`; the coordinator retains worker
 fences and immutable receipts. Queue/status and public controls delegate to the
 same owner. `raglifecycle` owns total and capability-specific reset baselines.
+`ragmaintain.validatetypechange` owns the nonempty/different-type rule shared by
+backlog response validation and transactional lifecycle application. The latter
+also checks profile permission and lifecycle state. Backlog concept/note subject
+selection is shared by preflight and application; an unchanged type must be
+rejected before a lifecycle item is recorded, with `no-change` or `retain` as a
+supported conclusion when justified. [ESC-OPS-03 evidence](esc-ops-03-delivery-20260919.md).
 Actual advanced provider runs (including search/read and failed or corrected
 responses) count through that shared capability-specific ledger. The ordinary
 handoff remains in total usage without consuming the advanced route's allowance.
@@ -71,6 +77,12 @@ frozen remaining-call instructions and validation; its inner task lookup uses
 an explicit alias so outer task expressions stay correlated. All calls also
 consume the existing job call/token/cost limits. See the
 [ESC-OPS-02 regression and repair](advanced-call-budget-delivery-20260917.md).
+`ragbacklog.resolutioncorrectioninput` projects the current allowance for an
+already-admitted correction using that same ledger and the frozen route ceiling.
+`ragapplicationprovider` verifies the original prompt binding first, then renders
+this request-only view in both system text and presented input. It preserves
+stored task/evidence bytes, reference IDs, admission policy and receipt replay;
+normal observability stores the actual sent prompt/body. [ESC-OPS-04 evidence](esc-ops-04-qa-cleanup-delivery-20260919.md).
 `ragassessment` and `ragenrich` retain their specialized provenance contracts.
 
 Work observability follows these owners. `ragapplicationprovider` serializes

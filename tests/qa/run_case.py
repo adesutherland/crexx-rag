@@ -4,6 +4,7 @@ CTest alone selects/orders/schedules cases. This module never invokes another te
 """
 import argparse
 import contextlib
+import errno
 import fcntl
 import hashlib
 import json
@@ -24,6 +25,28 @@ def digest(path):
         for block in iter(lambda: source.read(1024 * 1024), b''):
             h.update(block)
     return h.hexdigest()
+
+
+def wait_owned(proc, timeout):
+    """Observe exit without reaping: the child's PID still owns our group ID."""
+    deadline = time.monotonic() + timeout
+    while True:
+        result = os.waitid(os.P_PID, proc.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+        if result is not None:
+            return result.si_status if result.si_code == os.CLD_EXITED else -result.si_status
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(proc.args, timeout)
+        time.sleep(min(.02, remaining))
+
+
+def group_has_live_members(group):
+    # Darwin returns EPERM for a group containing only zombies. Treat that as
+    # complete only after a successful inventory confirms no signalable member.
+    listing = subprocess.run(['ps', '-axo', 'pgid=,stat='], capture_output=True,
+                             text=True, check=True, timeout=2)
+    return any(int(fields[0]) == group and not fields[1].startswith('Z')
+               for line in listing.stdout.splitlines() if (fields := line.split()))
 
 
 @contextlib.contextmanager
@@ -125,9 +148,7 @@ def main():
             interrupted = True
             if proc is None:
                 raise SystemExit(130)
-            if proc is not None:
-                with contextlib.suppress(ProcessLookupError):
-                    os.killpg(proc.pid, signal.SIGTERM)
+            # The normal loop performs bounded cleanup and writes its receipt.
         signal.signal(signal.SIGTERM, stop)
         signal.signal(signal.SIGINT, stop)
         with contextlib.ExitStack() as stack:
@@ -139,35 +160,62 @@ def main():
                 proc = subprocess.Popen(rewritten, cwd=execution, env=environment,
                                         stdout=output, stderr=subprocess.STDOUT,
                                         start_new_session=True)
+                cleanup_errors = []
+                process_exit_code = None
+                code = 1
                 try:
                     while True:
                         try:
-                            code = proc.wait(timeout=0.2)
+                            code = wait_owned(proc, .2)
                             break
                         except subprocess.TimeoutExpired:
                             if interrupted or time.monotonic()-launched > args.timeout:
-                                was_interrupted = interrupted
-                                stop(signal.SIGTERM, None)
-                                interrupted = was_interrupted
-                                try:
-                                    code = proc.wait(timeout=2)
-                                except subprocess.TimeoutExpired:
-                                    os.killpg(proc.pid, signal.SIGKILL)
-                                    code = proc.wait()
                                 code = 130 if interrupted else 124
                                 break
+                except (OSError, ChildProcessError) as error:
+                    cleanup_errors.append(f'wait: {type(error).__name__}: {error}')
                 finally:
                     run_seconds = time.monotonic()-launched
                     cleanup_started = time.monotonic()
-                    # Ordinary descendants inherit the case process group.
-                    with contextlib.suppress(ProcessLookupError):
-                        os.killpg(proc.pid, signal.SIGTERM)
-                    with contextlib.suppress(ProcessLookupError):
-                        os.killpg(proc.pid, signal.SIGKILL)
+                    # Reap only AFTER signalling. Even an exited leader reserves
+                    # this group identity, preventing PID/group-number reuse.
+                    for sig in (signal.SIGTERM, signal.SIGKILL):
+                        exited = None
+                        try:
+                            exited = os.waitid(os.P_PID, proc.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+                            os.killpg(proc.pid, sig)
+                        except ProcessLookupError:
+                            break
+                        except (OSError, ChildProcessError) as error:
+                            if isinstance(error, PermissionError) and error.errno == errno.EPERM and exited is not None:
+                                try:
+                                    if not group_has_live_members(proc.pid):
+                                        break
+                                except (OSError, subprocess.SubprocessError, ValueError, IndexError) as inventory_error:
+                                    cleanup_errors.append(f'group inventory: {inventory_error}')
+                            cleanup_errors.append(f'{sig.name}: {type(error).__name__}: {error}')
+                            break
+                        if sig == signal.SIGTERM:
+                            try:
+                                wait_owned(proc, 2)
+                            except subprocess.TimeoutExpired:
+                                pass
+                            except (OSError, ChildProcessError) as error:
+                                cleanup_errors.append(f'cleanup wait: {type(error).__name__}: {error}')
+                                break
+                    try:
+                        process_exit_code = proc.wait(timeout=2)
+                    except (OSError, subprocess.TimeoutExpired) as error:
+                        cleanup_errors.append(f'reap: {type(error).__name__}: {error}')
             elapsed = time.monotonic()-started
+        if interrupted:
+            code = 130
+        elif cleanup_errors and code == 0:
+            code = 1
         outcome = 'interrupted' if interrupted else 'passed' if code == 0 else 'failed'
         result = {'case': args.name, 'identity': identity, 'outcome': outcome,
                   'exit_code': code, 'seconds': round(elapsed, 3),
+                  'process_exit_code': process_exit_code, 'cleanup_errors': cleanup_errors,
                   'resource_wait_seconds': round(waited, 3), 'setup_seconds': round(setup_seconds, 3),
                   'run_seconds': round(run_seconds, 3), 'cleanup_seconds': round(time.monotonic()-cleanup_started, 3),
                   'reason': reason, 'directory': str(execution)}
@@ -176,6 +224,8 @@ def main():
         temporary = receipt.with_suffix('.tmp')
         temporary.write_text(json.dumps(result, indent=2)+'\n'); temporary.replace(receipt)
         print(f"{outcome.upper()} {args.name}: {elapsed:.2f}s; logs: {execution}")
+        for error in cleanup_errors:
+            print(f'CLEANUP ERROR: {error}')
         if code:
             print((execution/'output.log').read_text(errors='replace')[-24000:])
         return 0 if code == 0 else 1

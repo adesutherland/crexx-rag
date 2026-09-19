@@ -1,5 +1,34 @@
 # Regression coverage baseline — REG-01
 
+## Correction allowance and QA cleanup — 19 September 2026
+
+Locally qualified: **132/132 required cases**, including the retained ESC-OPS-03
+repair. The resumed selection executed 68 cases and reused 64 exact-input passes;
+final documentation verification and receipt audit complete the accounting.
+
+Ordinary `durable_backlog_provider_correction` and the new advanced correction
+case assert 2 → 1 remaining calls in actual system/user requests, unchanged
+frozen input/reference identity, distinct actual prompt hashes, and preserved
+source/vector/receipt/usage controls. Existing correction-budget, failed-output
+and receipt-recovery cases remain required. `qa_execution` adds fail-first
+identity ownership and cleanup-error receipts plus timeout, TERM resistance and
+exited-leader descendant/unrelated-process controls. [Baseline and qualification](esc-ops-04-qa-cleanup-delivery-20260919.md).
+
+## ESC-OPS-03 repeated lifecycle correction (19 September 2026)
+
+`durable_backlog_recording` is an isolated component case on both VMs. It proves
+a real type correction, then reproduces a new task requesting that same type in
+the same window. Shared validation and external planning must reject the no-op
+with a supported conclusion before lifecycle recording. Worker rejection retains
+provider receipt/usage and preserves generation, source text, earlier action and
+version history; reviewed no-change settles the failed task without publication.
+An independent duplicate probe records the precise run/action/subject SQLite
+constraint. [Fail-first and final results](esc-ops-03-delivery-20260919.md).
+
+The stable required selection passes **131/131 in 676.62s**, with 129 fresh
+executions and two retained exact-input passes. Final documentation-only
+verification and the current-input report preserve that complete accounting.
+
 ## Local answer follow-up — 19 September 2026, locally qualified
 
 | Contract / journey | Regression evidence |

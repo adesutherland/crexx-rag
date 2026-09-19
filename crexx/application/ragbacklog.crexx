@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose backlogselection deferbacklogtask resetbacklogtasks setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
+namespace ragbacklog expose backlogselection deferbacklogtask resetbacklogtasks setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh resolutioncorrectioninput
 
 import rxfnsb
 import rxjson
@@ -1088,6 +1088,19 @@ _routeattemptlimit: procedure = .string
   advanced_limit = _n(policy,"advanced_attempts"); if advanced_limit < 1 then advanced_limit = _attemptlimit(policy)
   return "CASE WHEN required_capability='advanced-reasoning' THEN " || advanced_limit || " ELSE " || _attemptlimit(policy) || " END"
 
+/* Request-only view for an already admitted correction. Keep the original
+ * ceiling and shared paid-call/reset accounting; never rewrite durable input.
+ * The ordinary one-correction exception still includes its admitted call. */
+resolutioncorrectioninput: procedure = .string
+  arg database = .binary, input_json = .string, expose error = .string
+  error = ""; input = .jsondocument(input_json)
+  if input.valid() <> 1 then do; error = "invalid correction input"; return ""; end
+  if input.member(input.root(),"remaining_calls_including_this") < 1 then return input_json
+  task_id = _s(input,"task_id")
+  result = _text(database,"SELECT json_set(" || _q(input_json) || ",'$.remaining_calls_including_this',max(1," || _routeattemptlimit(input) || "-" || _routecallcount(_q(task_id)) || ")) FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+  if result = "" then error = "correction task allowance is unavailable"
+  return result
+
 backlogselection: procedure = .string
   arg database = .binary, policy = .jsondocument, offset = .int, limit = .int, job_id = .string
   if offset<0 | limit<1 | limit>98 then return ""
@@ -1398,6 +1411,13 @@ validatebacklogresponse: procedure = .int
     selected_label = ""; selected_type = ""
     if _identityselection(database,task_id,result,selected_label,selected_type,error) <> 0 then return -1
   end
+  if action = "type-correction" then do
+    parent = ""
+    subject_id = _text(database,"SELECT subject_id FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+    if _lifecyclesubject(database,task_id,subject_type,subject_id,result,parent,error) <> 0 then return -1
+    old_type = _text(database,"SELECT concept_type FROM concepts WHERE concept_id=" || _q(parent) || " AND visible_to_generation IS NULL")
+    if validatetypechange(old_type,_s(result,"concept_type"),error) <> 0 then return -1
+  end
   if wordpos(action,"unresolved investigate escalate retire no-change defer search read extract") = 0 & result.node_count(evidence_node) = 0 then do; error = "resolution decision requires source evidence"; return -1; end
   if wordpos(action,"no-change defer search read extract") > 0 then do
     if _s(result,"target_concept_id") <> "" | _s(result,"canonical_label") <> "" | _s(result,"concept_type") <> "" | result.node_count(successor_node) <> 0 | _s(result,"effective_to") <> "" | _s(result,"qualifiers_json") <> "{}" then do; error = "resolution control must leave mutation fields empty"; return -1; end
@@ -1705,15 +1725,8 @@ _applydecision: procedure = .int
     return _applyconnection(database,parent,kind,object,"retract","",current,generation,error)
   end
   if wordpos(action,"split merge synonym type-correction retire restore") = 0 then do; error = "resolution action is not applicable to this task"; return -1; end
-  parent = object
-  if kind = "note" then do
-    next_action = _text(database,"SELECT next_action FROM analysis_notes WHERE note_id=" || _q(object)); note_action = .jsondocument(next_action)
-    parent = _s(result,"object_id")
-    if parent = "" & note_action.valid() = 1 then parent = _s(note_action,"concept_id")
-    if parent = "" | _number(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.catalogue') c WHERE t.task_id=" || _q(task_id) || " AND json_extract(c.value,'$.concept_id')=" || _q(parent)) \= 1 then do; error = "lifecycle note selected a concept outside its evidence catalogue"; return -1; end
-  end
-  else if kind \= "concept" then do; error = "lifecycle resolution requires a concept subject"; return -1; end
-  if _s(result,"object_id") \= "" & _s(result,"object_id") \= parent then do; error = "lifecycle decision selected an unrelated concept"; return -1; end
+  parent = ""
+  if _lifecyclesubject(database,task_id,kind,object,result,parent,error) <> 0 then return -1
   impact_types = .string[]; impact_ids = .string[]
   if _backlogimpact(database,parent,current,impact_types,impact_ids,error) \= 0 then return -1
   if impact_ids.0 > _n(policy,"maximum_impact") then do; error = "lifecycle decision exceeds configured impact bound"; return -1; end
@@ -1736,7 +1749,7 @@ _applydecision: procedure = .int
   maintenance_item = "maintenance-action:" || task_id
   run_id = _text(database,"SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id))
   sql = "INSERT INTO maintenance_items(item_id,run_id,item_type,subject_type,subject_id,score,trigger_json,diagnosis_json,action_json,state,expected_generation,created_at,updated_at) VALUES(" || _q(maintenance_item) || "," || _q(run_id) || "," || _q(action) || ",'concept'," || _q(parent) || ",900000,'{}','{}'," || _q(life_action) || ",'approved'," || current || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
-  if sqliteexec(database,sql) \= 0 then do; error = "cannot record validated lifecycle action"; return -1; end
+  if sqliteexec(database,sql) \= 0 then do; error = "cannot record validated lifecycle action; " || sqliteerrordetail(); return -1; end
   if applylifecycletransaction(store,profile,maintenance_item,life_action,current,generation,error) \= 0 then return -1
   if action = "split" | action = "merge" then do
     children = "["
@@ -1916,6 +1929,20 @@ _applyconnection: procedure = .int
     return 0
   end
   return applyconnectiontransaction(database,parent,kind,id,action,target,current,generation,error)
+
+/* One subject-selection rule for preflight and transactional application. */
+_lifecyclesubject: procedure = .int
+  arg database = .binary, task_id = .string, kind = .string, object = .string, result = .jsondocument, expose parent = .string, expose error = .string
+  parent = object
+  if kind = "note" then do
+    next_action = _text(database,"SELECT next_action FROM analysis_notes WHERE note_id=" || _q(object)); note_action = .jsondocument(next_action)
+    parent = _s(result,"object_id")
+    if parent = "" & note_action.valid() = 1 then parent = _s(note_action,"concept_id")
+    if parent = "" | _number(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.catalogue') c WHERE t.task_id=" || _q(task_id) || " AND json_extract(c.value,'$.concept_id')=" || _q(parent)) \= 1 then do; error = "lifecycle note selected a concept outside its evidence catalogue"; return -1; end
+  end
+  else if kind \= "concept" then do; error = "lifecycle resolution requires a concept subject"; return -1; end
+  if _s(result,"object_id") \= "" & _s(result,"object_id") \= parent then do; error = "lifecycle decision selected an unrelated concept"; return -1; end
+  return 0
 
 _taskcallcount: procedure = .string
   arg task_expression = .string

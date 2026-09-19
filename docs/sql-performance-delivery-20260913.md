@@ -371,3 +371,23 @@ its redundant in-memory norm scan is removed. Profiles attribute most remaining
 IVF cost to JSON parsing (591 ms) versus member SQL (69 ms) on the example;
 this is separate from concurrent migration-write contention. See
 [phase evidence, corpus equivalence and qualification](retrieval-tightening-20260919.md).
+
+## ESC-OPS-03 lifecycle preflight — 19 September 2026
+
+Backlog validation adds one task-ID lookup and one concept-ID lookup for a type
+correction only, using existing primary keys. Note-selected subjects reuse the
+existing bounded catalogue membership projection; selection is shared with
+application. There is no scan of corpus history, per-passage query, schema/index
+change or new transaction. Lifecycle SQL and transaction ownership remain in
+their existing modules; SQLite detail is captured immediately on INSERT failure.
+The isolated positive/repeated-correction regression checks rollback, history,
+source, receipt/usage and generation. [Results](esc-ops-03-delivery-20260919.md).
+
+## ESC-OPS-04 current correction context — 19 September 2026
+
+One read-only task-ID lookup projects the original bounded input with a refreshed
+remaining-call value, using existing route/capability/reset counting. No new
+transaction, schema/index, corpus scan or per-passage query. Durable job input
+remains immutable. The ordinary and advanced correction fixtures assert sent
+context, frozen input/reference identity, source/vector state and usage.
+[Acceptance](esc-ops-04-qa-cleanup-delivery-20260919.md).

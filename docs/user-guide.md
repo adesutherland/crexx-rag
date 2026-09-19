@@ -424,6 +424,9 @@ Each advanced model call is counted, including a call requesting search or
 read and any failed/correction call. The ordinary escalation stays in total job
 usage; the advanced route has its own configured allowance. For example, three
 advanced calls can cover search, read and conclusion after the ordinary handoff.
+A citation correction displays the current remaining call allowance, including
+that admitted correction. Its original task evidence and reference IDs stay
+frozen; the actual request and its prompt hash remain available for inspection.
 Larger configured allowances use the same counting. All routes also consume the
 shared job call, token and cost budgets; evidence gathering is not free.
 Older task questions describing uncertainty do not authorize an endless

@@ -874,3 +874,27 @@ selection repair. Public loopback tests additionally reject reported output
 overruns and independently assert retained canonical maps in provider history.
 Only the answer system-prompt digest changes; all response schemas and other
 prompt digests remain unchanged. [Acceptance and final QA record](local-search-followup-20260919.md).
+
+## ESC-OPS-03 lifecycle preflight (19 September 2026)
+
+The existing different-type rule is exposed by `ragmaintain.validatetypechange`
+and reused by `ragbacklog.validatebacklogresponse`; profile and transactional
+checks stay in their original owners. Backlog concept/note selection is extracted
+unchanged into one private helper shared by preflight/application. Provider,
+worker, external proposal and review paths retain the common validator.
+`durable_backlog_recording` supplies a failing baseline and genuine-change
+control before implementation, plus source/history/receipt/usage and final
+no-change assertions. Existing lifecycle/backlog tests cover the preserved
+application paths. [Acceptance and QA](esc-ops-03-delivery-20260919.md).
+
+## ESC-OPS-04 correction allowance (19 September 2026)
+
+No prompt/schema template or route policy changes. `ragbacklog` exposes a small
+request-only allowance projection using its existing route/reset ledger and the
+frozen ceiling. `ragapplicationprovider` composes it after checking the original
+prompt binding and before sending a correction; the same message builder renders
+system and user context. Frozen evidence and references remain original, and
+receipt replay bypasses refresh. Ordinary/advanced public loopback regressions
+first reproduced 2,2 remaining calls, then require 2,1 plus unchanged input hash
+and references, actual prompt hashes and normal receipt/usage/source controls.
+[Delivery](esc-ops-04-qa-cleanup-delivery-20260919.md).

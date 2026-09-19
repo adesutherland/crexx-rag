@@ -255,7 +255,7 @@ int main(int argc, char** argv)
                 }
             } else if (request.find("Durable resolution input:") != std::string::npos) {
                 if (!valid_auth || !valid_structured || request.find("maintenance-resolution") == std::string::npos
-                    || (scenario != "product-backlog-advanced" && request.find("fixture-resolution-prompt") == std::string::npos)
+                    || (scenario != "product-backlog-advanced" && scenario != "product-backlog-correction-advanced" && request.find("fixture-resolution-prompt") == std::string::npos)
                     || request.find("Reference contract:") == std::string::npos) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini resolution request shape mismatch"}})";

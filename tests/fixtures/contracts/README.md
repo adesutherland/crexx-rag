@@ -56,3 +56,11 @@ array. All four schemas and the other three system prompts are unchanged.
 restoration, literal source preservation and rejection. See
 `docs/local-search-followup-20260919.md`; this is not the failed partial-answer
 prompt experiment.
+
+19 September ESC-OPS-04: retain all four existing system/schema pairs and add
+`828bd9f8… / 75103edd…` for the two-call correction fixture. Captured text differs
+from `b0314174…` only in the remaining-call value (2 instead of 1); no template or
+schema changed. Ordinary and advanced journeys independently require 2 → 1 in
+both sent system/user context with frozen input/reference identity preserved.
+The snapshot therefore now contains five pairs. See
+`docs/esc-ops-04-qa-cleanup-delivery-20260919.md` for the fail-first evidence.

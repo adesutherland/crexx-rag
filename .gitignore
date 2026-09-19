@@ -13,3 +13,4 @@ out/
 *.dll
 *.rxplugin
 *.cprag/
+__pycache__/

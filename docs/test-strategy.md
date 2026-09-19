@@ -7,6 +7,17 @@ owns this candidate's measured results. CREXX #701 is repaired downstream and
 retain historical qualification only. The [redesign](test-process-redesign-20260916.md)
 records why the tiers, isolation and receipt reuse were introduced.
 
+## Process cleanup and honest receipts
+
+The QA runner retains its child's process identity until group cleanup finishes,
+then reaps it. Timeout/interruption use the same bounded cleanup path. On macOS,
+EPERM from a finished group is benign only after a successful inventory confirms
+no live group members. Actual or uncertain cleanup failure produces a failed,
+non-reusable receipt with the child's exit code and cleanup diagnostics, even if
+the test body passed. `qa_execution` covers normal/failed completion, timeout,
+TERM resistance, cancellation, descendants, unrelated processes, identity
+ownership and denied/unknown cleanup. [Reproduction and QA](esc-ops-04-qa-cleanup-delivery-20260919.md).
+
 ## Development and formal qualification
 
 ```sh

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems lifecycleimpact applylifecycletransaction applyconnectiontransaction applysupporttransaction connectioneffects workflowholds retirementready publishedretirement
+namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems lifecycleimpact applylifecycletransaction applyconnectiontransaction applysupporttransaction connectioneffects workflowholds retirementready publishedretirement validatetypechange
 
 import rxfnsb
 import rxjson
@@ -642,6 +642,15 @@ applysupporttransaction: procedure = .int
   end
   return 0
 
+/* Shared by response validation and the transactional lifecycle boundary. */
+validatetypechange: procedure = .int
+  arg old_type = .string, new_type = .string, expose error = .string
+  error = ""
+  if old_type = "" then do; error = "type correction subject is unavailable; refresh the task evidence"; return -1; end
+  if new_type = "" then do; error = "type correction requires a different permitted type"; return -1; end
+  if new_type = old_type then do; error = "type correction would not change the current type; use no-change or retain if the current type is supported"; return -1; end
+  return 0
+
 _applylifecycle: procedure = .int
   arg store = .ragstorehandle, profile = .ragprofile, maintenance_item_id = .string, action_json = .string, expected_generation = .int, expose published_generation = .int, expose disposition = .string, expose error = .string, owned_generation = 0
   error = ""; published_generation = 0; disposition = ""
@@ -682,7 +691,8 @@ _applylifecycle: procedure = .int
   end
   else if target_id \= "" then do; error = "target concept is only valid for merge"; return -1; end
   if operation = "type-correction" then do
-    if concept_type = "" | concept_type = old_type | _profiletype(profile, concept_type) \= 1 then do; error = "type correction requires a different permitted type"; return -1; end
+    if validatetypechange(old_type,concept_type,error) <> 0 then return -1
+    if _profiletype(profile, concept_type) \= 1 then do; error = "type correction requires a different permitted type"; return -1; end
   end
   else if concept_type \= "" then do; error = "concept type is only valid for type correction"; return -1; end
   if operation = "restore" & lifecycle \= "retired" then do; error = "restore requires a retired concept"; return -2; end

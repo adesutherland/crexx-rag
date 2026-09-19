@@ -2,6 +2,7 @@ options levelg
 
 import rxfnsb
 import rxsqlite
+import ragsqlsupport
 import ragstore
 import ragmaintain
 import rxhash
@@ -569,6 +570,51 @@ responsejson: procedure = .string
   arg action = .string, target = "", successors = "[]", evidence = "[]", object_id = "", question = "", qualifiers = "{}", effective_from = "", effective_to = ""
   return '{"action":' || jsonquote(action) || ',"object_id":' || jsonquote(object_id) || ',"target_concept_id":' || jsonquote(target) || ',"canonical_label":"","concept_type":"","successors":' || successors || ',"reason":"fixture evidence-based decision","evidence":' || evidence || ',"effective_from":' || jsonquote(effective_from) || ',"effective_to":' || jsonquote(effective_to) || ',"qualifiers_json":' || jsonquote(qualifiers) || ',"question":' || jsonquote(question) || '}'
 
+lifecyclerecordingchecks: procedure = .int
+  arg store = .ragstorehandle, policy_json = .string
+  database = store.database(); errors = 0; error = ""; job_id = ""; task_id = ""; repeated = ""
+  policy = .jsondocument(policy_json); config = architecturelocalconfig(); profile = genericprofile()
+  current = scalarint(database,"SELECT published_generation FROM library_meta")
+  errors = errors + check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('recording-parent','Platform recording','concept','active'," || current || ")") = 0,"ESC-OPS-03 seed concept")
+  errors = errors + check(sqliteexec(database,"INSERT INTO concept_versions(concept_id,version,canonical_label,concept_type,lifecycle_state,generation,reason,created_at) VALUES('recording-parent',1,'Platform recording','concept','active'," || current || ",'fixture',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0,"ESC-OPS-03 seed version")
+  errors = errors + check(sqliteexec(database,"INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('recording-mention','recording-parent','chunk-lifecycle',0,8," || current || ")") = 0,"ESC-OPS-03 seed source connection")
+  errors = errors + check(enqueuebacklogtask(database,"recording-type","concept","recording-parent","","",1000000,policy,task_id,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0,"ESC-OPS-03 dispatch real correction " || error)
+  response = changestr('"concept_type":""',responsejson("type-correction","","[]",'[{"evidence_id":"recording-mention","quote":"Platform"}]',"recording-parent"),'"concept_type":"evidence-span"')
+  errors = errors + check(runresolution(store,job_id,task_id,response,error) = 0,"ESC-OPS-03 real correction control " || error)
+  errors = errors + check(scalartext(database,"SELECT concept_type FROM concepts WHERE concept_id='recording-parent'") = "evidence-span" & scalarint(database,"SELECT count(*) FROM concept_versions WHERE concept_id='recording-parent'") = 2,"ESC-OPS-03 real correction publishes exactly one version")
+  errors = errors + check(enqueuebacklogtask(database,"recording-type","concept","recording-parent","","",1000000,policy,repeated,error) = 0 & repeated <> task_id,"ESC-OPS-03 new question after changed fingerprint " || error)
+  current = scalarint(database,"SELECT published_generation FROM library_meta")
+  calls = scalarint(database,"SELECT count(*) FROM provider_runs")
+  usage = scalarint(database,"SELECT coalesce(sum(input_tokens+output_tokens),0) FROM provider_runs")
+  grounds = ""; canonical = ""; review_id = ""
+  errors = errors + check(validatebacklogresponse(database,repeated,response,grounds,error) <> 0 & pos("no-change",error)>0,"ESC-OPS-03 reject unchanged type before recording with supported conclusion")
+  errors = errors + check(planagentaction(store,config,profile,repeated,"resolution",response,"repeated correction","fixture","fixture",canonical,error) <> 0,"ESC-OPS-03 external proposal uses same rejection")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET state='skipped' WHERE job_id='" || job_id || "' AND state='queued'") = 0,"ESC-OPS-03 finish unrelated census batch before next question")
+  status = runresolution(store,job_id,repeated,response,error)
+  say "ESC_OPS_03_REPEATED=" || error
+  errors = errors + check(status <> 0 & pos("no-change",error)>0 & pos("cannot record",error)=0,"ESC-OPS-03 worker rejects invalid correction before SQL")
+  errors = errors + check(scalarint(database,"SELECT published_generation FROM library_meta") = current & scalarint(database,"SELECT count(*) FROM concept_versions WHERE concept_id='recording-parent'") = 2 & scalarint(database,"SELECT count(*) FROM maintenance_items WHERE subject_id='recording-parent'") = 1 & scalarint(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id='" || repeated || "'") = 0,"ESC-OPS-03 rejection preserves generation lifecycle and decisions")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM provider_runs") = calls+1 & scalarint(database,"SELECT coalesce(sum(input_tokens+output_tokens),0) FROM provider_runs") = usage+20 & scalarint(database,"SELECT count(*) FROM attempts a JOIN maintenance_task_items m ON m.item_id=a.item_id WHERE m.task_id='" || repeated || "' AND a.provider_run_id IS NOT NULL") = 1,"ESC-OPS-03 rejected worker retains receipt and usage")
+  /* Confirm the precise historical recording constraint without modifying the
+   * existing immutable action, then settle through the supported review path. */
+  status = sqliteexec(database,"INSERT INTO maintenance_items SELECT 'recording-duplicate',run_id,item_type,subject_type,subject_id,score,trigger_json,diagnosis_json,action_json,state,dependency_item_id,expected_generation,applied_generation,created_at,updated_at FROM maintenance_items WHERE item_id='maintenance-action:" || task_id || "'")
+  detail = sqliteerrordetail()
+  say "ESC_OPS_03_CONSTRAINT=" || detail
+  errors = errors + check(status <> 0 & pos("UNIQUE constraint failed: maintenance_items.run_id",detail)>0,"ESC-OPS-03 exact recording constraint reproduced")
+  errors = errors + check(pausejob(store,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0 & tickbacklogwindow(store,job_id,error) >= 0,"ESC-OPS-03 close window and reconcile rejected worker before external conclusion " || error)
+  errors = errors + check(planagentaction(store,config,profile,repeated,"resolution",responsejson("no-change"),"current type is already correct","fixture","fixture",canonical,error) = 0,"ESC-OPS-03 supported final conclusion " || error)
+  errors = errors + check(applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review_id,error) = 0 & reviewagentaction(store,review_id,"accept",config,profile,error) = 0,"ESC-OPS-03 settle rejected task through review " || error)
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || repeated || "'") = "resolved" & scalarint(database,"SELECT published_generation FROM library_meta") = current & scalartext(database,"SELECT normalized_utf8 FROM source_revision_texts WHERE text_id='text-lifecycle'") = "Platform Peer" & scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"ESC-OPS-03 conclusion preserves source and generation")
+  /* Notes select from their evidence catalogue, including the existing stored
+   * next_action fallback when the response leaves object_id empty. */
+  note_task = ""
+  errors = errors + check(sqliteexec(database,"UPDATE analysis_notes SET next_action='{" || '"concept_id":"concept-parent"' || "}' WHERE note_id='note-parent'") = 0 & enqueuebacklogtask(database,"recording-note","note","note-parent","","",1000000,policy,note_task,error) = 0,"ESC-OPS-03 note subject fixture " || error)
+  note_response = changestr('"concept_type":""',responsejson("type-correction","","[]",'[{"evidence_id":"link-parent","quote":"Platform"}]'), '"concept_type":"evidence-span"')
+  errors = errors + check(validatebacklogresponse(database,note_task,note_response,grounds,error) = 0,"ESC-OPS-03 valid note-selected correction " || error)
+  errors = errors + check(validatebacklogresponse(database,note_task,changestr('"concept_type":"evidence-span"',note_response,'"concept_type":"concept"'),grounds,error) <> 0 & pos("no-change",error)>0,"ESC-OPS-03 note-selected unchanged type rejected")
+  errors = errors + check(validatebacklogresponse(database,note_task,changestr('"object_id":""',note_response,'"object_id":"absent-concept"'),grounds,error) <> 0 & pos("outside its evidence catalogue",error)>0,"ESC-OPS-03 note cannot select an unrelated concept")
+  return errors
+
 runresolution: procedure = .int
   arg store = .ragstorehandle, job_id = .string, task_id = .string, response = .string, expose error = .string
   database = store.database()
@@ -973,7 +1019,7 @@ main: procedure = .int
   arg args = .string[]
   if args.0 < 1 | args.0 > 2 then return 2
   selected_case = "core"; if args.0=2 then selected_case=args[2]
-  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" then return 2
+  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" & selected_case<>"recording" then return 2
   path = args[1]; errors = 0; error = ""; store = .ragstorehandle
   /* Applicability is a request contract as well as an apply-time guard. */
   note_schema = backlogschema("note",0); alias_schema = backlogschema("alias-issue",0)
@@ -1013,6 +1059,13 @@ main: procedure = .int
 
 
   policy_json = '{"mode":"automatic","window_seconds":1000,"automatic_actions":"reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate","maximum_impact":100,"maximum_attempts":3,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":100,"resolution_prompt":"Fixture resolution","knowledge_policy":"fixture-v1","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":100,"model_calls":100,"input_budget":10000000,"output_budget":1000000,"cost_budget":0,"codex_turns":0}'
+  if selected_case="recording" then do
+    errors = errors + lifecyclerecordingchecks(store,policy_json)
+    call closeragstore store,error
+    if errors>0 then return 1
+    say "DURABLE_BACKLOG_OK recording"
+    return 0
+  end
   if selected_case="budget" then do
     errors=errors+advancedbudgetchecks(store,policy_json)
     call closeragstore store,error
