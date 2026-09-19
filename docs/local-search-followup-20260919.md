@@ -130,5 +130,23 @@ account for **130/130 required passing cases**, with no disabled or unresolved
 cases. Product/artifact inputs remained unchanged after the fixture repair;
 there is no second full product execution for the documentation closeout.
 
-Changes are local and uncommitted. No new install, publication, hosted-provider
-call, cross-platform qualification or Scottish production migration occurred.
+No new install, hosted-provider call, cross-platform qualification or Scottish
+production migration occurred.
+
+## Publication — 19 September 2026
+
+Following explicit approval, RAG product commit
+[`6fa75ed457bf052c6c3806075e93a1b5d84fe279`](https://github.com/adesutherland/crexx-rag/commit/6fa75ed457bf052c6c3806075e93a1b5d84fe279)
+is published to `origin/main`. CREXX metadata repair
+[`a39696db8079c889cab7867dcf4822c8ec581ea1`](https://github.com/adesutherland/CREXX/commit/a39696db8079c889cab7867dcf4822c8ec581ea1)
+is published to both `origin/hotfix` and `origin/develop`. Remote refs were read
+back after both pushes. No tags or GitHub releases were created.
+
+Both repositories' code/test/build inputs matched the retained qualification
+snapshots before committing. The current RAG receipt audit reconfirmed 130/130
+passes; this publication closeout requires only its documentation contract.
+RAG has no configured hosted workflow. CREXX's automatic
+[Build](https://github.com/adesutherland/CREXX/actions/runs/35448691699) and
+[CodeQL](https://github.com/adesutherland/CREXX/actions/runs/35448691583) started
+on the exact product commit and are pending at this record. Installed binaries
+and the production Scottish corpus/configuration remain unchanged.

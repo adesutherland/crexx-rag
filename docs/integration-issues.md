@@ -267,7 +267,8 @@ support. Q4 CPU/Metal differences and Gemma answer quality still need qualificat
 CREXX hotfix locally repairs valid per-layer KV-head/feed-forward metadata;
 the exact Gemma 4 12B Q4_0 artifact prepares and generates at 512 context tokens
 on Metal. A 4K context still fails conservative resource admission; no budget
-bypass was added. This fix is local, not yet installed/published. RAG retains
+bypass was added. This fix is published to CREXX hotfix/develop as `a39696db8079`,
+with automatic hosted gates pending; it is not newly installed. RAG retains
 its typed BGE adapter and existing HTTP answerer; no native generation adapter
 or common-interface migration is part of the
 [bounded query follow-up](local-search-followup-20260919.md).
