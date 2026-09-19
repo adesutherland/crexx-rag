@@ -7,29 +7,29 @@ owns the delivery evidence; [ROADMAP.md](ROADMAP.md) remains the current registe
 
 ## Outcome and acceptance
 
-- **PUB-01 (open):** CREXX's generic C float32 owner, binary codec, exact search
+- **PUB-01 (passed):** CREXX's generic C float32 owner, binary codec, exact search
   and documentation are published through hotfix to origin/develop after normal
   local product/functional gates; automatic publication CI is checked by SHA.
 - **PUB-02 (passed):** The exact clean CREXX product is installed to `~/.local`,
   with matching native-inference packaging and installed provider acceptance.
-- **PUB-03 (passed; closing documentation audit below):** RAG builds against that normal published cohort and the
+- **PUB-03 (passed):** RAG builds against that normal published cohort and the
   complete required 130-case local selection passes with exact-input receipt
   accounting. Provider changes retain Gemini smoke and malformed/privacy cases.
-- **PUB-04 (open):** The reviewed RAG baseline is committed/published to
+- **PUB-04 (passed):** The reviewed RAG baseline is committed/published to
   origin/main and installed; installed artifact hashes and a fresh scratch
   public CLI/MCP check match the qualified build. No user corpus processing,
   tagged release or hosted model calls are part of this publication.
 
 ## Steps
 
-1. **PUB-STEP-01 (active):** Qualify and publish CREXX, preserving unrelated
+1. **PUB-STEP-01 (complete):** Qualify and publish CREXX, preserving unrelated
    working changes; verify automatic development workflows (PUB-01).
 2. **PUB-STEP-02 (complete):** Preserve the previous installed cohort, install
    the published CREXX product and verify the new API/package (PUB-02).
 3. **PUB-STEP-03 (complete):** Reconfigure RAG for the normal installation,
    rebuild once and run the required disjoint QA selection, reusing valid
    targeted receipts when widening coverage (PUB-03).
-4. **PUB-STEP-04 (active):** Baseline/publish/install RAG, verify identity and
+4. **PUB-STEP-04 (complete):** Baseline/publish/install RAG, verify identity and
    installed behavior, and record remaining scope (PUB-04).
 
 ## Scope and existing evidence
@@ -73,7 +73,11 @@ Both installed static archive locations agree:
 
 Automatic [Build CREXX](https://github.com/adesutherland/CREXX/actions/runs/35438671112)
 and [CodeQL](https://github.com/adesutherland/CREXX/actions/runs/35438670978)
-are running for the exact source SHA. RAG builds with
+both passed for the exact source SHA, including all core platforms, MinGW,
+optimizer parity, four native-provider package jobs and development-snapshot
+publication. The optional comprehensive lane and beta-release job were planned
+skips. Terminal job conclusions are retained in `crexx-build-ci.json` and
+`crexx-codeql-ci.json`. RAG builds with
 `CREXX_DIR=/Users/adrian/.local/lib/cmake/CREXX`.
 
 ## RAG qualification and installation
@@ -84,7 +88,8 @@ case or product repair occurred. This includes the Gemini loopback smoke,
 malformed-output/privacy controls, native vector/publication and BGE window
 contracts, worker recovery, and scratch-installed product journey. The real BGE
 case passed in 12.18 s and the selected-runtime process-worker case in 32.43 s.
-Only changed documentation needs a final focused check and exact-input audit.
+Changed documentation is checked separately; `rag-qa-final.json` retains the
+closing exact-input audit, without repeating unchanged product cases.
 
 Qualified and normally installed native SHA-256:
 `b84eb9127977dbbc6ce0a4d2c353106e07ca0cb9e5b2aba13bdb4510900d6ee5`.
@@ -109,7 +114,15 @@ the retained twenty-query performance comparison. The master corpus was untouche
 `installed-rag.json`, `installed-smoke.json` and
 `installed-query-comparison.json` retain these installation checks. The commit
 containing this baseline records the qualified product sources; exact Git
-publication identities and automatic CI closure follow in this record.
+publication identities and automatic CI closure are recorded below.
+
+RAG source `7bf0c6bbe7b6b7ab4263137f73cbe86bc67206df` was published to origin/main;
+the remote SHA was independently checked, and the checkout was clean. Its source
+tree is `534b82ef9c6fb7d2255f6163fc4f89e6163908cf`. The first documentation closeout
+passed in 12.75 s; `rag-qa-baseline.json` accounts for 130/130 current passes.
+`rag-publication.json` joins the exact published source/tree to the installed
+artifacts. Subsequent closeout commits change documentation only and reuse these
+unchanged product receipts; they do not trigger another broad product suite.
 
 ## Remaining scope
 
