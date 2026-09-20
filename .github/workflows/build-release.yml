@@ -1,0 +1,206 @@
+name: Build and package cREXX-RAG
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: rag-build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      commit: ${{ steps.identity.outputs.commit }}
+      crexx: ${{ steps.identity.outputs.crexx }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check release contracts
+        run: python tests/release/test_packaging.py
+      - id: identity
+        name: Freeze build identities
+        shell: python
+        run: |
+          import os, pathlib, re, subprocess
+          base = re.search(r'VERSION\s+(\d+\.\d+\.\d+)', pathlib.Path('CMakeLists.txt').read_text()).group(1)
+          ref = os.environ['GITHUB_REF']
+          version = os.environ['GITHUB_REF_NAME'][1:] if ref.startswith('refs/tags/v') else base + '-dev.' + os.environ['GITHUB_RUN_NUMBER']
+          if not re.fullmatch(re.escape(base) + r'(?:[-+][A-Za-z0-9.-]+)?', version):
+              raise SystemExit('Release tag must match the CMake product version')
+          crexx = pathlib.Path('.github/crexx-revision.txt').read_text().strip()
+          if not re.fullmatch('[0-9a-f]{40}', crexx):
+              raise SystemExit('CREXX dependency must be pinned to a full commit')
+          commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write(f'version={version}\ncommit={commit}\ncrexx={crexx}\n')
+
+  build:
+    needs: metadata
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-arm64
+            os: macos-15
+            cmake_args: -DCMAKE_OSX_ARCHITECTURES=arm64
+          - platform: macos-x86_64
+            os: macos-15-intel
+            cmake_args: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCREXX_LLAMA_METAL=OFF
+          - platform: windows-x64
+            os: windows-2025
+            cmake_args: -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.metadata.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with:
+          arch: x64
+          toolset: '14.44'
+      - name: Install Windows packaging tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install nsis --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed' }
+          Add-Content $env:GITHUB_PATH "${env:ProgramFiles(x86)}\NSIS"
+      - uses: actions/cache@v4
+        id: sdk
+        with:
+          path: ${{ runner.temp }}/crexx-sdk
+          key: rag-sdk-v1-${{ matrix.platform }}-${{ needs.metadata.outputs.crexx }}
+      - uses: actions/checkout@v5
+        if: steps.sdk.outputs.cache-hit != 'true'
+        with:
+          repository: adesutherland/CREXX
+          ref: ${{ needs.metadata.outputs.crexx }}
+          submodules: recursive
+          path: upstream-crexx
+          persist-credentials: false
+      - name: Build the pinned installed CREXX SDK
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          cmake -S upstream-crexx -B "$RUNNER_TEMP/crexx-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/crexx-sdk" \
+            -DCREXX_BUILD_COMMIT='${{ needs.metadata.outputs.crexx }}' \
+            -DCREXX_BUILD_CHANNEL=local -DCREXX_ALLOW_NETWORK_DOWNLOADS=ON \
+            -DENABLE_LLAMA=ON -DENABLE_PARSER_MODE=OFF ${{ matrix.cmake_args }}
+          cmake --build "$RUNNER_TEMP/crexx-build" --parallel 2 \
+            --target stage-c1-toolchain stage-product stage-optional crexx-examples \
+            llama_provider_runtime_package crexx-provider-package
+          cmake --install "$RUNNER_TEMP/crexx-build"
+          cp upstream-crexx/LICENSE "$RUNNER_TEMP/crexx-sdk/CREXX-LICENSE"
+      - name: Configure and build RAG against the installed SDK
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/rag-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/crexx-sdk" \
+            -DCREXXRAG_BUILD_TESTS=OFF -DCREXXRAG_REXX_BUILD_JOBS=2
+          cmake --build "$RUNNER_TEMP/rag-build" --parallel 2
+          cmake --install "$RUNNER_TEMP/rag-build" --prefix "$RUNNER_TEMP/rag-payload"
+          cp "$RUNNER_TEMP/crexx-sdk/CREXX-LICENSE" "$RUNNER_TEMP/rag-payload/CREXX-LICENSE"
+      - name: Package installers and portable ZIPs
+        env:
+          RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.metadata.outputs.commit }}
+          CREXX_COMMIT: ${{ needs.metadata.outputs.crexx }}
+          RELEASE_PLATFORM: ${{ matrix.platform }}
+          # PR builds receive no signing credentials, including same-repository PRs.
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ runner.os == 'macOS' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 || '' }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ runner.os == 'macOS' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD || '' }}
+          APPLE_DEVELOPER_ID_IDENTITY: ${{ runner.os == 'macOS' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.APPLE_DEVELOPER_ID_IDENTITY || '' }}
+          APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_BASE64: ${{ runner.os == 'macOS' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_BASE64 || '' }}
+          APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_PASSWORD: ${{ runner.os == 'macOS' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.APPLE_DEVELOPER_ID_INSTALLER_CERTIFICATE_PASSWORD || '' }}
+          APPLE_DEVELOPER_ID_INSTALLER_IDENTITY: ${{ runner.os == 'macOS' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.APPLE_DEVELOPER_ID_INSTALLER_IDENTITY || '' }}
+          APPLE_ID: ${{ runner.os == 'macOS' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.APPLE_TEAM_ID || '' }}
+        run: |
+          python scripts/release/package.py package --prefix "$RUNNER_TEMP/rag-payload" \
+            --output "$RUNNER_TEMP/release-assets" --version "$RELEASE_VERSION" \
+            --commit "$SOURCE_COMMIT" --crexx-commit "$CREXX_COMMIT" --platform "$RELEASE_PLATFORM"
+      - name: Verify the actual portable ZIP
+        run: |
+          for archive in "$RUNNER_TEMP/release-assets/"*.zip; do
+            python scripts/release/smoke.py --archive "$archive"
+          done
+      - name: Test Windows installer and uninstaller
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = @(Get-ChildItem "$env:RUNNER_TEMP/release-assets/*-setup.exe")
+          if ($installer.Count -ne 1) { throw 'Expected one Windows installer' }
+          & ./scripts/release/test-windows-installer.ps1 -Installer $installer[0].FullName
+      - name: Test macOS installer on the disposable runner
+        if: runner.os == 'macOS'
+        run: |
+          for installer in "$RUNNER_TEMP/release-assets/"*.pkg; do
+            sudo installer -pkg "$installer" -target /
+          done
+          test -L /usr/local/bin/crexxrag
+          python scripts/release/smoke.py --prefix /usr/local/lib/crexxrag
+      - name: Retain verified installers
+        uses: actions/upload-artifact@v7
+        with:
+          name: crexxrag-${{ matrix.platform }}-${{ needs.metadata.outputs.commit }}
+          path: ${{ runner.temp }}/release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagnostics-${{ matrix.platform }}-${{ needs.metadata.outputs.commit }}
+          path: |
+            ${{ runner.temp }}/rag-build/crexxrag-native/package/native-build.txt
+            ${{ runner.temp }}/rag-build/CMakeCache.txt
+            ${{ runner.temp }}/crexx-build/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
+
+  publish:
+    needs: [metadata, build]
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: crexxrag-*-${{ needs.metadata.outputs.commit }}
+          merge-multiple: true
+          path: release-assets
+      - name: Publish the verified installer set
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          prerelease=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then prerelease+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" release-assets/* --repo "$REPOSITORY" \
+            --verify-tag --title "cREXX-RAG $RELEASE_TAG" --generate-notes "${prerelease[@]}"

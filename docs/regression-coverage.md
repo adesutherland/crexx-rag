@@ -1,5 +1,21 @@
 # Regression coverage baseline — REG-01
 
+## Installer tooling — 20 September 2026
+
+`release_packaging` adds one isolated fast case (16 release-tooling controls),
+bringing the registered required selection to 134 cases. The pre-change
+`installed_product` and `documentation_contract` exact-input passes were audited
+before implementation. Packaging controls cover missing credentials, configured
+signing failures, private-keychain cleanup, secret redaction, provider hash
+refresh, payload integrity/ZIP safety, Windows helper inclusion, preserved
+unsigned input and rejected wrong release identity. Product source/binaries are
+unchanged; this count is not a new full-suite execution claim.
+
+Real unsigned Apple Silicon ZIP and expanded PKG payloads pass isolated native
+library/worker checks. NSIS compilation is local; Windows install/uninstall,
+macOS Intel and real signing remain separately pending.
+[Evidence and qualification boundary](installer-delivery-20260920.md).
+
 ## Correction allowance and QA cleanup — 19 September 2026
 
 Locally qualified: **132/132 required cases**, including the retained ESC-OPS-03

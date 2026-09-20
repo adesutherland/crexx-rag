@@ -1,7 +1,7 @@
 # Disjoint tiers: widening coverage never selects an aggregate over its children.
 set(fast_tests vector_provider regression_command_metadata regression_command_catalogue
     regression_claim_policy regression_prompt_inspection linked_application
-    documentation_contract qa_execution regression_smoke_stale_workers regression_smoke_terminal_state)
+    documentation_contract release_packaging qa_execution regression_smoke_stale_workers regression_smoke_terminal_state)
 set(component_tests native_vector regression_policy_file_vm regression_rule_simplification
     configuration_contract regression_supervision provider_durability codex_protocol
     ann_methodology lifecycle_methodology evidence_methodology maintenance_methodology

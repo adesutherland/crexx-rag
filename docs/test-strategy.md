@@ -56,6 +56,7 @@ journey, rather than running every component after each edit.
 | Command/MCP surface | Catalogue/metadata and affected public case | Native surfaces, installed proof; full gate |
 | Documentation only | `documentation_contract` | Package test only if installed content or behavior changes |
 | Harness/fixtures | `qa_execution` and affected consumers | Parallel qualification; no automatic unrelated rerun |
+| Build/release packaging | `release_packaging` | Actual relocated ZIP and installer smoke per platform; real signing separately when configured; local functional gate remains required before formal publication |
 
 `tests/qa/run_case.py` gives every execution a private directory beneath
 `cmake-build-debug/qa/runs/<case>/<execution>/`, including temporary files,

@@ -76,6 +76,17 @@ function(crexxrag_add_test)
         file(GLOB_RECURSE docs CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/docs/*.md" "${CMAKE_CURRENT_SOURCE_DIR}/skills/*")
         list(APPEND inputs ${docs} "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
     endif()
+    if(name STREQUAL "release_packaging")
+        list(APPEND inputs
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/package.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/smoke.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/test-windows-installer.ps1"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sign-windows-release.sh"
+            "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/crexxrag.nsi"
+            "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/update-user-path.ps1"
+            "${CMAKE_CURRENT_SOURCE_DIR}/.github/workflows/build-release.yml"
+            "${CMAKE_CURRENT_SOURCE_DIR}/.github/crexx-revision.txt")
+    endif()
     if(driver_name MATCHES "^(ProjectContract|PromptInspection|DurableBacklog|ConfigContract|CodexProtocol)$")
         set(build_driver "${driver}")
         set(build_name "${name}")

@@ -26,6 +26,11 @@ long-running and platform qualification are explicitly separate.
 For operational diagnosis, safe retry, reasoned waivers and migration completion,
 follow the [public recovery journey](docs/public-recovery-journey.md).
 
+Windows x64 and macOS Apple Silicon/Intel installer builds, optional Apple
+signing and separate Windows post-release signing are described in
+[Builds, installers and signing](docs/build-and-release.md). First hosted
+installer and real-signing qualification are tracked in the roadmap.
+
 ## How the method works
 
 1. **Capture the sources.** Discover configured folders, retain immutable source
