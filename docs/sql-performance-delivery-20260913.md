@@ -391,3 +391,17 @@ transaction, schema/index, corpus scan or per-passage query. Durable job input
 remains immutable. The ordinary and advanced correction fixtures assert sent
 context, frozen input/reference identity, source/vector state and usage.
 [Acceptance](esc-ops-04-qa-cleanup-delivery-20260919.md).
+
+## 20 September settled-question comparison
+
+The new cursor uses `maintenance_tasks` state/identity and existing parent/subject
+indexes under the existing maintenance writer transaction. It pages leaf questions
+and builds only their local packets, never all corpus evidence. Incident claims
+and their supports use endpoint/claim indexes; the new reader stops at the packet
+byte ceiling and finalizes on every exit. Assessment lookup uses the existing
+`job_events_item_type` prefix `(item_id,event_type)` with a task-specific event
+name, or the accepted review record. No schema/index or transaction owner changes.
+The new bounded-page/packet and unchanged-context controls are recorded in
+[beta delivery](beta-delivery-20260920.md). All 133 required local cases pass;
+the 200-call copied-corpus run closes cleanly with zero integrity issues.
+This is bounded functional/operational acceptance, not a new scale benchmark.

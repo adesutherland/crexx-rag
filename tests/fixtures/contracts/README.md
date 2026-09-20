@@ -64,3 +64,11 @@ schema changed. Ordinary and advanced journeys independently require 2 → 1 in
 both sent system/user context with frozen input/reference identity preserved.
 The snapshot therefore now contains five pairs. See
 `docs/esc-ops-04-qa-cleanup-delivery-20260919.md` for the fail-first evidence.
+
+20 September approved ESC-OPS-05 changes only the two resolution system hashes
+(`828bd9f8…`/`b0314174…` become `a09a2b40…`/`d037405b…`; sorted order is not a
+route mapping). Shared text adds retired-restore and active-alias collision
+preconditions and directs supported alternatives or final no-change. All schema
+hashes and extraction/answer/report system hashes remain unchanged. Direct
+initial/correction ordinary/advanced inspection and lifecycle positive/refusal
+cases provide behavioral evidence; see `docs/beta-delivery-20260920.md`.

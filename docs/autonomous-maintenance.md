@@ -203,8 +203,14 @@ restoration, connection movement, retraction, claim qualification, retention,
 further investigation and explicit uncertainty. `unresolved` is a valid result.
 It retains the evidence and explanation without forcing a choice. Follow-up
 questions are durable and deduplicated; unchanged evidence and interpretation
-do not create an endless paid reconsideration loop. New source evidence,
-concept state or an edited resolution prompt can create fresh work.
+do not create an endless paid reconsideration loop. Unscoped maintenance pages
+through previously settled concepts and closed aliases as well as current open
+work. Material changes to direct evidence, subject meaning, eligible identities
+or incident relationships can create one linked successor under existing holds.
+A final no-change stays final for the same assessed context; its own accepted
+change does not immediately reopen it. Prompt/model changes and corpus generation
+alone do not reopen settled questions. Read-only search makes no maintenance
+writes. See the [comparison contract and upgrade limits](architecture.md#reconsidering-settled-maintenance-questions).
 
 Malformed adapter output and product-invalid quotations remain failures. The
 latter retain bounded, redacted diagnostic content; malformed or oversized raw

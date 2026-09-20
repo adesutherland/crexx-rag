@@ -1205,6 +1205,17 @@ configured workers. The main product checks its fixed deadline before each
 call, allowing the call timeout plus five seconds for cleanup. Worker restarts
 never extend that deadline. A late overnight launch skips successfully.
 
+General maintenance also checks previously settled concept and alias questions
+in bounded pages. Relevant new passages, competing identities or changed direct
+relationships can create one linked review task; unchanged evidence makes no new
+reasoning call for that question. A final no-change is final for the assessed
+context. Deferral, waiver, review and active ownership still apply. Read-only
+search does not reopen work. This initial comparison is local to the question;
+it does not infer the relevance of every change elsewhere in the graph. Older
+records baseline relationship fields they did not originally retain. Use
+`maintain reset TASK_ID` for deliberate reconsideration outside automatic scope.
+See the [comparison diagram](architecture.md#reconsidering-settled-maintenance-questions).
+
 For durable maintenance, `maintenance.window_seconds` is the default elapsed
 duration. Parallel provider-call durations do not consume it. The optional
 `maintenance.provider_time_minutes` separately caps aggregate provider time;
@@ -1754,6 +1765,12 @@ step duration (including admission wait for compatibility), a separate
 Null completeness means unavailable, not zero usage. Exact-turn reconciliation
 preserves the original timeout/transport cause with the confirmed final outcome;
 `job items --all --error timeout` or `--error transport` finds these failures.
+New Codex request records retain the configured timeout, effective operation
+allowance, its provider/claim-lease limiter, operation start and claim expiry.
+Deadline errors add the failed phase and elapsed time. The operation shares its
+allowance across preflight, setup and response reads; outcome inspection uses the
+reserved cleanup interval. The clock is explicitly identified as local wall time.
+These diagnostics do not retrospectively explain older failures.
 An interruption alone is not classified as a timeout. Earlier records retain
 only the facts originally captured.
 

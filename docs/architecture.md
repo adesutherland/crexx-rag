@@ -685,6 +685,51 @@ separate from parent coverage. The profile's existing dirty revision marks an
 outdated index as partial and participates in the operational digest; no new
 schema or vector-publication policy is introduced.
 
+## Reconsidering settled maintenance questions
+
+`ragbacklog` owns a bounded `settled-questions` cursor alongside the existing
+census. Unscoped cognitive maintenance visits resolved leaf questions for active
+concepts and closed alias issues, even when they no longer satisfy sparse/open
+selectors. Source-only and embeddings-only windows retain their existing scope.
+Comparison makes no model call and does not change the accepted graph.
+
+The assessed comparison includes meaningful subject state, direct source passages,
+incident claim meaning and support provenance, and eligible competing identities.
+It excludes incidental catalogue entries, version/history counters, timestamps,
+model/prompt changes and global generation alone. Current connection rows are
+streamed into the existing evidence byte ceiling; an incomplete packet is held
+for review rather than used as a complete assessment.
+
+A changed question uses an existing task kind, links its predecessor and retains
+advanced routing and holds. Pending reviews, active ownership, waivers and hard
+deferral dates prevent replacement from bypassing operator decisions. Task IDs
+and the existing writer transaction coalesce concurrent discovery. Read-only
+query visits do not discover tasks. Publication still uses current validation;
+alias extraction follow-up and split/merge connection workflows remain separate.
+A newly reopened alias issue prevents blind reuse of its old occurrence binding.
+
+Successful worker, ordinary review and external review conclusions retain a
+post-application context fingerprint through existing job events or the accepted
+review record. Frozen requests and decisions are unchanged. Thus an action's own
+synonym/type/identity publication does not immediately reopen its question.
+Older records compare their retained packet, adjusting for the recorded action;
+fields never captured in that packet are baselined on their first new visit.
+This avoids blanket reprocessing, but cannot reconstruct historical changes to
+previously unrecorded relationship fields. Remote graph changes are outside this
+initial local dependency boundary. Explicit `maintain reset TASK` remains the
+supported deliberate reconsideration control. See [beta evidence](beta-delivery-20260920.md).
+
+```mermaid
+flowchart LR
+    A[Bounded maintenance census] --> B{Relevant context changed?}
+    B -->|No| C[Keep conclusion; no model call]
+    B -->|Yes, when holds permit| D[One linked task of an existing kind]
+    D --> E[Validated change or final no-change]
+    E --> F[Retain post-decision context and history]
+    E -->|Connections affected| G[Existing follow-up workflow]
+    G --> F
+```
+
 ## External maintenance agents
 
 The [task and escalation guide](work-tasks-and-escalation.md) connects the

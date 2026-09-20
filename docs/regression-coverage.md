@@ -979,3 +979,19 @@ with `unknown option --source` before implementation. The focused set passed
 retention through ordinary window continuation. Combined full-suite and live
 source-window results remain pending. Fixture worker settlement is simulated
 in disposable SQLite state; this test does not qualify live extraction content.
+
+## 20 September beta candidate coverage
+
+| Acceptance | Targeted evidence |
+|---|---|
+| AC-1/2 deadlines | `codex_protocol` variants: healthy delayed operations/reset, noisy lower/upper expiry bounds; `observability_providers`: configured/effective limits, short-lease expiry, confirmed interruption, retained incomplete usage and no duplicate submission. Historical 13.47-second cause remains open. |
+| AC-3/4/5 reconsideration | `durable_backlog_reconsideration`: non-sparse settled concept, changed source and incident qualifier, closed alias and changed eligible identity, unchanged/unrelated controls, parent/routing/deferral/waiver, legacy records, post-action convergence, bounded census and packet ceiling. Existing source/reset/budget/native parallel cases remain required. |
+| AC-6 structural follow-up | Existing `durable_backlog` split/merge/migration/retirement and alias follow-up controls remain required; a settled originating task does not close its unfinished workflow. |
+| AC-7 guidance | `regression_prompt_inspection`, captured public prompts and `lifecycle_methodology` test common initial/correction guidance plus rejected active restore/colliding alias and valid restore/synonym graph controls. |
+
+Current-input qualification accounts for **133/133 passing required cases**,
+including the new reconsideration case and four strengthened protocol variants.
+The [delivery record](beta-delivery-20260920.md) retains fail-first evidence,
+receipt reuse, two live Gemini calls, 200 successful Scottish-copy calls and
+installed smoke checks. The historical-timeout beta exception remains outstanding;
+this bounded acceptance does not close wider quality/endurance/platform gates.

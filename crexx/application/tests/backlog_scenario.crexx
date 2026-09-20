@@ -582,6 +582,10 @@ lifecyclerecordingchecks: procedure = .int
   response = changestr('"concept_type":""',responsejson("type-correction","","[]",'[{"evidence_id":"recording-mention","quote":"Platform"}]',"recording-parent"),'"concept_type":"evidence-span"')
   errors = errors + check(runresolution(store,job_id,task_id,response,error) = 0,"ESC-OPS-03 real correction control " || error)
   errors = errors + check(scalartext(database,"SELECT concept_type FROM concepts WHERE concept_id='recording-parent'") = "evidence-span" & scalarint(database,"SELECT count(*) FROM concept_versions WHERE concept_id='recording-parent'") = 2,"ESC-OPS-03 real correction publishes exactly one version")
+  errors = errors + check(enqueuebacklogtask(database,"recording-type","concept","recording-parent","","",1000000,policy,repeated,error) = 0 & repeated = task_id,"ESC-OPS-03 own successful correction remains settled")
+  /* The repeated-correction defect still needs a genuinely new question.
+   * Own publication alone no longer reopens an assessed context. */
+  errors = errors + check(sqliteexec(database,"INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('recording-new-evidence','recording-parent','chunk-lifecycle',9,13," || current || ")") = 0,"ESC-OPS-03 changed source context for repeated correction")
   errors = errors + check(enqueuebacklogtask(database,"recording-type","concept","recording-parent","","",1000000,policy,repeated,error) = 0 & repeated <> task_id,"ESC-OPS-03 new question after changed fingerprint " || error)
   current = scalarint(database,"SELECT published_generation FROM library_meta")
   calls = scalarint(database,"SELECT count(*) FROM provider_runs")
@@ -1019,7 +1023,7 @@ main: procedure = .int
   arg args = .string[]
   if args.0 < 1 | args.0 > 2 then return 2
   selected_case = "core"; if args.0=2 then selected_case=args[2]
-  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" & selected_case<>"recording" then return 2
+  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" & selected_case<>"recording" & selected_case<>"reconsideration" then return 2
   path = args[1]; errors = 0; error = ""; store = .ragstorehandle
   /* Applicability is a request contract as well as an apply-time guard. */
   note_schema = backlogschema("note",0); alias_schema = backlogschema("alias-issue",0)
@@ -1059,6 +1063,13 @@ main: procedure = .int
 
 
   policy_json = '{"mode":"automatic","window_seconds":1000,"automatic_actions":"reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate","maximum_impact":100,"maximum_attempts":3,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":100,"resolution_prompt":"Fixture resolution","knowledge_policy":"fixture-v1","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":100,"model_calls":100,"input_budget":10000000,"output_budget":1000000,"cost_budget":0,"codex_turns":0}'
+  if selected_case="reconsideration" then do
+    errors=errors+reconsiderationchecks(store,policy_json)
+    call closeragstore store,error
+    if errors>0 then return 1
+    say "DURABLE_BACKLOG_OK reconsideration"
+    return 0
+  end
   if selected_case="recording" then do
     errors = errors + lifecyclerecordingchecks(store,policy_json)
     call closeragstore store,error
@@ -1497,3 +1508,104 @@ main: procedure = .int
   if errors > 0 then return 1
   say "DURABLE_BACKLOG_OK deduplicated split_fanout fenced_decisions resume uncertainty source_preservation"
   return 0
+
+/* RAG-MNT-006: use public maintenance discovery and real fenced decisions.
+ * Fixture writes introduce specific evidence changes; no provider decides them. */
+reconsiderationchecks: procedure = .int
+  arg store=.ragstorehandle,raw=.string
+  db=store.database();errors=0;error="";job="";task="";again=""
+  raw=changestr("retain investigate",raw,"retain investigate no-change")
+  raw=left(raw,length(raw)-1) || ',"sparse_max_degree":0}'
+  policy=.jsondocument(raw)
+  packet="";fingerprint=""
+  errors=errors+check(buildbacklogevidence(db,"concept","concept-parent","",65536,packet,fingerprint,error)=0,"initial reconsideration packet " || error)
+  errors=errors+check(scalarint(db,"SELECT CASE WHEN json_valid(" || _testquote(packet) || ") THEN json_array_length(" || _testquote(packet) || ",'$.connections') ELSE -1 END")=1,"one independently visible incident connection")
+  errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept","concept-parent","","",999999,policy,task,error)=0 & task<>"","reconsideration initial non-sparse question " || error)
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & runresolution(store,job,task,responsejson("no-change"),error)=0,"reconsideration initial conclusion " || error)
+  frozen=scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(task))
+  decisions=scalarint(db,"SELECT count(*) FROM maintenance_decisions");calls=scalarint(db,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE kind='sparse-node' AND subject_id='concept-parent'")=1,"unchanged settled non-sparse subject stays settled")
+  errors=errors+check(sqliteexec(db,"INSERT INTO concept_versions(concept_id,version,canonical_label,concept_type,lifecycle_state,generation,reason,created_at) VALUES('concept-parent',2,'Platform','concept','active',1,'administrative version','fixture'); UPDATE concepts SET canonical_label='Unrelated' WHERE concept_id='concept-survivor'")=0,"incidental version and unrelated identity changes")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE kind='sparse-node' AND subject_id='concept-parent'")=1 & scalarint(db,"SELECT count(*) FROM provider_runs")=calls,"no model calls for irrelevant context changes")
+  errors=errors+check(sqliteexec(db,"INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-new','revision-lifecycle',2,14,27,'content-lifecycle','new-evidence','fixture-v1','direct',1); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('mention-new','concept-parent','chunk-new',0,8,1)")=0,"new direct source evidence")
+  errors=errors+check(nextwindow(store,raw,job,error)=0,"census after source change " || error)
+  child=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE parent_task_id=" || _testquote(task) || " AND kind='sparse-node' AND state IN('pending','dispatched')")
+  errors=errors+check(child<>"","new source rediscovers non-sparse completed question with parent link")
+  if child="" then return errors
+  errors=errors+check(runresolution(store,job,child,responsejson("no-change"),error)=0,"changed source concludes " || error)
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE kind='sparse-node' AND subject_id='concept-parent'")=2,"changed question converges")
+  errors=errors+check(sqliteexec(db,"UPDATE claims SET qualifiers_json=json_object('scope','changed meaning') WHERE claim_id='claim-parent-peer'")=0,"same-span claim semantic change")
+  errors=errors+check(nextwindow(store,raw,job,error)=0,"census after relationship change")
+  next_task=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE parent_task_id=" || _testquote(child) || " AND kind='sparse-node' AND state IN('pending','dispatched')")
+  errors=errors+check(next_task<>"","claim meaning change without new span rediscovers question")
+  if next_task="" then return errors
+  errors=errors+check(runresolution(store,job,next_task,responsejson("no-change"),error)=0,"changed claim concludes " || error)
+  errors=errors+check(scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(task))=frozen & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(task))=1,"old input and decision history remain intact")
+  errors=errors+check(sqliteexec(db,"INSERT INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES('reconsider-candidate','chunk-lifecycle','peer',9,13,'fixture',1); INSERT INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,policy_version,created_at) VALUES('reconsider-candidate-initial','reconsider-candidate',1,'accepted','{}','fixture','fixture')")=0,"alias occurrence fixture")
+  aliases=.string[];aliases[1]="Peer"
+  errors=errors+check(recordaliasissue(db,"reconsider-candidate","Peer","concept",aliases,error)=0 & nextwindow(store,raw,job,error)=0,"discover alias question")
+  issue=scalartext(db,"SELECT issue_id FROM maintenance_alias_issues WHERE candidate_id='reconsider-candidate'")
+  alias_task=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE subject_id=" || _testquote(issue) || " AND state='dispatched'")
+  errors=errors+check(alias_task<>"" & runresolution(store,job,alias_task,responsejson("reuse","concept-peer","[]",'[{"evidence_id":"reconsider-candidate","quote":"Peer"}]',issue),error)=0,"apply grounded alias reuse " || error)
+  errors=errors+check(scalartext(db,"SELECT state FROM maintenance_alias_issues WHERE issue_id=" || _testquote(issue))="resolved","alias closes")
+  errors=errors+check(sqliteexec(db,"DELETE FROM job_events WHERE event_type=" || _testquote("maintenance-assessed-context:" || alias_task))=0,"simulate legacy alias without comparison metadata")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE subject_id=" || _testquote(issue))=1,"own alias publication does not reopen itself")
+  label="";kind="";known=""
+  errors=errors+check(resolveknownmention(db,"reconsider-candidate",label,kind,known,error)=1 & known="concept-peer","unchanged occurrence binding still reusable")
+  errors=errors+check(sqliteexec(db,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('new-peer','Peer','concept','active',1)")=0,"new eligible competing identity")
+  errors=errors+check(nextwindow(store,raw,job,error)=0,"closed alias change discovery")
+  alias_child=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE parent_task_id=" || _testquote(alias_task) || " AND subject_type='alias-issue'")
+  errors=errors+check(alias_child<>"" & scalartext(db,"SELECT state FROM maintenance_alias_issues WHERE issue_id=" || _testquote(issue))="open","closed alias is reopened once with lineage")
+  errors=errors+check(resolveknownmention(db,"reconsider-candidate",label,kind,known,error)=0,"old occurrence binding cannot bypass new ambiguity")
+  if alias_child<>"" then errors=errors+check(runresolution(store,job,alias_child,responsejson("no-change"),error)=0 & nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE subject_id=" || _testquote(issue))=2,"final no-change on new alias context converges")
+  errors=errors+check(scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE kind='alias-follow-up:'||" || _testquote(issue))>=1,"alias keeps existing extraction follow-up")
+  errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning',escalation_origin='worker',escalation_reason='retained hard question' WHERE task_id=" || _testquote(alias_child) || "; UPDATE concepts SET concept_type='evidence-span' WHERE concept_id='new-peer'")=0,"changed advanced alias fixture")
+  errors=errors+check(nextwindow(store,raw,job,error)=0,"advanced successor discovery")
+  advanced_child=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE parent_task_id=" || _testquote(alias_child) || " AND subject_type='alias-issue'")
+  errors=errors+check(advanced_child<>"" & scalartext(db,"SELECT required_capability FROM maintenance_tasks WHERE task_id=" || _testquote(advanced_child))="advanced-reasoning","settled successor preserves advanced capability")
+  errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET not_before_epoch=unixepoch('now','+6 months') WHERE task_id=" || _testquote(advanced_child) || "; UPDATE concepts SET concept_type='source-artifact' WHERE concept_id='new-peer'")=0,"deferred changed question")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE subject_id=" || _testquote(issue))=3,"changed evidence cannot bypass six-month hold")
+  errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET not_before_epoch=0 WHERE task_id=" || _testquote(advanced_child) || "; INSERT INTO maintenance_task_waivers(waiver_id,task_id,reason,state,created_epoch) VALUES('reconsider-waiver'," || _testquote(advanced_child) || ",'operator hold','active',unixepoch())")=0,"waived changed question")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE subject_id=" || _testquote(issue))=3,"waiver remains effective on changed evidence")
+  legacy=""
+  errors=errors+check(enqueuebacklogtask(db,"identity-review","concept","concept-parent","","",400000,policy,legacy,error)=0,"legacy settled concept fixture")
+  legacy_packet=scalartext(db,"SELECT json_remove(evidence_json,'$.connections','$.connection_supports') FROM maintenance_tasks WHERE task_id=" || _testquote(legacy))
+  errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET state='resolved',evidence_json=" || _testquote(legacy_packet) || ",evidence_fingerprint=" || _testquote(ragsha256(legacy_packet)) || " WHERE task_id=" || _testquote(legacy))=0,"legacy packet without new connection projection")
+  calls=scalarint(db,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE kind='identity-review' AND subject_id='concept-parent'")=1 & scalarint(db,"SELECT count(*) FROM provider_runs")=calls,"legacy baseline creates no spurious task or call")
+  lifecycle=""
+  errors=errors+check(enqueuebacklogtask(db,"lifecycle","concept","concept-parent","","",999999,policy,lifecycle,error)=0 & nextwindow(store,raw,job,error)=0,"applied change convergence fixture")
+  synonym=changestr('"canonical_label":""',responsejson("synonym","","[]",'[{"evidence_id":"support-parent-peer","quote":"Platform Peer"}]',"concept-parent"),'"canonical_label":"Platform Peer"')
+  errors=errors+check(runresolution(store,job,lifecycle,synonym,error)=0,"apply supported synonym " || error)
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE kind='lifecycle' AND subject_id='concept-parent'")=1,"applied synonym does not reopen its own question")
+
+  /* Repeat discovery from another caller after the same observed change. */
+  again=""
+  errors=errors+check(enqueuebacklogtask(db,"alias-resolution","alias-issue",issue,"",alias_child,950000,policy,again,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE subject_id=" || _testquote(issue))=3,"overlapping discovery retains one held successor")
+  packet="";fingerprint=""
+  errors=errors+check(buildbacklogevidence(db,"concept","concept-parent","",65536,packet,fingerprint,error)=0,"complete direct connection packet")
+  ceiling=length(packet)-20
+  errors=errors+check(buildbacklogevidence(db,"concept","concept-parent","",ceiling,packet,fingerprint,error)=2,"connection projection enforces complete packet ceiling")
+
+  errors=errors+check(sqliteexec(db,"INSERT INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES('reconsider-distinct','chunk-lifecycle','peer',9,13,'fixture-resolution',1); INSERT INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,policy_version,created_at) VALUES('reconsider-distinct-initial','reconsider-distinct',1,'accepted','{}','fixture','fixture')")=0 & recordaliasissue(db,"reconsider-distinct","Peer","source-artifact",aliases,error)=0 & nextwindow(store,raw,job,error)=0,"legacy distinct fixture")
+  distinct_issue=scalartext(db,"SELECT issue_id FROM maintenance_alias_issues WHERE candidate_id='reconsider-distinct'")
+  distinct_task=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE subject_id=" || _testquote(distinct_issue) || " AND state='dispatched'")
+  distinct=changestr('"canonical_label":""',responsejson("distinct","","[]",'[{"evidence_id":"reconsider-distinct","quote":"Peer"}]',distinct_issue),'"canonical_label":"Peer"')
+  distinct=changestr('"concept_type":""',distinct,'"concept_type":"source-artifact"')
+  errors=errors+check(distinct_task<>"" & runresolution(store,job,distinct_task,distinct,error)=0,"apply distinct identity " || error)
+  errors=errors+check(sqliteexec(db,"DELETE FROM job_events WHERE event_type=" || _testquote("maintenance-assessed-context:" || distinct_task))=0 & nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE subject_id=" || _testquote(distinct_issue))=1,"legacy distinct accounts for its own created identity")
+
+  /* Small pages must eventually visit later settled subjects, without calls. */
+  do i=1 to 6
+    subject="zz-page-" || i;page_task=""
+    errors=errors+check(sqliteexec(db,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES(" || _testquote(subject) || "," || _testquote(subject) || ",'concept','active',1)")=0 & enqueuebacklogtask(db,"identity-review","concept",subject,"","",100,policy,page_task,error)=0 & sqliteexec(db,"UPDATE maintenance_tasks SET state='resolved' WHERE task_id=" || _testquote(page_task))=0,"paged settled fixture")
+  end
+  paged=scalartext(db,"SELECT json_set(" || _testquote(raw) || ",'$.mode','manual','$.batch_items',1,'$.sparse_max_degree',-1)")
+  calls=scalarint(db,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(nextwindow(store,paged,job,error)=0,"start bounded settled census")
+  do i=1 to 30
+    errors=errors+check(tickbacklogwindow(store,job,error)>=0,"advance settled census page " || error)
+  end
+  errors=errors+check(scalarint(db,"SELECT count(DISTINCT json_extract(message,'$.task_id')) FROM job_events WHERE event_type LIKE 'maintenance-assessed-context:%' AND json_extract(message,'$.task_id') IN(SELECT task_id FROM maintenance_tasks WHERE subject_id LIKE 'zz-page-%')")=6 & scalarint(db,"SELECT count(*) FROM provider_runs")=calls,"bounded pages reach all later settled subjects without reasoning calls")
+
+  return errors

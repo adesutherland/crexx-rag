@@ -134,6 +134,14 @@ main: procedure = .int
   errors = errors + check(scalartext(database, "SELECT lifecycle_state FROM concepts WHERE concept_id='concept-parent'") = "active", "restored state")
   errors = errors + check(scalarint(database, "SELECT count(*) FROM concept_versions WHERE concept_id='concept-parent'") = 4, "versioned split retire restore history")
 
+  errors=errors+check(insertitem(database,"item-active-restore","restore","concept-parent",7,restore_action,error)=0,"active restore refusal fixture")
+  failed_generation=0;failed_disposition=""
+  errors=errors+check(applylifecycleaction(store,genericprofile(),"item-active-restore",restore_action,7,failed_generation,failed_disposition,error)<>0 & pos("restore requires a retired concept",error)>0,"active concept restore refused")
+  collision_action=changestr('"concept_id":"concept-peer"',synonym_action,'"concept_id":"concept-parent"')
+  errors=errors+check(insertitem(database,"item-colliding-synonym","synonym","concept-parent",7,collision_action,error)=0,"collision refusal fixture")
+  errors=errors+check(applylifecycleaction(store,genericprofile(),"item-colliding-synonym",collision_action,7,failed_generation,failed_disposition,error)<>0 & pos("synonym collides",error)>0,"active identity synonym collision refused")
+  errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=7 & scalarint(database,"SELECT count(*) FROM aliases WHERE normalized_alias='companion' AND target_concept_id='concept-parent' AND visible_to_generation IS NULL")=0 & scalarint(database,"SELECT count(*) FROM concept_versions WHERE concept_id='concept-parent'")=4,"refused actions publish no alias or lifecycle version")
+
   malformed = '{"schema":"crexx-rag.lifecycle-action/1","operation":"synonym","concept_id":"concept-peer"}'
   errors = errors + check(insertitem(database, "item-malformed", "synonym", "concept-peer", 7, malformed, error) = 0, error)
   malformed_generation = 0; malformed_disposition = ""; error = ""

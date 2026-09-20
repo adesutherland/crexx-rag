@@ -41,6 +41,11 @@ main: procedure = .int
   if pos("original quote failed",corrected)=0 | pos("final no-change",corrected)=0 | pos("choose unresolved",corrected)>0 | pos("updating mention indexes",corrected)>0 then do;say "PROMPT_FAIL advanced correction outcome";return 1;end
   corrected=resolutioncorrectionmessage('{"required_capability":"ordinary"}',"original quote failed")
   if pos("choose escalate",corrected)=0 | pos("choose unresolved",corrected)>0 then do;say "PROMPT_FAIL ordinary correction outcome";return 1;end
+  guidance=.string[];guidance[1]=ordinary;guidance[2]=advanced;guidance[3]=corrected
+  guidance[4]=resolutioncorrectionmessage('{"required_capability":"advanced-reasoning"}',"original quote failed")
+  do g=1 to guidance.0
+    if pos("restore requires a retired concept",guidance[g])=0 | pos("synonym must not collide with another active concept",guidance[g])=0 then do;say "PROMPT_FAIL lifecycle preconditions route " || g;return 1;end
+  end
   if pos("updating mention indexes",correctionmessage("original quote failed"))=0 then do;say "PROMPT_FAIL extraction correction preserved";return 1;end
   corrected=resolutioncorrectionmessage('{"required_capability":"advanced-reasoning","evidence":{"subject":{"type":"provenance-chunk"}}}',"original quote failed")
   if pos("final no-change",corrected)>0 | pos("one assessment per supplied support_id",corrected)=0 then do;say "PROMPT_FAIL provenance correction retains its own envelope";return 1;end

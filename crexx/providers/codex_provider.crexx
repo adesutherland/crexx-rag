@@ -56,6 +56,8 @@ codexprovider: class implements .provider
   _health_error = .string
   _operation_started = .int
   _operation_timeout = .int
+  _operation_configured = .int
+  _operation_limiter = .string
 
   *: factory
     arg executable = .string, working_directory = .string, observer = .codexrunobserver
@@ -72,9 +74,23 @@ codexprovider: class implements .provider
     return .providercapabilities("codex", 1, 1, 0, 0, 0, 0, 0, 0, "text", "text", "codex-app-server-jsonl", 0)
 
   begin_operation: method = .void
-    arg timeout_ms = .int
+    arg timeout_ms = .int, limiter = "provider", configured_timeout_ms = 0
     _operation_started = time("us"); _operation_timeout = max(1,timeout_ms)
+    _operation_configured = configured_timeout_ms
+    if _operation_configured < 1 then _operation_configured = _operation_timeout
+    _operation_limiter = limiter
     return
+
+  deadline_context: method = .string
+    elapsed = (time("us") as .int) - _operation_started
+    return '{"configured_timeout_ms":' || _operation_configured || ',"operation_budget_ms":' || _operation_timeout || ',"limiter":' || jsonquote(_operation_limiter) || ',"started_local_us":' || _operation_started || ',"elapsed_us":' || elapsed || ',"clock":"local-wall-microseconds"}'
+
+  _deadline_error: method = .string
+    arg error = .string, phase = .string
+    if _operation_timeout < 1 | pos("operation_budget_ms=",error)>0 then return error
+    if pos("deadline",lower(error))=0 & pos("timed out",lower(error))=0 & pos("timeout",lower(error))=0 then return error
+    elapsed = (time("us") as .int) - _operation_started
+    return error || "; phase=" || phase || "; limiter=" || _operation_limiter || "; configured_timeout_ms=" || _operation_configured || "; operation_budget_ms=" || _operation_timeout || "; operation_elapsed_us=" || elapsed
 
   end_operation: method = .void
     _operation_timeout = 0
@@ -365,7 +381,7 @@ codexprovider: class implements .provider
     do messages = 1 to 8192
       line = ""
       remaining = _remaining_ms(started,request.timeout_ms())
-      if remaining < 1 then do; error = "Codex turn response deadline reached"; _health_error = error; return -1; end
+      if remaining < 1 then do; error = _deadline_error("Codex turn response deadline reached","turn"); _health_error = error; return -1; end
       if _readline(remaining, line, error) \= 0 then return -1
       document = .jsondocument(line)
       if document.valid() \= 1 | document.node_type(document.root()) \= "object" then do; error = "Codex App Server emitted invalid JSONL"; return -1; end
@@ -437,7 +453,7 @@ codexprovider: class implements .provider
     do messages = 1 to 4096
       line = ""
       remaining = _remaining_ms(started,timeout_ms)
-      if remaining < 1 then do; error = "Codex App Server response deadline reached"; _health_error = error; return -1; end
+      if remaining < 1 then do; error = _deadline_error("Codex App Server response deadline reached","response"); _health_error = error; return -1; end
       if _readline(remaining, line, error) \= 0 then return -1
       candidate = .jsondocument(line)
       if candidate.valid() \= 1 | candidate.node_type(candidate.root()) \= "object" then do; error = "Codex App Server emitted invalid JSONL"; return -1; end
@@ -466,7 +482,7 @@ codexprovider: class implements .provider
     on signal unicode_error as problem
       error = "Codex App Server emitted invalid UTF-8 JSONL"
     end
-    if status \= 0 then _health_error = error
+    if status \= 0 then do;error=_deadline_error(error,"read");_health_error=error;end
     return status
 
   _readline_checked: method = .int
@@ -515,7 +531,7 @@ codexprovider: class implements .provider
     on signal channel_error as problem
       error = "Codex App Server write channel failed: " || problem.message()
     end
-    if status \= 0 then _health_error = error
+    if status \= 0 then do;error=_deadline_error(error,"write");_health_error=error;end
     return status
 
   _write_checked: method = .int

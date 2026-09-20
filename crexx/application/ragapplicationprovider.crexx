@@ -285,7 +285,9 @@ ragapplicationprovider: class implements .ragworkprovider
     else if provider_config.kind() = "codex" then do
       provider_charging_basis = "local-compute"
       now_epoch = _databaseepoch(_store.database())
-      call _codex_backend.begin_operation(min(provider_config.timeout_ms(),max(1,(claim.lease_until()-now_epoch-5)*1000)))
+      lease_remaining_ms=max(1,(claim.lease_until()-now_epoch-5)*1000)
+      deadline_limiter="provider";if lease_remaining_ms<provider_config.timeout_ms() then deadline_limiter="claim-lease"
+      call _codex_backend.begin_operation(min(provider_config.timeout_ms(),lease_remaining_ms),deadline_limiter,provider_config.timeout_ms())
       recovery = .ragexternalrecovery; codex_error = ""; active_request = request
       if recoverexternalrun(_store, claim.item_id(), provider_config.provider_id(), provider_config.model(), recovery, codex_error) \= 0 then provider_output = _codexfailure(request, codex_error, 0, "durability")
       else if recovery.found() = 1 then do
@@ -317,7 +319,7 @@ ragapplicationprovider: class implements .ragworkprovider
           call _tracer.emit("codex", "durable", claim.item_id(), "preparing persisted thread and turn identities")
           thread_id = ""; turn_id = ""
           if _codex_backend.start_thread(request, thread_id, codex_error) \= 0 then provider_output = _codexfailure(request, "Codex thread start failed: " || codex_error, 1, "transport")
-          else if beginexternalrun(_store, claim, provider_config.provider_id(), provider_config.model(), request_id, provider_config.charging_basis(), thread_id, allowance_used, durable_run_id, codex_error,_requestjson(request,provider_config,claim,input_json)) \= 0 then do
+          else if beginexternalrun(_store, claim, provider_config.provider_id(), provider_config.model(), request_id, provider_config.charging_basis(), thread_id, allowance_used, durable_run_id, codex_error,_requestjson(request,provider_config,claim,input_json,_codex_backend.deadline_context())) \= 0 then do
             call _codex_backend.delete_thread(thread_id, provider_config.timeout_ms())
             provider_output = _codexfailure(request, "Codex thread durability failed: " || codex_error, 0, "durability")
           end
@@ -338,7 +340,9 @@ ragapplicationprovider: class implements .ragworkprovider
               if provider_output.status() \= 0 & _codex_backend.health_error() \= "" then do
                 original_failure=provider_output.error();original_elapsed=provider_output.latency_us()
                 observed_state = ""; observed_content = ""; observed_error = ""
-                observation_timeout = min(5000,provider_config.timeout_ms(),max(1,(claim.lease_until()-_databaseepoch(_store.database())-5)*1000))
+                /* begin_operation already reserved these five seconds for
+                 * outcome inspection/cleanup. Do not subtract them twice. */
+                observation_timeout = min(5000,provider_config.timeout_ms(),max(1,(claim.lease_until()-_databaseepoch(_store.database()))*1000))
                 observed_status = _codex_backend.inspect_turn_fresh(thread_id,turn_id,observation_timeout,observed_state,observed_content,observed_error)
                 if observed_status = 0 then do
                   usage = provider_output.usage()
@@ -1005,7 +1009,7 @@ ragcodexusageobserver: class implements .codexrunobserver
 
 /* Application request envelope, before provider-specific transport encoding. */
 _requestjson: procedure = .string
-  arg request=.providerrequest,config=.ragproviderconfig,claim=.ragworkclaim,input_json=""
+  arg request=.providerrequest,config=.ragproviderconfig,claim=.ragworkclaim,input_json="",deadline_context=""
   messages=request.messages();inputs=request.inputs();encoded="[";prompt=""
   do i=1 to messages.0
     if i>1 then encoded=encoded || ","
@@ -1025,10 +1029,11 @@ _requestjson: procedure = .string
   captured=_safediagnostic(body,secret,availability)
   if captured="" then captured="null"
   reference_fields="";references=.ragresolutionreferences(input_json)
+  if deadline_context<>"" then reference_fields=',"deadline":' || left(deadline_context,length(deadline_context)-1) || ',"claim_lease_until_epoch":' || claim.lease_until() || '}'
   if references.enabled()=1 then do
     map_availability="";retained_map=_safediagnostic(references.mapping(),secret,map_availability)
     if retained_map="" then retained_map="null"
-    reference_fields=',"resolution_references":' || retained_map
+    reference_fields=reference_fields || ',"resolution_references":' || retained_map
   end
   return '{"schema":"crexx-rag.provider-request/1","operation":' || jsonquote(request.operation()) || ',"provider":' || jsonquote(config.provider_id()) || ',"model":' || jsonquote(request.model()) || ',"role":' || jsonquote(request.role()) || ',"reasoning_effort":' || jsonquote(request.reasoning_effort()) || ',"request_id":' || jsonquote(request.request_id()) || ',"input_hash":' || jsonquote(claim.input_hash()) || ',"prompt_sha256":' || jsonquote(rxhash..sha256hex(prompt as .binary)) || ',"schema_sha256":' || jsonquote(rxhash..sha256hex(request.schema() as .binary)) || ',"body_sha256":' || jsonquote(digest) || ',"body_bytes":' || bytes || ',"availability":' || jsonquote(availability) || ',"body":' || captured || reference_fields || '}'
 

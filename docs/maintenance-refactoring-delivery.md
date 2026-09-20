@@ -898,3 +898,14 @@ receipt replay bypasses refresh. Ordinary/advanced public loopback regressions
 first reproduced 2,2 remaining calls, then require 2,1 plus unchanged input hash
 and references, actual prompt hashes and normal receipt/usage/source controls.
 [Delivery](esc-ops-04-qa-cleanup-delivery-20260919.md).
+
+## 20 September beta candidate ownership
+
+No module ownership moves. `ragbacklog` owns settled discovery, local comparison
+and post-publication assessment retention; worker completion and both review
+acceptance paths compose that owner. `ragresolutioncontract` adds the existing
+restore/synonym preconditions for every resolution route; `ragmaintain` remains
+the validator. `codex_provider` records operation clock/phase facts and
+`ragapplicationprovider` selects the effective lease limit and preserves cleanup
+time. There is no new schema, task kind, provider route or reporting service.
+Regression and qualification evidence: [beta delivery](beta-delivery-20260920.md).

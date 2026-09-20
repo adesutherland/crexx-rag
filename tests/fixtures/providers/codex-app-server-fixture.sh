@@ -48,6 +48,14 @@ while IFS= read -r line; do
       ;;
     *'"method":"account/read"'*)
       log_method account/read
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "deadline-healthy" ]; then
+        n=0
+        while [ "$n" -lt 80 ]; do
+          printf '%s\n' '{"method":"unrelated/notification","params":{}}'
+          sleep 0.005
+          n=$((n + 1))
+        done
+      fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-auth" ]; then
         printf '{"id":%s,"error":{"message":"authentication session expired"}}\n' "$id"
         continue
@@ -223,7 +231,9 @@ while IFS= read -r line; do
         continue
       fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-slow" ]; then sleep 0.25; fi
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "deadline-healthy" ]; then sleep 0.25; fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-timeout" ]; then sleep 2; continue; fi
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-lease-timeout" ]; then sleep 4; continue; fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-disconnect" ]; then sleep 0.25; exit 70; fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "observation-malformed" ]; then
         printf '%s\n' '{"method":"item/completed","params":{"threadId":"fixture-thread","turnId":"fixture-turn","item":{"type":"agentMessage","text":"{broken original output"}}}'

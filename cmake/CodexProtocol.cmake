@@ -102,6 +102,14 @@ foreach(mode IN ITEMS noopt opt)
                 list(APPEND utf8_failures "${mode}-${runtime_name} ${utf8_stage}: ${utf8_out}${utf8_err}")
             endif()
         endforeach()
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+            "CREXXRAG_CODEX_FIXTURE_FAILURE=deadline-healthy"
+            "${runtime}" -l "${imports}" "${program}" ${modules}
+            -a "${fixture}" "${CPRAG_WORK_DIR}/empty-cwd" 1 deadline-healthy
+            RESULT_VARIABLE healthy_status OUTPUT_VARIABLE healthy_out ERROR_VARIABLE healthy_err TIMEOUT 15)
+        if(NOT healthy_status EQUAL 0 OR NOT healthy_out MATCHES "PASS: healthy delayed")
+            message(FATAL_ERROR "${mode}-${runtime_name} early deadline fixture failed: ${healthy_out}${healthy_err}")
+        endif()
         foreach(noisy_stage IN ITEMS account-noise account-fragments turn-noise)
             execute_process(COMMAND "${CMAKE_COMMAND}" -E env
                 "CREXXRAG_CODEX_FIXTURE_FAILURE=${noisy_stage}"

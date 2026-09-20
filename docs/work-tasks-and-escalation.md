@@ -230,7 +230,7 @@ the historical question is definitively false. This is the clear null decision;
 it is expressed as `action: "no-change"`, not a bare JSON null.
 
 Final work is retained across unchanged census and ordinary route-default edits.
-Relevant evidence changes can create a linked successor. External proposals can
+Relevant local evidence changes create linked successors through bounded maintenance discovery, including closed aliases and settled non-sparse concepts. A remote graph change or read-only visit alone is not a trigger. See the [comparison contract](architecture.md#reconsidering-settled-maintenance-questions). External proposals can
 reuse their retained response across unrelated forward publication only after
 checking the same profile/configuration, current relevant evidence, ownership,
 source validation and exact effects. Genuine staleness still refuses acceptance.
@@ -297,3 +297,14 @@ The [architecture](architecture.md), [operating guide](autonomous-maintenance.md
 and [escalation triage](escalation-triage-20260916.md) retain the authoritative
 implementation boundaries and concrete validation defects. This guide connects
 those records; it does not replace their shared owners with a second design.
+
+## Selective reconsideration in the beta candidate
+
+A settled decision is final for its assessed local context. Unscoped maintenance
+now checks settled concepts and closed aliases in bounded pages; new relevant
+source support, identity candidates or incident claim meaning can create one
+linked successor. Unchanged context makes no new reasoning call. Existing task
+kinds, model routing, deferral, review, waiver and ownership controls are reused.
+Read-only searches do not enqueue work. The [architecture diagram and upgrade
+limits](architecture.md#reconsidering-settled-maintenance-questions) define the
+comparison; [delivery evidence](beta-delivery-20260920.md) tracks qualification.
