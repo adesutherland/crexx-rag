@@ -45,8 +45,15 @@ flowchart TD
    RAG does not need its separate editor dependency.
    Apple Silicon includes Metal; Intel and Windows use CPU inference. CUDA,
    Vulkan and downloaded model files are outside this installer scope.
+   Published CREXX runtime ZIPs cannot yet replace this SDK: the inspected
+   `dev-snapshot` at the same pinned SHA lacks the CMake package, headers and
+   SQLite/vector static archives. Prefer a verified, platform-specific upstream
+   SDK ZIP when CREXX publishes one; pin its source identity and checksum rather
+   than silently following a mutable `latest` download. See the
+   [dependency evidence](integration-issues.md#snapshot-sdk-packaging--20-september-2026).
 3. Build Release RAG against that installed SDK, then stage into a private
-   prefix. Package only that prefix, including runtime notices and the CREXX
+   prefix. Use the runner's CPU count, capped at four compiler workers, instead
+   of CREXX's higher macOS `auto` concurrency. Package only that prefix, including runtime notices and the CREXX
    licence. Native packaging checks library creation and two child workers.
 4. Verify the actual relocated ZIP and installed application: payload and
    provider hashes, library initialization, two-worker supervision and library
@@ -157,6 +164,8 @@ run; simulated signing tests are not certificate-validation evidence.
 
 ```sh
 python3 tests/release/test_packaging.py
+# With NSIS installed; CI runs this before the Windows dependency build:
+python3 tests/release/test_nsis.py
 actionlint .github/workflows/build-release.yml
 shellcheck scripts/sign-windows-release.sh
 # After normal configure/build, the same contract is a fast CTest case:

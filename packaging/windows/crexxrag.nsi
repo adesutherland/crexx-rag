@@ -62,7 +62,7 @@ FunctionEnd
 
 Section "cREXX-RAG"
   SetOutPath "$INSTDIR"
-  File /r "${RAG_PAYLOAD}/*"
+  File /r "${RAG_PAYLOAD}\*"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\crexxrag" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\crexxrag" "DisplayName" "cREXX-RAG ${RAG_VERSION}"

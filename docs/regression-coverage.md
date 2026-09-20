@@ -11,9 +11,12 @@ refresh, payload integrity/ZIP safety, Windows helper inclusion, preserved
 unsigned input and rejected wrong release identity. Product source/binaries are
 unchanged; this count is not a new full-suite execution claim.
 
-Real unsigned Apple Silicon ZIP and expanded PKG payloads pass isolated native
-library/worker checks. NSIS compilation is local; Windows install/uninstall,
-macOS Intel and real signing remain separately pending.
+Real unsigned Apple Silicon ZIP and PKG payloads pass isolated native
+library/worker checks, including actual hosted PKG installation. A separate
+NSIS compilation fixture runs before expensive Windows builds, covering payload
+paths with spaces and nested files; it does not execute its synthetic app.
+Both hosted macOS builds and actual PKG installations pass. Windows
+install/uninstall and real signing remain separately pending at this checkpoint.
 [Evidence and qualification boundary](installer-delivery-20260920.md).
 
 ## Correction allowance and QA cleanup — 19 September 2026

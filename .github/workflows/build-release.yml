@@ -88,6 +88,9 @@ jobs:
           choco install nsis --yes --no-progress
           if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed' }
           Add-Content $env:GITHUB_PATH "${env:ProgramFiles(x86)}\NSIS"
+      - name: Compile the Windows installer fixture before building dependencies
+        if: runner.os == 'Windows'
+        run: python tests/release/test_nsis.py
       - uses: actions/cache/restore@v4
         id: sdk
         with:
@@ -123,10 +126,12 @@ jobs:
           key: ${{ steps.sdk.outputs.cache-primary-key }}
       - name: Configure and build RAG against the installed SDK
         run: |
+          build_jobs=$(python -c 'import os; print(min(4, os.cpu_count() or 2))')
+          echo "Building RAG with $build_jobs compiler workers"
           cmake -S . -B "$RUNNER_TEMP/rag-build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/crexx-sdk" \
-            -DCREXXRAG_BUILD_TESTS=OFF -DCREXXRAG_REXX_BUILD_JOBS=2
-          cmake --build "$RUNNER_TEMP/rag-build" --parallel 2
+            -DCREXXRAG_BUILD_TESTS=OFF -DCREXXRAG_REXX_BUILD_JOBS="$build_jobs"
+          cmake --build "$RUNNER_TEMP/rag-build" --parallel "$build_jobs"
           cmake --install "$RUNNER_TEMP/rag-build" --prefix "$RUNNER_TEMP/rag-payload"
           cp "$RUNNER_TEMP/crexx-sdk/CREXX-LICENSE" "$RUNNER_TEMP/rag-payload/CREXX-LICENSE"
       - name: Package installers and portable ZIPs

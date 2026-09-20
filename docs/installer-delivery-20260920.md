@@ -29,7 +29,7 @@ the Level-G product implementation.
 
 | Requirement | Evidence / current boundary |
 | --- | --- |
-| Build three native platform packages from fixed sources | Workflow implemented; first Windows/Intel/Apple Silicon hosted matrix is pending publication. Exact source/dependency IDs and per-file hashes are recorded in each package. |
+| Build three native platform packages from fixed sources | Published for review in PR #1. Both macOS hosted build/package/install checks pass; Windows installer repair acceptance is pending below. Exact source/dependency IDs and per-file hashes are recorded in each package. |
 | Missing/partial Apple configuration still produces unsigned PKG and ZIP | Unit contract plus real unsigned Apple Silicon PKG/ZIP produced locally with all nine Apple settings absent. |
 | Configured signing failures fail the build and clean up credentials | Simulated failure/cleanup and secret-output tests pass. Real certificates/notarization have not been exercised. |
 | Signed bytes retain valid provider manifests | Tests modify the engine bytes, reject stale hashes, refresh nested backend/native hashes, then verify the complete package. |
@@ -75,7 +75,26 @@ or the required vector pair. The workflow now requests `sqlite sqlite_static
 vector vector_static` explicitly, invalidates the old SDK cache recipe and saves
 the installed SDK before downstream RAG checks. The passing local installed-SDK
 control and failed clean runner distinguish this from a product regression.
-Hosted acceptance of that repair remains pending.
+The [second hosted run](https://github.com/adesutherland/crexx-rag/actions/runs/35515745584)
+builds PR head `52b36bfb6f713f07712481a5d26cbdab4227374f` as merge commit
+`cb35df524ad514f1f8e6c4485c7ba00015081387`. All three installed SDK builds pass
+and are saved in exact-platform/SHA caches. Both macOS platforms additionally pass
+native RAG build, portable ZIP smoke, real PKG installation and installed smoke.
+Windows builds native RAG successfully, then NSIS rejects the Unix `payload/*`
+wildcard. The repair uses a Windows separator and adds a real NSIS compilation
+fixture with spaces and nested files before the expensive Windows SDK/RAG steps.
+The failed Windows job is the reproduction; local NSIS compilation with the
+corrected script is the positive control. Actual Windows installer execution
+still awaits the repaired hosted run. Subsequent terminal platform results are
+attached to PR #1; this record retains the two initial runs and their repairs.
+The rerun also uses the runner's CPU count, capped at four, for RAG compilation
+instead of the initial fixed two workers. SDK recipe/options remain unchanged.
+
+Published CREXX snapshot binaries were reviewed as a simpler dependency route.
+They currently lack the installed SDK parts required by native RAG. The
+[upstream packaging gap](integration-issues.md#snapshot-sdk-packaging--20-september-2026)
+records the evidence and proposed archive; the cached SDK remains the working
+route without changing the sibling repository.
 
 Run the three-platform workflow after source publication, retaining its exact
 SHA and terminal results. Run a credentials-enabled macOS build and the local

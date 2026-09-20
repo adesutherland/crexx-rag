@@ -84,6 +84,7 @@ function(crexxrag_add_test)
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sign-windows-release.sh"
             "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/crexxrag.nsi"
             "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/update-user-path.ps1"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/release/test_nsis.py"
             "${CMAKE_CURRENT_SOURCE_DIR}/.github/workflows/build-release.yml"
             "${CMAKE_CURRENT_SOURCE_DIR}/.github/crexx-revision.txt")
     endif()
