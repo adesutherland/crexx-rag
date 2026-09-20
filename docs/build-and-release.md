@@ -37,9 +37,12 @@ flowchart TD
    is an explicit dependency change. The initial pin is the published runtime
    used by the current local RAG baseline, `5949ef27efd813b8bb96d23c58717b9a72aad1b9`.
 2. Build the installed CREXX SDK using its staged targets and explicit llama
-   runtime/provider packaging targets. The SDK cache includes platform and
+   runtime/provider packaging targets, plus the SQLite and vector dynamic/static
+   targets needed by native RAG. The SDK cache includes platform and
    exact dependency SHA. Bump its recipe version when SDK options change.
-   Parser mode is disabled: RAG does not need its separate editor dependency.
+   Save the installed SDK before downstream RAG checks, so a later RAG failure
+   does not discard a successful dependency build. Parser mode is disabled:
+   RAG does not need its separate editor dependency.
    Apple Silicon includes Metal; Intel and Windows use CPU inference. CUDA,
    Vulkan and downloaded model files are outside this installer scope.
 3. Build Release RAG against that installed SDK, then stage into a private

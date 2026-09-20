@@ -26,7 +26,7 @@ prompt/quotation, checkpoint/restart and advanced-call repairs remain included.
 
 | ID | Status | Scope and evidence |
 | --- | --- | --- |
-| RAG-REL-001 | Implemented locally; hosted platform and real-signing qualification pending | Windows x64 and macOS Apple Silicon/Intel build/installers, unsigned macOS fallback when credentials are missing, pinned CREXX dependency, package identity/hash checks and separate Windows post-release signing. Local Apple Silicon package execution and synthetic release contracts pass. [Delivery](installer-delivery-20260920.md), [operator setup](build-and-release.md). Source publication and first hosted run remain pending; this does not authorize the held beta tag. |
+| RAG-REL-001 | Published for review; hosted repairs and real-signing qualification pending | Windows x64 and macOS Apple Silicon/Intel build/installers, unsigned macOS fallback when credentials are missing, pinned CREXX dependency, package identity/hash checks and separate Windows post-release signing. Local Apple Silicon package execution and synthetic release contracts pass. [PR #1](https://github.com/adesutherland/crexx-rag/pull/1) is open; the first hosted build exposed missing static provider dependencies in the SDK recipe, now corrected for rerun. [Delivery](installer-delivery-20260920.md), [operator setup](build-and-release.md). This does not authorize the held beta tag. |
 
 “Locally repaired” closes the named reproduction, not the wider umbrella
 qualification. Historical corpus outcomes remain dated evidence.

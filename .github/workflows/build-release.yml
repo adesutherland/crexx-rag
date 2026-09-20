@@ -88,11 +88,11 @@ jobs:
           choco install nsis --yes --no-progress
           if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed' }
           Add-Content $env:GITHUB_PATH "${env:ProgramFiles(x86)}\NSIS"
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         id: sdk
         with:
           path: ${{ runner.temp }}/crexx-sdk
-          key: rag-sdk-v1-${{ matrix.platform }}-${{ needs.metadata.outputs.crexx }}
+          key: rag-sdk-v2-${{ matrix.platform }}-${{ needs.metadata.outputs.crexx }}
       - uses: actions/checkout@v5
         if: steps.sdk.outputs.cache-hit != 'true'
         with:
@@ -111,9 +111,16 @@ jobs:
             -DENABLE_LLAMA=ON -DENABLE_PARSER_MODE=OFF ${{ matrix.cmake_args }}
           cmake --build "$RUNNER_TEMP/crexx-build" --parallel 2 \
             --target stage-c1-toolchain stage-product stage-optional crexx-examples \
+            sqlite sqlite_static vector vector_static \
             llama_provider_runtime_package crexx-provider-package
           cmake --install "$RUNNER_TEMP/crexx-build"
           cp upstream-crexx/LICENSE "$RUNNER_TEMP/crexx-sdk/CREXX-LICENSE"
+      - name: Cache the installed SDK independently of downstream RAG checks
+        if: steps.sdk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/crexx-sdk
+          key: ${{ steps.sdk.outputs.cache-primary-key }}
       - name: Configure and build RAG against the installed SDK
         run: |
           cmake -S . -B "$RUNNER_TEMP/rag-build" -G Ninja \

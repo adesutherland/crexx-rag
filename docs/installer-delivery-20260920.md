@@ -7,8 +7,9 @@ installers, skip macOS signing when secrets are absent, and keep Windows
 signing as a separate post-release maintainer operation.
 
 RAG started clean on `main` at `78c2c015f1f3469d91c842f6eea20ff3d12c3fde`.
-Implementation is on `temp/platform-installers`; no commit, push, tag or release
-is claimed by this record. The sibling CREXX checkout was inspected read-only
+Implementation was committed as `daaa5de7ada997c1b4f3ad416b46456518a7f9e1`, pushed
+on `temp/platform-installers` and opened as [PR #1](https://github.com/adesutherland/crexx-rag/pull/1)
+following explicit approval. No tag or release was created. The sibling CREXX checkout was inspected read-only
 at `47168a1f16365d6c2aaa54de770889c0e8dce6a4`; its unrelated dirty work was preserved.
 The runtime pin remains the installed/published CREXX
 `5949ef27efd813b8bb96d23c58717b9a72aad1b9`.
@@ -65,6 +66,16 @@ The PATH helper is a packaged PowerShell file so neither the user PATH nor the
 helper program is constrained by NSIS's 1024-character string buffer.
 
 ## Remaining qualification
+
+The [first hosted run](https://github.com/adesutherland/crexx-rag/actions/runs/35515227153)
+passed metadata/contracts but exposed a cold-SDK dependency omission on Apple
+Silicon: RAG's configure-time capability check correctly refused the missing
+`rxsqlite.a`. The generic staged targets had not built the SQLite static target
+or the required vector pair. The workflow now requests `sqlite sqlite_static
+vector vector_static` explicitly, invalidates the old SDK cache recipe and saves
+the installed SDK before downstream RAG checks. The passing local installed-SDK
+control and failed clean runner distinguish this from a product regression.
+Hosted acceptance of that repair remains pending.
 
 Run the three-platform workflow after source publication, retaining its exact
 SHA and terminal results. Run a credentials-enabled macOS build and the local
