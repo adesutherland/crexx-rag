@@ -106,3 +106,18 @@ and fault coverage. The historical beta exception for ESC-OPS-06 is unchanged.
 Operational instructions, secret names and signing commands are in
 [Builds, installers and signing](build-and-release.md). The roadmap is the sole
 current status register.
+
+## Publication update — 22 September 2026
+
+[PR #1](https://github.com/adesutherland/crexx-rag/pull/1) merged into `main` as
+`afb03c1a99dfd46422547f1f182c0bb528b736e1` under the operator's instruction to
+publish the outstanding repository work. Its [final hosted run](https://github.com/adesutherland/crexx-rag/actions/runs/35518552817)
+is terminally green for metadata and all three platforms, testing head
+`f4fe3322d6dc59355a8cf6ae94820d03b6a5a238` as merge SHA
+`b85b974ec7d52bb7ff22a777cdda5eda940c4824`. Windows passed native build,
+portable ZIP execution, actual install/reinstall, long/absent/existing PATH
+handling and safe uninstall; both macOS platforms passed native build, ZIP
+execution and actual PKG install/smoke. These results resolve the earlier
+Windows-pending entries in this dated record. No provider calls were made by
+those installer smokes. Real signing and wider platform functional regression
+remain separate qualification; no version tag or binary release was created.
