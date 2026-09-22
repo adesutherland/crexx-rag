@@ -10,6 +10,25 @@ maps these dependencies and qualification limits to the product backlog.
 These are current boundaries, accepted limitations and recorded repairs. Any
 source-level containment used by the product is stated explicitly.
 
+## Snapshot SDK packaging — 20 September 2026
+
+RAG-REL-001 currently builds and caches an installed SDK from the pinned CREXX
+source. Using a published SDK would remove this compilation from RAG's normal
+pipeline. The current [CREXX snapshot](https://github.com/adesutherland/CREXX/releases/tag/dev-snapshot)
+resolves to the same `5949ef27efd813b8bb96d23c58717b9a72aad1b9` pin. Its Apple
+Silicon core and separate llama ZIPs were downloaded, their published SHA-256
+digests verified, and their entries inspected: neither contains headers, the
+CMake package, or `rxsqlite.a`/`rxvector.a`. The upstream core packager stages
+runtime files rather than the installed SDK. No separate SDK asset is published.
+
+The proposed upstream change is an installed SDK archive for each supported
+platform, with its exact source SHA and digest. RAG can then download that
+qualified dependency, retaining an explicit version change instead of floating
+to a mutable snapshot tag. The present cache is the working fallback; RAG must
+not recreate missing provider archives or SDK metadata itself. This investigation
+made no changes to CREXX. Inspection evidence:
+`out/installer-20260920/snapshot-review/findings.json`.
+
 ## Large JSON accessor buffer copying — published upstream 18 September 2026
 
 Scottish query profiling identifies a generic `rxjson` cost independently of

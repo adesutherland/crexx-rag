@@ -24,6 +24,10 @@ prompt/quotation, checkpoint/restart and advanced-call repairs remain included.
 
 ## Recent defects and delivery status
 
+| ID | Status | Scope and evidence |
+| --- | --- | --- |
+| RAG-REL-001 | Published for review; real-signing qualification remains separate | Windows x64 and macOS Apple Silicon/Intel build/installers, unsigned macOS fallback when credentials are missing, pinned CREXX dependency, package identity/hash checks and separate Windows post-release signing. [PR #1](https://github.com/adesutherland/crexx-rag/pull/1) owns the latest hosted gate results. All three hosted SDK builds pass and are cached; both macOS package/install checks pass. The initial Windows native build passed but NSIS exposed a wildcard separator defect, repaired with an early compiler fixture for rerun. A published upstream SDK archive is the preferred future dependency route; current runtime snapshots lack required SDK files. [Dependency evidence](integration-issues.md#snapshot-sdk-packaging--20-september-2026), [delivery](installer-delivery-20260920.md), [operator setup](build-and-release.md). This does not authorize the held beta tag. |
+
 “Locally repaired” closes the named reproduction, not the wider umbrella
 qualification. Historical corpus outcomes remain dated evidence.
 
