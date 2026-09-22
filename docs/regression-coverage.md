@@ -1,5 +1,21 @@
 # Regression coverage baseline — REG-01
 
+## Configured provider selection — 22 September 2026
+
+`query_policy` adds public/restricted/local/internal acceptance for configured
+local, hosted and Codex routes, retained request labels and invalid-route and
+missing-provider controls. Its existing budget assertions remain required.
+`durable_backlog_provider_configured_route` adds the public maintenance-planning
+reproduction with unchanged source metadata, charging and zero-call/zero-work
+assertions. Existing public/local maintenance execution controls remain enabled.
+All four focused cases pass. `durable_backlog` also passes after isolating its
+positive embedding admission cells from unfinished ordinary work in an earlier
+cell; scheduling and all prior assertions remain unchanged. The new required
+selection is locally qualified at 135/135 cases: the final full run executed
+106 and reused 29 matching passes, followed by final documentation verification
+and receipt accounting. The separate scale lane is unchanged.
+[Baseline, fail-first evidence and qualification](provider-route-selection-20260922.md).
+
 ## Installer tooling — 20 September 2026
 
 `release_packaging` adds one isolated fast case (16 release-tooling controls),

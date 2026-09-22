@@ -12,8 +12,9 @@ import provider_catalog
  * and evidence validation. */
 queryrouteallowed: procedure = .int
   arg provider = .ragproviderconfig, privacy = .string
+  /* The operator selects the provider. Source privacy is retained metadata,
+   * not an additional application veto on that configured route. */
   if provider.provider_id() = "" then return 0
-  if provider.route_class() = "hosted" & privacy \= "public" then return 0
   return 1
 
 querypreflight: procedure = .int

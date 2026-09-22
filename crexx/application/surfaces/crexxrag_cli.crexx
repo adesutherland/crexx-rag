@@ -425,7 +425,7 @@ _plansummary: procedure = .string
   output = "Ingestion plan"
   output = output || "0A0A"x || "  Source set:       " || source_set_id
   if source_root \= "" then output = output || "0A"x || "  Source folder:    " || source_root
-  if privacy \= "" then output = output || "0A"x || "  Data policy:      " || privacy
+  if privacy \= "" then output = output || "0A"x || "  Source privacy:   " || privacy
   output = output || "0A"x || "  Maximum calls:    " || budget.model_calls()
   output = output || "0A"x || "  Input token limit: " || budget.input_tokens()
   output = output || "0A"x || "  Output token limit: " || budget.output_tokens()
@@ -438,7 +438,7 @@ _plansummary: procedure = .string
     if embeddings.kind() = "openai-compatible" & embeddings.route_class() = "local" then output = output || "0A"x || "  Embeddings:       Local llama.cpp / " || embeddings.model()
     else output = output || "0A"x || "  Embeddings:       " || embeddings.kind() || " / " || embeddings.model()
   end
-  if extractor.route_class() = "hosted" then output = output || "0A"x || "  Hosted data:      Public content only"
+  if extractor.route_class() = "hosted" then output = output || "0A"x || "  Provider route:   Hosted"
   if extractor.kind() = "codex" then do
     diagnostic = .ragproviderdiagnostic; diagnostic_error = ""
     if codexdiagnostic(extractor.timeout_ms(), diagnostic, diagnostic_error) = 0 then output = output || "0A"x || "  Codex allowance:  " || diagnostic.allowance_available() || "% available"
@@ -488,7 +488,7 @@ _maintainplansummary: procedure = .string
   output = output || "0A"x || "  Worker processes: " || workers
   if provider.kind() = "codex" then output = output || "0A"x || "  Extraction:       Codex using your ChatGPT subscription"
   else output = output || "0A"x || "  Extraction:       " || provider.kind() || " / " || provider.model()
-  if provider.route_class() = "hosted" then output = output || "0A"x || "  Hosted data:      Public content only"
+  if provider.route_class() = "hosted" then output = output || "0A"x || "  Provider route:   Hosted"
   output = output || "0A"x || "  Maximum calls:    " || budget.model_calls()
   output = output || "0A"x || "  Input token limit: " || budget.input_tokens()
   output = output || "0A"x || "  Output token limit: " || budget.output_tokens()

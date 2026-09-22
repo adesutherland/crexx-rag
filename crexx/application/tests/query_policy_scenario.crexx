@@ -21,7 +21,23 @@ codex = .ragproviderconfig("codex", "codex", "stdio://codex-app-server", "gpt-5.
 missing = .ragproviderconfig("", "", "", "", "", "", empty_secret, 0, 0)
 
 errors = errors + check(queryrouteallowed(local, "local") = 1 & queryrouteallowed(local, "restricted") = 1 & queryrouteallowed(local, "public") = 1, "local route privacy")
-errors = errors + check(queryrouteallowed(hosted, "public") = 1 & queryrouteallowed(hosted, "restricted") = 0 & queryrouteallowed(hosted, "local") = 0, "hosted route privacy")
+errors = errors + check(queryrouteallowed(hosted, "public") = 1, "public hosted route control")
+messages = .providermessage[]; messages[1] = .providermessage("user", "Synthetic route contract input")
+inputs = .string[]
+request = .providerrequest; validation = .providererror()
+do p = 1 to 4
+  privacy = word("public restricted local internal", p)
+  errors = errors + check(queryrouteallowed(local, privacy) = 1 & queryrouteallowed(hosted, privacy) = 1 & queryrouteallowed(codex, privacy) = 1, "configured route accepts source label " || privacy)
+  request = .providerrequest("generate_structured", "extractor", "fixture-model", messages, inputs, '{"type":"object"}', 1000, 1, privacy, "route-test", "route-test")
+  validation = validateproviderrequest(request)
+  errors = errors + check(validation.code() = 0 & request.privacy_class() = privacy, "source label retained in provider request " || privacy)
+  validation = validateproviderroute(request, "hosted")
+  errors = errors + check(validation.code() = 0, "provider boundary accepts configured hosted route " || privacy)
+  validation = validateproviderroute(request, "local")
+  errors = errors + check(validation.code() = 0, "provider boundary local control " || privacy)
+end
+validation = validateproviderroute(request, "invalid")
+errors = errors + check(validation.code() <> 0, "invalid route still rejected")
 errors = errors + check(queryrouteallowed(missing, "public") = 0, "missing provider denied")
 
 error = ""; normal = .ragbudget(2, 2, 2, 300, 40, 100, 1, 10)

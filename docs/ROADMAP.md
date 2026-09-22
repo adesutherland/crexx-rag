@@ -24,6 +24,13 @@ prompt/quotation, checkpoint/restart and advanced-call repairs remain included.
 
 ## Recent defects and delivery status
 
+Provider selection (22 September): the operator-selected route must not be
+overridden by an automatic source-privacy veto. Both shared refusals are removed
+locally; fail-first public-maintenance and provider-contract acceptance is
+recorded. Full local qualification covers 135/135 required cases. The operator
+has authorized commit, publication and local installation after this gate.
+[Requirement and evidence](provider-route-selection-20260922.md).
+
 | ID | Status | Scope and evidence |
 | --- | --- | --- |
 | RAG-REL-001 | Merged and published; real-signing qualification remains separate | Windows x64 and macOS Apple Silicon/Intel build/installers, unsigned macOS fallback when credentials are missing, pinned CREXX dependency, package identity/hash checks and separate Windows post-release signing. [PR #1](https://github.com/adesutherland/crexx-rag/pull/1) merged on 22 September. Its [final hosted gate](https://github.com/adesutherland/crexx-rag/actions/runs/35518552817) passes all three platforms, including native builds, portable ZIPs, actual installer execution and Windows reinstall/PATH/uninstall controls. The initial Windows NSIS wildcard defect is repaired and its early compiler fixture passes. A published upstream SDK archive is the preferred future dependency route; current runtime snapshots lack required SDK files. [Dependency evidence](integration-issues.md#snapshot-sdk-packaging--20-september-2026), [delivery](installer-delivery-20260920.md), [operator setup](build-and-release.md). The held beta tag remains separate. |
@@ -374,6 +381,15 @@ the earlier synthetic-trial gaps. External-agent tests do not establish general
 prompt-injection resistance or historical truth.
 
 ## Configuration audit reconciliation
+
+The [22 September veto review](veto-review-20260922.md) records the new product
+direction: accept the configured model, eliminate mandatory catalogue/privacy
+paperwork, validate only the requested operation's dependencies, and narrow
+configuration/recovery checks to the affected work. It includes nine isolated
+probes and separates necessary integrity checks from optional workflow policy.
+This supersedes treating every HC literal as a request for another configuration
+setting. The wider simplification is reviewed, not implemented; the narrow
+[privacy-route repair](provider-route-selection-20260922.md) has its own QA record.
 
 All 53 HC IDs are retained below, including fixed and partially fixed entries,
 so none disappears during consolidation. Detailed original behavior,

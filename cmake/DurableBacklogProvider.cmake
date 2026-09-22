@@ -42,6 +42,9 @@ foreach(case IN LISTS CPRAG_CASES)
     set(CPRAG_FIXTURE_GLOSSARY "${work}/glossary.tsv")
     file(WRITE "${CPRAG_FIXTURE_GLOSSARY}" "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nconcept\tCustomerDatabase\tdata-store\tCustomer DB\n")
     set(request_count 3)
+    if(CPRAG_CONFIGURED_ROUTE)
+        set(request_count 2)
+    endif()
     set(maintenance_calls 1)
     set(maintenance_mode automatic)
     set(maintenance_workers 1)
@@ -126,6 +129,14 @@ foreach(case IN LISTS CPRAG_CASES)
         "SELECT (SELECT count(*) FROM revision_chunks)||':'||(SELECT group_concat(hex(vector)) FROM embeddings)||':'||(SELECT count(*) FROM revision_chunk_embeddings)||':'||(SELECT count(*) FROM provider_runs);"
         OUTPUT_VARIABLE before OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
     file(READ "${work}/crexxrag.conf" config)
+    if(CPRAG_CONFIGURED_ROUTE)
+        # Hosted planning makes no provider call. The existing public/local
+        # case separately exercises execution against synthetic loopback.
+        string(REPLACE "source.architecture-docs.privacy = public"
+            "source.architecture-docs.privacy = local" config "${config}")
+        string(REPLACE "route_class = local" "route_class = hosted" config "${config}")
+        string(REPLACE "http://127.0.0.1:" "https://127.0.0.1:" config "${config}")
+    endif()
     set(window_items 1)
     set(batch_items 1)
     if(case STREQUAL "concurrent" OR case STREQUAL "budget" OR case STREQUAL "continuation" OR case STREQUAL "item-limit")
@@ -181,6 +192,27 @@ foreach(case IN LISTS CPRAG_CASES)
     run_cli(explain --format json config explain)
     if(NOT explain MATCHES "resolution_prompt_sha256" OR NOT explain MATCHES "automatic_actions")
         message(FATAL_ERROR "configuration explanation omitted durable maintenance policy")
+    endif()
+    if(CPRAG_CONFIGURED_ROUTE)
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "SELECT (SELECT count(*) FROM jobs)||':'||(SELECT count(*) FROM provider_runs)||':'||(SELECT count(*) FROM maintenance_tasks);"
+            OUTPUT_VARIABLE route_before OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        run_cli(configured_plan --format json --access plan maintain plan)
+        string(JSON route_plan GET "${configured_plan}" records 0 fields canonical_plan)
+        string(JSON route_policy GET "${route_plan}" action window_policy)
+        string(JSON route_privacy GET "${route_policy}" privacy)
+        if(NOT route_privacy STREQUAL "local" OR NOT configured_plan MATCHES "monetary-api")
+            message(FATAL_ERROR "hosted maintenance plan lost source classification or charging: ${configured_plan}")
+        endif()
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "SELECT (SELECT count(*) FROM jobs)||':'||(SELECT count(*) FROM provider_runs)||':'||(SELECT count(*) FROM maintenance_tasks);"
+            OUTPUT_VARIABLE route_after OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        if(NOT route_after STREQUAL route_before)
+            message(FATAL_ERROR "configured route preview wrote work or made a provider call: ${route_before} -> ${route_after}")
+        endif()
+        file(WRITE "${work}/configured-route-result.txt"
+            "Hosted maintenance planning accepted local source metadata with public-only provider metadata; work and provider counts unchanged: ${route_after}.\n")
+        continue()
     endif()
     if(case STREQUAL "valid")
         # Timing controls are read-only until the reviewed plan is applied.

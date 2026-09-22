@@ -966,6 +966,9 @@ zerobudgetchecks: procedure = .int
     if cell = 5 then raw = changestr('"batch_items":1',raw,'"batch_items":100')
     raw = changestr('"knowledge_policy":"fixture-v1"',raw,'"knowledge_policy":"zero-budget-' || cell || '"')
     raw = changestr('"cost_budget":0',raw,'"cost_budget":' || budget)
+    /* Cell 1 deliberately leaves ordinary work unfinished. The positive
+     * embedding controls must not depend on its timestamp/task-id ordering. */
+    if cell >= 2 & cell <= 4 then raw = left(raw,length(raw)-1) || ',"embeddings_only":1}'
     raw = left(raw,length(raw)-1) || ',"embedding_profile":"zero-budget-' || cell || '","embedding_envelope":"fixture","embedding_provider":"fixture","embedding_model":"fixture","embedding_charging":"' || charging || '","embedding_input":100000,"embedding_cost":' || cost || ',"embedding_time":1000,"embedding_dimension":2}'
     policy = .jsondocument(raw); task = ""
     if cell=1 then do

@@ -760,6 +760,17 @@ set_tests_properties(durable_backlog_provider_${case} PROPERTIES
     TIMEOUT 240 LABELS "maintenance;gemini;resolution;redaction;sqlite;zero-outbound")
 endforeach()
 
+crexxrag_add_test(NAME durable_backlog_provider_configured_route
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-durable-backlog-provider-configured-route"
+        -DCPRAG_CASES=valid -DCPRAG_CONFIGURED_ROUTE=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DurableBacklogProvider.cmake")
+set_tests_properties(durable_backlog_provider_configured_route PROPERTIES
+    TIMEOUT 240 LABELS "maintenance;gemini;resolution;privacy;sqlite;zero-outbound")
+
 crexxrag_add_test(NAME publication
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"

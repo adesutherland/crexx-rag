@@ -887,6 +887,13 @@ even though the client is a local process. Subscription allowance is not
 reported as zero monetary API cost; it has its own turn/token/remaining-
 allowance ceilings.
 
+The operator's configured provider selection controls routing. Source privacy
+labels and the legacy provider `privacy_policy` field are retained metadata;
+they do not impose an additional veto on extraction, maintenance, queries or
+advisory calls. `ragquerypolicy` checks provider availability and budgets;
+`provider_contract` validates request shape and route classification without
+refusing non-public labels on hosted routes. [Decision and regression evidence](provider-route-selection-20260922.md).
+
 Codex extraction runs in an empty working directory with non-interactive,
 restricted settings and an exact output schema. External thread/turn identity
 is stored with `provider_runs` so a crash can distinguish completed work from a

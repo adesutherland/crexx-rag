@@ -59,6 +59,12 @@ budget. It never sends library content.
 Gemini credentials are normally configured as `env:GEMINI_API_KEY`. Codex login
 is owned by Codex App Server. Never place credential values in a config file.
 
+Your configured provider selection controls where extraction and other model
+calls run. Source `privacy` labels and the existing provider `privacy_policy`
+field are descriptive metadata; they do not block a selected hosted provider.
+You do not need to relabel a source as `public` to use it. Route classification,
+charging and configured budgets remain visible in plans and usage.
+
 For a Codex provider, `provider.PROVIDER_ID.reasoning_effort = low` selects
 lighter reasoning for routine extraction and background work. Supported names
 are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`; the chosen

@@ -416,7 +416,7 @@ validateproviderrequest: procedure = .providererror
   end
   if request.stream_requested() \= 0 & operation \= "generate" & operation \= "generate_structured" then return .providererror("invalid_request", -101, 0, 0, 0, "streaming is only valid for generation")
   privacy = request.privacy_class()
-  if privacy \= "local" & privacy \= "restricted" & privacy \= "public" then return .providererror("invalid_request", -101, 0, 0, 0, "privacy class is invalid")
+  if privacy \= "local" & privacy \= "internal" & privacy \= "restricted" & privacy \= "public" then return .providererror("invalid_request", -101, 0, 0, 0, "privacy class is invalid")
   if request.idempotency_key() = "" | request.request_id() = "" then return .providererror("invalid_request", -101, 0, 0, 0, "request identity is required")
   if operation = "generate" | operation = "generate_structured" then do
     messages = request.messages()
@@ -445,7 +445,8 @@ validateprovideroperation: procedure = .providererror
 validateproviderroute: procedure = .providererror
   arg request = .providerrequest, route_class = .string
   if route_class \= "local" & route_class \= "hosted" then return .providererror("configuration", -122, 0, 0, 0, "provider route class is invalid")
-  if route_class = "hosted" & request.privacy_class() \= "public" then return .providererror("privacy_denied", -121, 0, 0, 0, "privacy policy denies provider route")
+  /* Route classification describes transport; source labels do not override
+   * the application's configured provider selection. */
   return .providererror()
 
 validatestructuredresponse: procedure = .providererror

@@ -1622,8 +1622,6 @@ _preparemaintenance: procedure = .int
   triggers = .string[]; triggers[1] = "bridge"; triggers[2] = "conflict"; triggers[3] = "maintenance-priority"; triggers[4] = "operator-review"; triggers[5] = "unprocessed-extraction"; triggers[6] = "unresolved"; triggers[7] = "weak-support"
   if createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, cognitive_limit, cognitive_call_budget, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), total_time, maximum_call_input, maximum_call_output, maximum_call_cost, maximum_call_time, maximum_inflight, extractor.max_attempts(), privacy, extractor.provider_id(), extractor.credential().ref_string(), discovery_context, plan, error) \= 0 then return -3
   if maintenance_policy.mode()<>"reviewed" then do
-    if embedding_only=0 & queryrouteallowed(extractor,privacy)<>1 then do;error="library privacy denies the configured maintenance extractor route";return -2;end
-    if queryrouteallowed(embedder,privacy)<>1 then do;error="library privacy denies the configured maintenance embedding route";return -2;end
     return previewbacklogwindow(store.database(),embedding_profile_id,batch_items,embedding_only,census,error,source_id)
   end
   maximum_passes = plan.item_count() + 2
@@ -1640,8 +1638,6 @@ _preparemaintenance: procedure = .int
   if _samechunkset(plan_chunks, selected) \= 1 then do; error = "maintenance worklist did not converge to its exact cognitive subset"; return -3; end
   calls = _maintenancecallcount(census)
   if calls > budget.model_calls() then do; error = "maintenance worklist exceeds the configured provider-call budget"; return -2; end
-  if plan.item_count() > 0 & queryrouteallowed(extractor, privacy) \= 1 then do; error = "library privacy denies the configured maintenance extractor route"; return -2; end
-  if calls > plan.item_count() & queryrouteallowed(embedder, privacy) \= 1 then do; error = "library privacy denies the configured maintenance embedding route"; return -2; end
   return 0
 
 _censuscognitivechunks: procedure = .string[]

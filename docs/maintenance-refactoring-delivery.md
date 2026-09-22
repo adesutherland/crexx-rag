@@ -1,5 +1,14 @@
 # Maintenance refactoring delivery
 
+## Configured provider selection — 22 September 2026
+
+`ragquerypolicy` and `provider_contract` remove the duplicated non-public/hosted
+veto. Maintenance, resolution, query and advisory callers retain their existing
+owners; labels and charging remain metadata. No new policy layer or native
+implementation is introduced. The public maintenance regression reproduces the
+reported refusal, and shared-contract cases cover every supported source label.
+[Requirement, baseline and qualification](provider-route-selection-20260922.md).
+
 ## rxvector consolidation — 19 September 2026
 
 `ragembedding` and `ragretrieval` switch to CREXX's installed binary float32

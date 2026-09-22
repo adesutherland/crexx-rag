@@ -271,7 +271,6 @@ libraryreport: procedure = .ragcommandresult
     if advisory.provider_id() = "" then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 8, "narrative refresh requires a configured advisory role"); end
     if querysnapshotmatches(store, config, profile) \= 1 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "narrative configuration and profile do not match the published generation"); end
     privacy = queryprivacy(config)
-    if queryrouteallowed(advisory, privacy) \= 1 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 4, "library privacy denies the configured advisory route"); end
     if known_citations.0 = 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 1, "narrative refresh requires at least one representative cited passage"); end
     missing_provider = .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
     budget = config.budget(); advisory_role = rolebinding(config, "advisory"); maximum_output = config.observation().narrative_output_tokens()

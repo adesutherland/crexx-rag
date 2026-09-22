@@ -30,7 +30,7 @@ Optional preflight using public synthetic text:
 ./crexxrag ingest
 ```
 
-The ingestion preview shows the source set, public-only hosted-data policy,
+The ingestion preview shows the source set, source classification and hosted route,
 Gemini extraction and embedding models, provider-call/cost ceilings, worker
 count, and canonical plan digest. After confirmation, terminal progress follows
 source discovery, durable queueing, both worker processes, provider calls, and
@@ -101,6 +101,6 @@ cd "$work_dir"
 ./crexxrag maintain
 ```
 
-The plan identifies Codex as a hosted public-only route, reports subscription
+The plan identifies Codex as a hosted route, reports subscription
 allowance rather than zero API cost, and identifies embeddings as local. Stop
 the llama.cpp server with Ctrl-C when it is no longer needed.
