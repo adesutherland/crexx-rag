@@ -100,6 +100,12 @@ separate repository authority.
 
 ## Public surface
 
+For new or revised corpus objectives, use the
+[recommended prompt templates](skills/crexxrag-maintain/prompts/README.md) as the
+agent starting point. Adapt them to the corpus, retain the shared response
+contracts, and select them through the existing configuration workflow. They
+are recommendations, not automatically installed product defaults.
+
 The enduring executable name is `crexxrag`. Keep human commands concise and
 terminal-friendly. The local defaults are `./crexxrag.conf` and `./library`.
 Machine callers use the same operation vocabulary with JSON/NDJSON or MCP.

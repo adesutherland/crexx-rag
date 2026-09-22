@@ -400,6 +400,11 @@ history and usable derived representation.
 
 ## Inspect and edit prompts
 
+The [recommended corpus objectives](../skills/crexxrag-maintain/prompts/README.md)
+provide extraction, ordinary-maintenance and advanced-resolution starting points.
+Copy and adapt them into the corpus before selecting them through the controls
+below; they do not replace compiled defaults or existing selected objectives.
+
 ```sh
 crexxrag --format json config prompt --role extractor
 crexxrag --format json config prompt --role resolution

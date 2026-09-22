@@ -5,6 +5,11 @@ description: Plan and, only when explicitly authorized, apply crexxrag source in
 
 # cREXX-RAG ingestion
 
+For a corpus's extraction objective, use the
+[recommended prompts](../crexxrag-maintain/prompts/README.md) and adapt the
+extraction template to its profile and glossary. Preserve an existing selected
+objective unless configuration changes are part of the task.
+
 Prerequisites: `read,plan` for planning; a separate process/session with
 `ingest` for apply; explicit `control` authority for continuation/supervision; and the
 `crexx-rag.plan/1` result schema.

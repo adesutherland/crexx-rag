@@ -5,6 +5,12 @@ description: Census, plan, inspect, and explicitly apply bounded crexxrag catalo
 
 # cREXX-RAG maintenance
 
+When configuring or updating corpus objectives, start with the
+[recommended prompts](prompts/README.md): extraction, ordinary maintenance and
+advanced resolution. Adapt them to the corpus and use the normal configuration
+transition within existing authority. Reading this skill does not install them
+or start a run.
+
 Prerequisites: `read,plan` for zero-write census and inspection; a separately
 granted `curate` session for applying an exact maintenance plan, external
 proposal, or review decision. Operational retry/waiver additionally requires

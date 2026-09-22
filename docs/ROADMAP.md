@@ -488,6 +488,12 @@ controller record rather than the older whole-job uncertainty hold.
 
 ## Other qualification, research and upstream dependencies
 
+The [recommended corpus prompts](../skills/crexxrag-maintain/prompts/README.md)
+now make the Scottish maintenance guidance and subsequent extraction/control
+clarifications reusable by agents. They are selectable policy templates; the
+stopped follow-on smoke is not completed comparative qualification. RAG-QA-02
+remains open, and compiled defaults and validators are unchanged.
+
 The IDs in this section index existing unnumbered work; they do not silently
 raise its priority above the operational P1s.
 

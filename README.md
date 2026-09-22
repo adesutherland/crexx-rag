@@ -112,6 +112,11 @@ mutation marker lets unchanged retries reuse the existing vector index;
 
 ## Work with Codex and other agents
 
+For corpus setup and prompt updates, start with the
+[recommended extraction and maintenance prompts](skills/crexxrag-maintain/prompts/README.md).
+The three templates include adaptation guidance and are bundled with the
+maintenance skill; existing corpus configurations change only when selected.
+
 An external Codex task can use MCP to understand the corpus and answer questions,
 then investigate difficult maintenance tasks with the installed operating skills:
 
