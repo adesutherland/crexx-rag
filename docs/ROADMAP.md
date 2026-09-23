@@ -1,6 +1,6 @@
 # Master roadmap and defect register
 
-Current decision and status authority — updated 20 September 2026.
+Current decision and status authority — updated 23 September 2026.
 The [final beta plan](beta-release-plan-20260920.md) is **implemented, locally qualified and installed; beta release held**.
 The candidate passes 133 required local cases, two live Gemini smokes and the
 bounded Scottish-copy run: 200 successful calls, clean closeout and integrity.
@@ -30,6 +30,27 @@ locally; fail-first public-maintenance and provider-contract acceptance is
 recorded. Full local qualification covers 135/135 required cases. The operator
 has authorized commit, publication and local installation after this gate.
 [Requirement and evidence](provider-route-selection-20260922.md).
+
+Worker compatibility and source first-pass maintenance (23 September):
+**locally qualified; not installed or exercised on the Scottish corpus**. A
+resumed worker now compares unfinished
+work bindings instead of vetoing every saved-job configuration change except
+worker count. The format-1 embedding batch setting is effective and still
+subject to provider bounds. The focused recovery case permits batch 100 to
+1,000 with four workers, completed-phase model and unrelated operational/source
+changes; it rejects a changed pending provider model/source and an over-limit
+batch, while preserving attempts, usage and budgets. The new
+`--initial-extraction-only` source selector freezes first concept-review
+selection in the reviewed plan and excludes alias follow-ups, embedding repair
+and already reviewed chunks. Guided CLI and MCP share that option.
+`regression_source_maintenance` passes its fail-first extension.
+Configuration/build, fast and full local gates pass; the QA report accounts for
+135/135 required cases (14 retained exact-input passes in the final CTest
+selection), with no disabled or failed case. [Ownership and baseline evidence](maintenance-refactoring-delivery.md#23-september-worker-compatibility-and-first-pass-source-maintenance)
+and [coverage](regression-coverage.md#t7-07-source-scoped-maintenance-acceptance).
+The broader [veto audit](veto-rule-audit-20260923.md) remains a dated
+recommendation inventory, not a claim that its other narrowing proposals are
+implemented. Hosted gates and release status are separate from this local QA.
 
 | ID | Status | Scope and evidence |
 | --- | --- | --- |

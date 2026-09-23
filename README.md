@@ -284,6 +284,12 @@ available for scripts and agents. Start with the
 the [methodology and algorithm description](docs/algorithm.md), and the
 [methodology closure checklist](docs/methodology-closure.md).
 
+For a source whose bytes and chunks are already ingested, use
+`crexxrag maintain --source SOURCE_ID --initial-extraction-only --minutes 60 --yes`
+to finish each current chunk's first concept review. Normal source maintenance
+handles later alias questions and embedding repair; see the
+[source maintenance guide](docs/user-guide.md#human-and-automatic-operation).
+
 ## Complete embedding coverage
 
 Use `crexxrag maintain --embeddings-only --workers 8 --minutes 360 --yes` to

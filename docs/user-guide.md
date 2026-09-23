@@ -1158,6 +1158,22 @@ provenance enrichment reject it. Held/review tasks and exhausted attempts stay
 held. Source status counts describe this scope, including incomplete held work;
 source extraction does not imply that all related catalogue questions are solved.
 
+When bytes and chunks are already ingested and the remaining work is each
+current chunk's **first** concept review, use:
+
+`crexxrag maintain --source SOURCE_ID --initial-extraction-only --minutes 60 --yes`
+
+The matching machine operation is `maintain plan --source SOURCE_ID
+--initial-extraction-only` (MCP: `rag_maintain_plan` with
+`initial_extraction_only: true`). The reviewed plan freezes this selection.
+Activation and continuation admit only current source chunks without an
+accepted first concept-review result. Alias follow-ups, identity questions,
+embedding repairs and already reviewed chunks remain for normal source
+maintenance. The mode does not reingest source bytes or chunks, and it cannot
+be combined with `--embeddings-only` or provenance enrichment. A source ID is
+required. Existing review, retry, waiver, provider and budget controls still
+apply to the selected first-pass tasks.
+
 Machine callers pass `--source` to `maintain plan` and apply the returned exact
 plan. The source is retained in that window and through its normal continuation;
 `maintain apply` cannot substitute a source. Each window uses the existing

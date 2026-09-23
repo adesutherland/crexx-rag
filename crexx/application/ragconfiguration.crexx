@@ -51,18 +51,47 @@ replaysnapshotmatches: procedure = .int
   return found>0
 
 worksnapshotmatches: procedure = .int
-  arg store = .ragstorehandle, snapshot_id = .string, config = .ragconfig, profile = .ragprofile
+  arg store = .ragstorehandle, snapshot_id = .string, config = .ragconfig, profile = .ragprofile, job_id = "", item_id = ""
   identity = .ragconfigidentity(); error = ""
   if identifyconfig(config,profile,identity,error) \= 0 then return 0
-  prepared = .binary; matches = 0
-  /* Preserve the immutable provider request; only worker count is operational. */
-  sql = "SELECT profile_hash=?2 AND (config_hash=?3 OR json_remove(effective_json,'$.config.workers.processes')=json_remove(?4,'$.config.workers.processes')) FROM config_snapshots WHERE config_snapshot_id=?1"
+  prepared = .binary
+  sql = "SELECT effective_json,profile_hash,semantic_hash FROM config_snapshots WHERE config_snapshot_id=?1"
   if sqliteprepare(store.database(),sql,prepared) \= 0 then return 0
-  binds = sqlitebindtext(prepared,1,snapshot_id) | sqlitebindtext(prepared,2,identity.profile_hash()) | sqlitebindtext(prepared,3,identity.config_hash()) | sqlitebindtext(prepared,4,identity.effective_json())
+  binds = sqlitebindtext(prepared,1,snapshot_id)
+  if binds \= 0 then do; call sqlitefinalize prepared; return 0; end
   step = sqlitestep(prepared)
   if binds \= 0 | step \= 100 then do; call sqlitefinalize prepared; return 0; end
-  columns = sqlitecolumnint(prepared,0,matches); call sqlitefinalize prepared
-  return columns = 0 & matches = 1
+  source_json = ""; profile_hash = ""; semantic_hash = ""
+  columns = sqlitecolumntext(prepared,0,source_json) | sqlitecolumntext(prepared,1,profile_hash) | sqlitecolumntext(prepared,2,semantic_hash)
+  call sqlitefinalize prepared
+  if columns \= 0 | profile_hash \= identity.profile_hash() then return 0
+  if semantic_hash \= "" & semantic_hash = identity.semantic_hash() then return 1
+  source = .jsondocument(source_json); target = .jsondocument(identity.effective_json())
+  if source.valid() \= 1 | target.valid() \= 1 then return 0
+  source_config = source.node_get(source.member(source.root(),"config"))
+  target_config = target.node_get(target.member(target.root(),"config"))
+  /* Only unfinished requests constrain a resumed worker. A worker checks its
+   * claimed item again before it can send a provider request. */
+  sql = "SELECT DISTINCT coalesce(json_extract(i.input_json,'$.source_scope'),''),coalesce(json_extract(i.input_json,'$.role'),'') FROM job_items i JOIN jobs j ON j.job_id=i.job_id WHERE j.config_snapshot_id=?1 AND (?2='' OR i.job_id=?2) AND (?3='' OR i.item_id=?3) AND i.state IN('queued','running','cancel_requested')"
+  if sqliteprepare(store.database(),sql,prepared) \= 0 then return 0
+  binds = sqlitebindtext(prepared,1,snapshot_id) | sqlitebindtext(prepared,2,job_id) | sqlitebindtext(prepared,3,item_id)
+  if binds \= 0 then do; call sqlitefinalize prepared; return 0; end
+  found = 0
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    scope = ""; role = ""
+    if step \= 100 | sqlitecolumntext(prepared,0,scope) \= 0 | sqlitecolumntext(prepared,1,role) \= 0 | role = "" then do; call sqlitefinalize prepared; return 0; end
+    old_binding = semanticconfigjson(source_config,scope,role)
+    new_binding = semanticconfigjson(target_config,scope,role)
+    if old_binding = "" | old_binding \= new_binding then do; call sqlitefinalize prepared; return 0; end
+    found = found + 1
+  end
+  call sqlitefinalize prepared
+  /* A continuation may create its next batch after this check. Without live
+   * items, require complete semantic compatibility for that future work. */
+  if found = 0 then return semanticconfigjson(source_config) = semanticconfigjson(target_config)
+  return 1
 
 checkworkerconfiguration: procedure = .int
   arg store = .ragstorehandle, job_id = .string, config = .ragconfig, profile = .ragprofile, expose error = .string
@@ -76,9 +105,9 @@ checkworkerconfiguration: procedure = .int
     snapshot_id = ""
     if step \= 100 | sqlitecolumntext(prepared,0,snapshot_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot read worker configuration snapshot"; return -1; end
     found = found + 1
-    if worksnapshotmatches(store,snapshot_id,config,profile) \= 1 then do
+    if worksnapshotmatches(store,snapshot_id,config,profile,job_id) \= 1 then do
       call sqlitefinalize prepared
-      error = "worker configuration is incompatible with job snapshot " || snapshot_id || "; use the job's original configuration (worker count may differ); inspect with job status or config diff; use job replay only for explicitly reviewed new work"
+      error = "worker configuration is incompatible with unfinished work in job snapshot " || snapshot_id || "; inspect with job status or config diff; restore the affected binding or use job replay for explicitly reviewed new work"
       return -2
     end
   end

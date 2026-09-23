@@ -124,7 +124,7 @@ ragapplicationprovider: class implements .ragworkprovider
   _process: method = .ragworkproviderresult
     arg claim = .ragworkclaim
     empty_proposal = .ragextractionproposal
-    if worksnapshotmatches(_store, claim.config_snapshot_id(), _config, _profile) \= 1 then return _failedwork("configuration", "snapshot-mismatch", claim, empty_proposal, "worker configuration does not match the durable job snapshot", 0)
+    if worksnapshotmatches(_store, claim.config_snapshot_id(), _config, _profile, claim.job_id(), claim.item_id()) \= 1 then return _failedwork("configuration", "snapshot-mismatch", claim, empty_proposal, "worker configuration does not match the durable work binding", 0)
     input_json = _iteminput(_store.database(), claim.item_id())
     if input_json = "" | rxhash..sha256hex(input_json as .binary) \= claim.input_hash() then return _failedwork("configuration", "input-mismatch", claim, empty_proposal, "durable work input is missing or does not match its digest", 0)
     document = .jsondocument(input_json)

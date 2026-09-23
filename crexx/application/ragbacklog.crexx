@@ -119,7 +119,7 @@ _cleanupseconds: procedure = .int
 /* Durable, evidence-bound maintenance. This module owns no provider transport:
  * ordinary fenced job items carry its questions through the configured route. */
 backlogpolicy: procedure = .string
-  arg config = .ragconfig, profile = .ragprofile, discovery_context = .string, timing_json = "", embedding_only = 0, source_id = ""
+  arg config = .ragconfig, profile = .ragprofile, discovery_context = .string, timing_json = "", embedding_only = 0, source_id = "", initial_only = 0
   policy = config.maintenance(); budget = config.budget(); workers = config.workers()
   roles = config.roles(); providers = config.providers(); role = .ragrolebinding; provider = .ragproviderconfig
   do i = 1 to roles.0
@@ -160,6 +160,7 @@ backlogpolicy: procedure = .string
   end
   if embedding_only = 1 then embedding_json = embedding_json || '"embeddings_only":1,"embedding_attempts":' || embedding_provider.max_attempts() || ','
   if source_id <> "" then embedding_json = embedding_json || '"source_id":' || jsonquote(source_id) || ','
+  if initial_only = 1 then embedding_json = embedding_json || '"initial_extraction_only":1,'
   identity = _hash(canonicalprofile(profile) || "00"x || role.system_prompt() || "00"x || policy.resolution_prompt() || "00"x || "durable-resolution-v1")
   embedding_json = embedding_json || '"resolution_route":' || _resolutionroute(config,"resolver",seconds,inflight) || ',"advanced_route":' || _resolutionroute(config,"advanced-resolver",seconds,inflight) || ',"advanced_attempts":' || policy.advanced_attempts() || ',"search_reads":' || policy.search_reads() || ',"evidence_expected":' || policy.evidence_expected() || ',"advanced_first":' || policy.advanced_first() || ',"identity_prompt":' || jsonquote(policy.identity_prompt()) || ',"connection_prompt":' || jsonquote(policy.connection_prompt()) || ','
   return embedding_json || '"timing":' || jsonquote(timing_json) || ',"provider_time_budget_ms":' || policy.provider_time_minutes() * 60000 || ',"mode":' || jsonquote(policy.mode()) || ',"window_seconds":' || seconds || ',"automatic_actions":' || jsonquote(policy.automatic_actions()) || ',"maximum_impact":' || policy.maximum_impact() || ',"maximum_attempts":' || _configuredattemptlimit(policy.maximum_attempts(),embedding_only,embedding_provider.max_attempts()) || ',"retry_seconds":' || policy.retry_seconds() || ',"maximum_evidence_bytes":' || policy.maximum_evidence_bytes() || ',"sparse_max_degree":' || policy.sparse_max_degree() || ',"query_gap_min_occurrences":' || policy.query_gap_min_occurrences() || ',"batch_items":' || policy.batch_items() || ',"resolution_prompt":' || jsonquote(policy.resolution_prompt()) || ',"knowledge_policy":' || jsonquote(identity) || ',"provider_id":' || jsonquote(provider.provider_id()) || ',"model":' || jsonquote(provider.model()) || ',"charging_basis":' || jsonquote(provider.charging_basis()) || ',"privacy":' || jsonquote(privacy) || ',"profile_id":' || jsonquote(profile.profile_id()) || ',"discovery_context":' || jsonquote(discovery_context) || ',"input_tokens":' || input_cap || ',"output_tokens":' || output_cap || ',"cost_microunits":' || cost_cap || ',"time_ms":' || time_cap || ',"inflight":' || inflight || ',"item_limit":' || budget.item_limit() || ',"model_calls":' || budget.model_calls() || ',"input_budget":' || budget.input_tokens() || ',"output_budget":' || budget.output_tokens() || ',"cost_budget":' || budget.cost_microunits() || ',"codex_turns":' || budget.codex_turns() || '}'
@@ -178,12 +179,13 @@ _resolutionroute: procedure = .string
 /* Automatic plans approve the durable selection policy. Discovery and task
  * packets belong to activation/checkpoints, not a discarded cognitive census. */
 previewbacklogwindow: procedure = .int
-  arg database=.binary, embedding_profile=.string, maximum_items=.int, embedding_only=.int, expose census=.ragmaintenancecensus, expose error=.string, source_id=""
+  arg database=.binary, embedding_profile=.string, maximum_items=.int, embedding_only=.int, expose census=.ragmaintenancecensus, expose error=.string, source_id="", initial_only=0
   generation=_number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
   if generation<1 then do;error="cannot read backlog preview generation";return -1;end
   canonical='{"schema":"crexx-rag.backlog-preview/1","expected_generation":' || generation || ',"embedding_profile_id":' || jsonquote(embedding_profile) || ',"maximum_items":' || maximum_items || ',"embeddings_only":' || embedding_only || ',"selection":"durable-backlog-at-activation"}'
   strings=.string[];scores=.int[]
   if source_id<>"" then canonical=left(canonical,length(canonical)-1) || ',"source_id":' || jsonquote(source_id) || '}'
+  if initial_only=1 then canonical=left(canonical,length(canonical)-1) || ',"initial_extraction_only":1}'
   census=.ragmaintenancecensus(generation,embedding_profile,strings,strings,strings,scores,strings,strings,strings,canonical,rxhash..sha256hex(canonical as .binary))
   return 0
 
@@ -925,6 +927,7 @@ _scan: procedure = .int
   queries[4] = "SELECT gap_id FROM query_gaps WHERE state='open' AND occurrence_count>=" || _n(policy,"query_gap_min_occurrences"); kinds[4] = "query-gap"; types[4] = "gap"; priorities[4] = 750000
   queries[5] = "SELECT concept_id FROM concepts c WHERE visible_to_generation IS NULL AND lifecycle_state='active' AND (SELECT count(*) FROM claims q WHERE (q.source_concept_id=c.concept_id OR q.target_concept_id=c.concept_id) AND q.visible_to_generation IS NULL)<=" || _n(policy,"sparse_max_degree"); kinds[5] = "sparse-node"; types[5] = "concept"; priorities[5] = 500000
   queries[6] = "SELECT revision_chunk_id FROM revision_chunks WHERE visible_to_generation IS NULL"; kinds[6] = "concept-review"; types[6] = "chunk"; priorities[6] = 600000
+  if _n(policy,"initial_extraction_only")=1 then queries[6]=queries[6] || " AND " || _firstreviewmissing("revision_chunk_id")
   if _s(policy,"embedding_profile") \= "" then do
     queries[7] = "SELECT r.revision_chunk_id FROM revision_chunks r WHERE r.visible_to_generation IS NULL AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings l JOIN embeddings e ON e.embedding_id=l.embedding_id WHERE l.revision_chunk_id=r.revision_chunk_id AND l.visible_to_generation IS NULL AND e.embedding_profile_id=" || _q(_s(policy,"embedding_profile")) || ")"
     kinds[7] = "embedding-repair:" || _s(policy,"embedding_profile"); types[7] = "chunk"; priorities[7] = 980000
@@ -934,6 +937,7 @@ _scan: procedure = .int
   kinds[review_index] = "identity-review"; types[review_index] = "concept"; priorities[review_index] = 960000
   source_id=_s(policy,"source_id")
   do i = 1 to queries.0
+    if _n(policy,"initial_extraction_only")=1 & kinds[i]<>"concept-review" then iterate
     if source_id<>"" then do
       if types[i]<>"chunk" then iterate
       queries[i]=queries[i] || " AND " || _idcolumn(types[i]) || " IN(" || currentsourcechunks(source_id) || ")"
@@ -1114,6 +1118,7 @@ _windowroutefits: procedure = .int
   arg policy=.jsondocument,usage=.int[]
   funded=0
   do i=1 to 4
+    if _n(policy,"initial_extraction_only")=1 & i>1 then iterate
     route=policy
     input=_n(policy,"input_tokens");output=_n(policy,"output_tokens");cost=_n(policy,"cost_microunits");milliseconds=_n(policy,"time_ms");charging=_s(policy,"charging_basis")
     if i=2 then do
@@ -1158,6 +1163,7 @@ _closewindow: procedure = .int
   if sqliteexec(database,sql) \= 0 then do; error = "cannot close maintenance window"; return -1; end
   policy = .jsondocument(_text(database,"SELECT policy_json FROM maintenance_windows WHERE job_id=" || _q(job_id)))
   task_scope = _taskscope(policy)
+  if _n(policy,"initial_extraction_only")=1 then task_scope=task_scope || " AND " || _firstreviewmissing("maintenance_tasks.subject_id")
   if _s(policy,"enrichment") \= "" then task_scope = " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
   sql = "UPDATE maintenance_runs SET state=CASE WHEN EXISTS(SELECT 1 FROM maintenance_tasks WHERE state IN('pending','dispatched','unresolved','review','failed')" || task_scope || ") THEN 'incomplete' ELSE 'complete' END,completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=(SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")"
   if _n(policy,"embeddings_only") = 1 then do
@@ -1178,8 +1184,11 @@ _embeddingmissing: procedure = .int
 _taskscope: procedure = .string
   arg policy = .jsondocument
   scope=""
-  if _n(policy,"embeddings_only") = 1 then scope=" AND kind=" || _q("embedding-repair:" || _s(policy,"embedding_profile"))
-  if _n(policy,"embeddings_only") = 0 then scope=scope || " AND (kind NOT LIKE 'embedding-repair:%' OR kind=" || _q("embedding-repair:" || _s(policy,"embedding_profile")) || ")"
+  if _n(policy,"initial_extraction_only")=1 then scope=" AND kind='concept-review' AND subject_type='chunk'"
+  else do
+    if _n(policy,"embeddings_only") = 1 then scope=" AND kind=" || _q("embedding-repair:" || _s(policy,"embedding_profile"))
+    if _n(policy,"embeddings_only") = 0 then scope=scope || " AND (kind NOT LIKE 'embedding-repair:%' OR kind=" || _q("embedding-repair:" || _s(policy,"embedding_profile")) || ")"
+  end
   if _s(policy,"enrichment")<>"" then scope=scope || " AND kind='provenance-enrichment' AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
   if _s(policy,"source_id")<>"" then scope=scope || " AND subject_type='chunk' AND subject_id IN(" || currentsourcechunks(_s(policy,"source_id")) || ")"
   return scope
@@ -1190,6 +1199,7 @@ _taskscope: procedure = .string
 _taskdispatchscope: procedure = .string
   arg policy = .jsondocument
   scope = _taskscope(policy)
+  if _n(policy,"initial_extraction_only")=1 then scope=scope || " AND " || _firstreviewmissing("maintenance_tasks.subject_id")
   if _s(policy,"mode") = "manual" then return scope
   if callcostallowed(_s(policy,"embedding_charging"),_n(policy,"embedding_cost")) = 0 then scope = scope || " AND kind NOT LIKE 'embedding-repair:%'"
   ordinary = .jsondocument(policy.node_get(policy.member(policy.root(),"resolution_route")))
@@ -1203,6 +1213,12 @@ _taskdispatchscope: procedure = .string
   advanced = .jsondocument(policy.node_get(policy.member(policy.root(),"advanced_route")))
   if callcostallowed(_s(advanced,"charging_basis"),_n(advanced,"cost_microunits")) = 0 then scope = scope || " AND required_capability<>'advanced-reasoning'"
   return scope
+
+/* A first pass ends after one accepted concept-review result for a current
+ * chunk. Reopened tasks and alias follow-ups belong to ordinary maintenance. */
+_firstreviewmissing: procedure = .string
+  arg chunk_expression = .string
+  return "NOT EXISTS(SELECT 1 FROM maintenance_tasks prior WHERE prior.kind='concept-review' AND prior.subject_type='chunk' AND prior.subject_id=" || chunk_expression || " AND (prior.state='resolved' OR EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=prior.task_id AND i.state='processed') OR EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.task_id=prior.task_id)))"
 
 /* One predicate and ordering serve dispatch and the inspectable selection. */
 _eligiblebacklog: procedure = .string
@@ -1246,6 +1262,7 @@ backlogselection: procedure = .string
   arg database = .binary, policy = .jsondocument, offset = .int, limit = .int, job_id = .string
   if offset<0 | limit<1 | limit>98 then return ""
   eligible = _eligiblebacklog(policy); scope = _taskscope(policy)
+  if _n(policy,"initial_extraction_only")=1 then scope=scope || " AND " || _firstreviewmissing("maintenance_tasks.subject_id")
   advanced = .jsondocument(policy.node_get(policy.member(policy.root(),"advanced_route")))
   advanced_json = "{}"; if advanced.valid()=1 then advanced_json=advanced.node_get(advanced.root())
   advanced_missing = _s(advanced,"provider_id") = ""
@@ -2005,6 +2022,7 @@ backlogsummary: procedure = .string
   if _s(policy,"source_id")<>"" then do
     scope=_taskscope(policy);chunk_scope=" AND revision_chunk_id IN(" || currentsourcechunks(_s(policy,"source_id")) || ")";workflow_count="0"
   end
+  if _n(policy,"initial_extraction_only")=1 then scope=scope || " AND " || _firstreviewmissing("maintenance_tasks.subject_id")
   summary = _text(database,"SELECT json_object('window_id',w.window_id,'run_id',w.run_id,'job_id',w.job_id,'state',CASE WHEN w.state='complete' AND json_extract(w.policy_json,'$.embeddings_only')=1 THEN r.state ELSE w.state END,'deadline_epoch',w.deadline_epoch,'timing',json_extract(w.policy_json,'$.timing'),'provider_time_budget_ms',coalesce(json_extract(w.policy_json,'$.provider_time_budget_ms'),json_extract(w.policy_json,'$.window_seconds')*1000),'provider_time_used_ms'," || usage[5] || ",'pending',t.pending,'dispatched',t.dispatched,'resolved',t.resolved,'unresolved',t.unresolved,'review',t.review,'failed',t.failed,'workflows'," || workflow_count || ",'decisions',(SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=w.window_id),'provider_calls'," || usage[1] || ",'cost_microunits'," || usage[4] || ") FROM maintenance_windows w JOIN maintenance_runs r ON r.run_id=w.run_id CROSS JOIN (SELECT coalesce(sum(state='pending'),0) pending,coalesce(sum(state='dispatched'),0) dispatched,coalesce(sum(state='resolved'),0) resolved,coalesce(sum(state='unresolved'),0) unresolved,coalesce(sum(state='review'),0) review,coalesce(sum(state='failed'),0) failed FROM maintenance_tasks WHERE 1=1" || scope || ") t WHERE w.job_id=" || _q(job_id))
 
   if summary = "" then return summary
@@ -2019,7 +2037,7 @@ backlogsummary: procedure = .string
   waived=0
   if _s(policy,"source_id")<>"" then waived=_number(database,"SELECT count(*) FROM maintenance_tasks WHERE " || taskwaived("maintenance_tasks.task_id") || scope)
   else waived=taskwaivercount(database)
-  return _text(database,"SELECT json_set(" || _q(summary) || ",'$.embeddings_only'," || _n(policy,"embeddings_only") || ",'$.embedding_missing'," || _embeddingmissing(database,policy) || ",'$.embedding_total',(SELECT count(*) FROM revision_chunks WHERE visible_to_generation IS NULL" || chunk_scope || "),'$.waived_tasks'," || waived || ")")
+  return _text(database,"SELECT json_set(" || _q(summary) || ",'$.embeddings_only'," || _n(policy,"embeddings_only") || ",'$.initial_extraction_only'," || _n(policy,"initial_extraction_only") || ",'$.embedding_missing'," || _embeddingmissing(database,policy) || ",'$.embedding_total',(SELECT count(*) FROM revision_chunks WHERE visible_to_generation IS NULL" || chunk_scope || "),'$.waived_tasks'," || waived || ")")
 
 _backlogimpact: procedure = .int
   arg database = .binary, parent = .string, generation = .int, expose types = .string[], expose ids = .string[], expose error = .string

@@ -160,6 +160,15 @@ still uses its original frozen request; replay creates explicitly requested
 new work under current policy. These are separate operations, not duplicate
 configuration rules.
 
+Worker continuation uses `ragconfiguration.worksnapshotmatches`: it checks the
+selected live job items' source, role and provider semantic bindings against
+their immutable snapshot. Completed phases and unrelated source/provider
+settings do not veto those items. A continuation with no live items keeps the
+full semantic check because it may create its next batch. The claimed item is
+checked again before any provider call. `ragconfigfile` must carry an explicit
+legacy-format embedding batch size into typed configuration; provider maximum
+validation still applies.
+
 Worker defaults stay byte-compatible: poll 100 ms (10–60000), guided deadline
 0 seconds (0–604800), two replacements (0–24), 5000 ms backoff (10–60000), and a
 3600-second rolling window (1–86400). Explicit invalid typed values are rejected,
@@ -321,6 +330,15 @@ run and `completed_with_errors` job outcome, including when no item was admitted
 `raglifecycle` owns that outcome for reads and refreshes; `ragbacklog` exposes
 the same run through status and inspection. Ordinary catalogue maintenance can
 finish its bounded window with a remaining backlog without becoming an error.
+
+`ragbacklog` owns the `initial_extraction_only` selector for a source-scoped
+durable window. Its census and dispatch admit current chunks needing their
+first concept-review result, while outcome reconciliation still sees a task
+after its result arrives. A prior accepted result, recorded decision or
+resolved first-pass task excludes that chunk from later first-pass windows;
+alias follow-ups and embedding repair remain in ordinary maintenance. The
+selection is frozen in the reviewed plan and can be used in automatic,
+supervised or manual mode. No new task kind, schema or ingestion path is added.
 
 Codex's required preflight reads current account allowance before new work.
 Durable receipts settle actual usage. There is no additional account refresh

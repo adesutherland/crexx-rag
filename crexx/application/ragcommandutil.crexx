@@ -19,7 +19,7 @@ commandoptions: procedure = .int
   error = ""; request_options = request.command_options()
   do i = 1 to request_options.0
     if wordpos(request_options[i].name(), allowed) = 0 then do; error = "unknown option --" || request_options[i].name(); return -1; end
-    if (request_options[i].flag() = 1 & request_options[i].name() \= "enrich-provenance" & request_options[i].name() \= "embeddings-only" & request_options[i].name() \= "reconcile") | request_options[i].value() = "" then do; error = "option --" || request_options[i].name() || " requires a value"; return -1; end
+    if (request_options[i].flag() = 1 & request_options[i].name() \= "enrich-provenance" & request_options[i].name() \= "embeddings-only" & request_options[i].name() \= "initial-extraction-only" & request_options[i].name() \= "reconcile") | request_options[i].value() = "" then do; error = "option --" || request_options[i].name() || " requires a value"; return -1; end
     do j = 1 to i - 1
       if request_options[j].name() = request_options[i].name() then do; error = "option --" || request_options[i].name() || " may be supplied once"; return -1; end
     end

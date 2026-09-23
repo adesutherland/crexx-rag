@@ -97,7 +97,10 @@ semanticconfigjson: procedure = .string
   source_fields = "id connector root stable_key privacy retain_raw_artifact include_patterns"
   provider_fields = "id kind base_url model route_class privacy_policy credential_ref context_tokens maximum_output_tokens embedding_dimensions_minimum embedding_dimensions_maximum ?reasoning_effort ?model_path"
   role_fields = "role provider_id maximum_input_tokens maximum_output_tokens embedding_dimensions temperature_millionths system_prompt"
-  sources = _semanticarray(config,config.member(root,"source_sets"),source_fields,"source_scope",source_id)
+  /* A role-only durable maintenance item has no source scope. Its provider
+   * binding must not depend on unrelated source-set edits. */
+  if role_id \= "" & source_id = "" then sources = "[]"
+  else sources = _semanticarray(config,config.member(root,"source_sets"),source_fields,"source_scope",source_id)
   roles = _semanticarray(config,config.member(root,"roles"),role_fields,"role",role_id)
   provider_id = ""
   if role_id \= "" then do

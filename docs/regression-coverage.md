@@ -1001,6 +1001,28 @@ Baseline failures and final results are tracked in the
 
 ## T7-07 source-scoped maintenance acceptance
 
+23 September extension: `regression_source_maintenance` passed its existing
+baseline, then failed first on the new `--initial-extraction-only` option.
+The expanded scratch-library journey proves that ordinary source maintenance
+admits an alias follow-up, while first-pass selection freezes the source and
+mode and admits only a current chunk without an earlier concept-review result.
+It checks guided CLI and MCP forwarding, zero-write planning, a processed
+first result, clean closeout, no repeat selection or provider calls, and refusal
+of missing source or incompatible selector combinations. The targeted journey
+passed in 14.72 s; command metadata, catalogue and argument cases passed after
+reviewing the new MCP boolean schema and updating its baseline digest. The
+final local QA report accounts for 135/135 passing required cases, including
+exact-input retained passes.
+
+The worker continuation extension in `worker_recovery_preflight-once`
+reproduced the ignored legacy embedding batch and whole-snapshot refusal
+before repair. It checks a changed batch and four-worker restart, completed
+extractor phase, unrelated source/timeout changes, plus pending embedding
+model/source and over-limit batch refusals. Attempts, receipts, provider calls,
+job budgets and reservations are asserted independently. A selected pending
+provider request is rechecked before submission. The targeted worker case
+passed in 74.04 s; all 135 required cases pass in the final local QA report.
+
 `regression_source_maintenance` is a zero-outbound public CLI/MCP acceptance for
 source selection frozen into a normal durable window, late-sorting chunks behind
 an older corpus prefix, complete extraction-task discovery across bounded

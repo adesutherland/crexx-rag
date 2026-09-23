@@ -201,6 +201,8 @@ parseconfigtext: procedure = .int
       do j = 1 to providers.0
         if providers[j].provider_id() = provider_id & providers[j].kind() = "llama" then do; dimensions = 384; batch_size = 1; end
       end
+      setting = _optional(keys, values, prefix || "batch_size")
+      if setting \= "" then if _uint(setting, 1, 4096, prefix || "batch_size", batch_size, error) \= 0 then return -1
     end
     if provider_id \= "" then roles[roles.0 + 1] = .ragrolebinding(role_name, provider_id, maximum_input_tokens, maximum_output_tokens, maximum_call_cost, dimensions, batch_size, temperature, system_prompt)
   end

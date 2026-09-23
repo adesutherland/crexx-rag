@@ -918,3 +918,32 @@ the validator. `codex_provider` records operation clock/phase facts and
 `ragapplicationprovider` selects the effective lease limit and preserves cleanup
 time. There is no new schema, task kind, provider route or reporting service.
 Regression and qualification evidence: [beta delivery](beta-delivery-20260920.md).
+
+## 23 September worker compatibility and first-pass source maintenance
+
+No module ownership moves. `ragconfiguration` now checks the semantic bindings
+of unfinished selected job items rather than comparing whole worker snapshots;
+`ragapplicationprovider` repeats that check for a claimed item before a
+provider call. `ragcanonical` retains role-only source independence and
+`ragconfigfile` carries explicit legacy embedding batch size into typed
+validation. This permits unrelated completed-phase, source and operational
+changes while rejecting relevant pending role/source changes and invalid
+provider limits. The unfiltered multi-job worker launch remains a separate
+compatibility concern.
+
+`ragbacklog` owns first-result discovery, task dispatch and completion for
+the source-scoped `initial_extraction_only` selection. `ragproduct` freezes
+it in the reviewed plan; `ragcommandcatalog`, `ragcommandutil` and
+`crexxrag_cli` expose the same flag through MCP, canonical CLI and guided
+CLI. Outcome reconciliation still sees a task after its first result. There is
+no schema, task-kind, provider-route or ingestion change.
+
+Before implementation, `worker_recovery_preflight-once` reproduced the
+legacy batch-size parse omission and then the whole-snapshot refusal; its
+positive control retained the original setting. The existing
+`regression_source_maintenance` baseline passed before the new
+`initial-extraction-only` case failed with an unknown option. The expanded
+source case checks ordinary alias admission, first-pass exclusion, completion,
+repeat planning, no writes or provider calls during planning, guided/MCP parity
+and invalid selector combinations. See the current qualification results in
+[regression coverage](regression-coverage.md).

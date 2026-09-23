@@ -570,6 +570,14 @@ provenance enrichment. Use `rag_task_list` with the same source for the compact
 coverage summary. Existing configured window budgets still apply; source
 selection neither pools nor renews allowance across separate windows.
 
+For an already ingested source whose unfinished work is each current chunk's
+first concept review, pass `{"source":"SOURCE_ID","initial_extraction_only":true}`
+to `rag_maintain_plan`. Apply the returned exact plan. This selector excludes
+alias follow-ups, embedding repair and chunks with an earlier first result; use
+ordinary source maintenance for those later questions. It requires a source and
+cannot combine with `embeddings_only` or provenance enrichment. Do not reingest
+the source just to run this first pass.
+
 ## Job controls after interruption
 
 Follow the shared maintenance skill for `rag_job_deadline`,
