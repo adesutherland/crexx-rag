@@ -493,8 +493,10 @@ refreshchecks: procedure = .int
   inventory_sql=backlogindexquery(database,task_id,"catalogue","current")
   count=scalarint(database,"SELECT count(*) FROM (" || inventory_sql || ")")
   errors=errors+check(count>100,"inventory exposes catalogue beyond worker ceiling")
+  errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(old_packet) || ",'$.omitted_catalogue')")=count & pos('"evidence_complete":false',old_packet)>0 & pos('"inventory_tool":"maintain.evidence-index"',old_packet)>0,"packaging hold reports exact omitted candidate count and continuation")
   inventory_sql=backlogindexquery(database,task_id,"passages","current")
   errors=errors+check(scalarint(database,"SELECT count(*) FROM (" || inventory_sql || ")")=1 & pos('crexx-rag:',scalartext(database,"SELECT detail FROM (" || inventory_sql || ")"))>0,"inventory exposes citation despite empty packet")
+  errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(old_packet) || ",'$.omitted_passages')")=1,"packaging hold reports exact omitted passage count")
   errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET question='Keep this precise follow-up question' WHERE task_id='" || task_id || "'")=0,"preserve custom question fixture")
   rows=scalarint(database,"SELECT count(*) FROM maintenance_tasks")
   errors=errors+check(planbacklogrefresh(store,config,profile,task_id,1048576,1000,"Review the complete context","fixture-agent","fixture",canonical,error)=0,"plan complete refresh " || error)
@@ -534,6 +536,8 @@ refreshchecks: procedure = .int
   errors=errors+check(sqliteexec(database,"WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<500) INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'refresh-extra-'||i,'refresh-concept-2','chunk-lifecycle',0,8," || current || " FROM n")=0,"seed oversized passage collection")
   byte_task=""
   errors=errors+check(enqueuebacklogtask(database,"external-refresh","concept","refresh-concept-2","","",12345,policy,byte_task,error)=0,"byte limited task")
+  byte_packet=scalartext(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(byte_task))
+  errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(byte_packet) || ",'$.omitted_passages')")=501 & pos('"evidence_complete":false',byte_packet)>0,"byte-limit hold counts every omitted source passage")
   errors=errors+check(planbacklogrefresh(store,config,profile,byte_task,1048576,1000,"full passages","fixture-agent","fixture",canonical,error)=0 & pos('"passages":501',canonical)>0,"complete byte refresh plan " || error)
   digest=rxhash..sha256hex(canonical as .binary)
   errors=errors+check(sqliteexec(database,"UPDATE mentions SET span_end=7 WHERE mention_id='refresh-extra-99'")=0 & applybacklogrefresh(store,config,profile,canonical,digest,replay,error)\=0,"changed evidence invalidates refresh apply")
@@ -569,6 +573,58 @@ selectedquotationchecks: procedure = .int
 responsejson: procedure = .string
   arg action = .string, target = "", successors = "[]", evidence = "[]", object_id = "", question = "", qualifiers = "{}", effective_from = "", effective_to = ""
   return '{"action":' || jsonquote(action) || ',"object_id":' || jsonquote(object_id) || ',"target_concept_id":' || jsonquote(target) || ',"canonical_label":"","concept_type":"","successors":' || successors || ',"reason":"fixture evidence-based decision","evidence":' || evidence || ',"effective_from":' || jsonquote(effective_from) || ',"effective_to":' || jsonquote(effective_to) || ',"qualifiers_json":' || jsonquote(qualifiers) || ',"question":' || jsonquote(question) || '}'
+
+aliascoalescencechecks: procedure = .int
+  arg store=.ragstorehandle,raw=.string
+  database=store.database();policy=.jsondocument(raw);errors=0;error="";current=scalarint(database,"SELECT published_generation FROM library_meta")
+  errors=errors+check(sqliteexec(database,"INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-coalesce','revision-lifecycle',999,0,13,'content-lifecycle','coalesce-fixture','fixture-v1','direct'," || current || ")")=0,"seed isolated alias-coalescence chunk")
+  errors=errors+check(sqliteexec(database,"INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch) VALUES('legacy-followup-a','alias-follow-up:issue-a','chunk','chunk-coalesce','legacy-a','fixture','{}','old issue a','pending',920000,1,1),('legacy-followup-b','alias-follow-up:issue-b','chunk','chunk-coalesce','legacy-b','fixture','{}','old issue b','pending',920000,1,1)")=0,"seed older per-issue pending follow-ups")
+  do i=1 to 3
+    candidate="coalesce-candidate-" || i;decision="coalesce-decision-" || i
+    begin=0;finish=8;if i=2 then do;begin=9;finish=13;end
+    evidence='{"resolved_concept_id":"concept-peer","generation":' || current || '}'
+    errors=errors+check(sqliteexec(database,"INSERT INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES(" || _testquote(candidate) || ",'chunk-coalesce','platform'," || begin || "," || finish || ",'fixture'," || current || "); INSERT INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,policy_version,created_at) VALUES(" || _testquote(decision) || "," || _testquote(candidate) || ",1,'accepted'," || _testquote(evidence) || ",'fixture','fixture')")=0,"seed settled alias context " || i)
+    task=""
+    errors=errors+check(enqueuebacklogtask(database,"alias-follow-up:chunk","chunk","chunk-coalesce","","",920000,policy,task,error)=0 & task<>"","coalesced follow-up sees settled alias context " || i || " " || error)
+  end
+  first_task=scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE kind='alias-follow-up:chunk' AND subject_id='chunk-coalesce' AND json_array_length(evidence_json,'$.subject.alias_context')=1")
+  second_task=scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE kind='alias-follow-up:chunk' AND subject_id='chunk-coalesce' AND json_array_length(evidence_json,'$.subject.alias_context')=2")
+  third_task=scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE kind='alias-follow-up:chunk' AND subject_id='chunk-coalesce' AND json_array_length(evidence_json,'$.subject.alias_context')=3")
+  errors=errors+check(first_task<>second_task & second_task<>third_task & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE kind='alias-follow-up:chunk' AND subject_id='chunk-coalesce' AND state='pending'")=1 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE kind='alias-follow-up:chunk' AND subject_id='chunk-coalesce' AND state='superseded'")=2,"several settled changes coalesce into one combined pending extraction")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id IN('legacy-followup-a','legacy-followup-b') AND state='superseded'")=2,"older per-issue pending follow-ups are replaced by the combined chunk question")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.subject.alias_context') c WHERE t.task_id=" || _testquote(third_task) || " AND json_extract(c.value,'$.candidate_id') LIKE 'coalesce-candidate-%'")=3,"combined follow-up exposes every settled identity delta")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET state='resolved' WHERE task_id=" || _testquote(third_task))=0,"mark combined extraction complete for later-change control")
+  later="";more='{"resolved_concept_id":"concept-parent","generation":' || current || '}'
+  errors=errors+check(sqliteexec(database,"INSERT INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,policy_version,created_at) VALUES('coalesce-decision-later','coalesce-candidate-3',2,'accepted'," || _testquote(more) || ",'fixture','fixture')")=0 & enqueuebacklogtask(database,"alias-follow-up:chunk","chunk","chunk-coalesce","","",920000,policy,later,error)=0 & later<>third_task & scalartext(database,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _testquote(later))=third_task,"later material identity change produces one linked successor " || error)
+  return errors
+
+invalidretirementchecks: procedure = .int
+  arg store=.ragstorehandle,raw=.string
+  database=store.database();errors=0;error="";current=scalarint(database,"SELECT published_generation FROM library_meta")
+  policy=.jsondocument(raw);config=architecturelocalconfig();profile=genericprofile()
+  errors=errors+check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('invalid-marker','Fixture page marker','concept','active'," || current || "),('valid-same-label','Fixture page marker','concept','active'," || current || "); INSERT INTO concept_versions(concept_id,version,canonical_label,concept_type,lifecycle_state,generation,reason,created_at) VALUES('invalid-marker',1,'Fixture page marker','concept','active'," || current || ",'fixture','fixture'); INSERT INTO aliases(alias_id,normalized_alias,target_concept_id,visible_from_generation) VALUES('invalid-marker-alias','fixture-page-marker','invalid-marker'," || current || "); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('invalid-marker-mention','invalid-marker','chunk-lifecycle',0,8," || current || "); INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,policy_version,visible_from_generation) VALUES('invalid-marker-claim','invalid-marker','related-to','valid-same-label','outbound','{}','fixture'," || current || "); INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,visible_from_generation) VALUES('invalid-marker-support','invalid-marker-claim','chunk-lifecycle',0,8,'support','assertion','direct','','fixture','fixture'," || current || "); INSERT INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES('invalid-marker-candidate','chunk-lifecycle','platform',0,8,'fixture'," || current || "); INSERT INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,policy_version,created_at) VALUES('invalid-marker-candidate-accepted','invalid-marker-candidate',1,'accepted','{}','fixture','fixture')")=0,"seed invalid node, owned incident claim, source-bound candidate and same-label isolate")
+  duplicate_label="";duplicate_id=""
+  errors=errors+check(resolveknownconcept(database,"Fixture page marker","concept",duplicate_label,duplicate_id,error)=2 & duplicate_id="","same-label distinct active concepts never resolve by label alone")
+  task="";errors=errors+check(enqueuebacklogtask(database,"invalid-review","concept","invalid-marker","","",900000,policy,task,error)=0 & task<>"","queue invalid-node review " || error)
+  refresh="";successor=""
+  errors=errors+check(planbacklogrefresh(store,config,profile,task,8388608,1000,"inspect complete invalid-node impact","fixture","fixture",refresh,error)=0,"plan complete impact packet after 100-entry catalogue hold " || error)
+  if refresh<>"" then errors=errors+check(applybacklogrefresh(store,config,profile,refresh,rxhash..sha256hex(refresh as .binary),successor,error)=0 & successor<>"","refresh held concept task without clearing history " || error)
+  if successor<>"" then task=successor
+  dispositions='[{"object_type":"alias","object_id":"invalid-marker-alias","action":"retract","target_concept_id":"","confidence_millionths":1000000,"reason":"reviewed page marker alias"},{"object_type":"mention","object_id":"invalid-marker-mention","action":"retract","target_concept_id":"","confidence_millionths":1000000,"reason":"reviewed page marker mention"},{"object_type":"claim","object_id":"invalid-marker-claim","action":"retract","target_concept_id":"","confidence_millionths":1000000,"reason":"reviewed unsupported incident claim"}]'
+  response=responsejson("retire","","[]","[]","invalid-marker")
+  response=left(response,length(response)-1) || ',"dispositions":' || dispositions || '}'
+  grounds="";negative=changestr('"object_id":"invalid-marker-alias"',response,'"object_id":"absent-alias"')
+  errors=errors+check(validatebacklogresponse(database,task,negative,grounds,error)<>0 & pos("exactly once",error)>0,"stale or unrelated retirement disposition is blocked before review")
+  grounds="";negative=changestr(',{"object_type":"claim","object_id":"invalid-marker-claim","action":"retract","target_concept_id":"","confidence_millionths":1000000,"reason":"reviewed unsupported incident claim"}',response,'')
+  errors=errors+check(validatebacklogresponse(database,task,negative,grounds,error)<>0,"retirement cannot omit an incident claim from reviewed impact")
+  canonical="";review=""
+  errors=errors+check(planagentaction(store,config,profile,task,"resolution",response,"review source-only page marker","fixture","fixture",canonical,error)=0,"plan bounded invalid-node retirement with exact owned impact " || error)
+  if canonical<>"" then errors=errors+check(applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review,error)=0 & review<>"","submit invalid-node retirement for mandatory review " || error)
+  if review<>"" then errors=errors+check(reviewagentaction(store,review,"accept",config,profile,error)=0,"accept reviewed invalid-node retirement " || error)
+  errors=errors+check(scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='invalid-marker'")="retired" & scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='valid-same-label'")="active" & scalarint(database,"SELECT count(*) FROM aliases WHERE alias_id='invalid-marker-alias' AND visible_to_generation IS NOT NULL")=1 & scalarint(database,"SELECT count(*) FROM mentions WHERE mention_id='invalid-marker-mention' AND visible_to_generation IS NOT NULL")=1 & scalarint(database,"SELECT count(*) FROM claims WHERE claim_id='invalid-marker-claim' AND visible_to_generation IS NOT NULL")=1 & scalarint(database,"SELECT count(*) FROM claim_support WHERE support_id='invalid-marker-support' AND visible_to_generation IS NOT NULL")=1 & scalartext(database,"SELECT state FROM candidate_decisions WHERE candidate_id='invalid-marker-candidate' ORDER BY decision_version DESC LIMIT 1")="rejected" & scalartext(database,"SELECT text FROM chunk_contents WHERE content_id='content-lifecycle'")="Platform Peer","retirement rejects the exact candidate, removes incident claim and preserves source and same-label isolate")
+  replay_label="";replay_type="";replay_concept=""
+  errors=errors+check(resolveknownmention(database,"invalid-marker-candidate",replay_label,replay_type,replay_concept,error)=0 & replay_concept="","unchanged source candidate cannot recreate the reviewed invalid marker")
+  return errors
 
 lifecyclerecordingchecks: procedure = .int
   arg store = .ragstorehandle, policy_json = .string
@@ -1297,6 +1353,8 @@ main: procedure = .int
   packet=scalartext(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id='" || alias_task || "'")
   errors=errors+check(scalarint(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.subject.candidates') c WHERE t.task_id='" || alias_task || "' AND json_extract(c.value,'$.concept_id')='inactive-peer'")=0,"migration parents not offered as usable candidates")
   errors=errors+check(pos('"lifecycle_state":"active"',packet)>0,"candidate lifecycle explicit")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM json_each(" || _testquote(packet) || ",'$.subject.candidate_cluster') WHERE json_extract(value,'$.concept_id')=" || _testquote(child) || " AND json_type(value,'$.aliases')='array' AND json_type(value,'$.source_scopes')='array' AND json_type(value,'$.mention_count')='integer'")=1,"identity candidate cluster includes aliases, provenance scope and defining-passage count")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM json_each(" || _testquote(packet) || ",'$.passages') WHERE json_extract(value,'$.evidence_id') IN(SELECT mention_id FROM mentions WHERE concept_id=" || _testquote(child) || " AND visible_to_generation IS NULL)")>0,"identity candidate defining passages retain addressable source evidence")
   references=.ragresolutionreferences('{"resolution_contract":"crexx-rag.resolution-contract/5","evidence":' || packet || '}')
   mapping=references.mapping()
   chosen_ref=scalartext(database,"SELECT key FROM json_each(" || _testquote(mapping) || ") WHERE key LIKE 'C%' AND value=" || _testquote(child))
@@ -1323,7 +1381,7 @@ main: procedure = .int
   response = changestr('"concept_type":""',response,'"concept_type":"source-artifact"')
   errors = errors + check(runresolution(store,job_id,alias_task,response,error) = 0, "retain distinct typed sense " || error)
   review_id = scalartext(database,"SELECT review_id FROM reviews WHERE subject_id='" || alias_task || "' AND state='pending'")
-  errors = errors + check(reviewbacklogdecision(store,review_id,"accept",genericprofile(),error) = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE kind LIKE 'alias-follow-up:%'") = 2, "reviewed identity decision also retains its extraction follow-up " || error)
+  errors = errors + check(reviewbacklogdecision(store,review_id,"accept",genericprofile(),error) = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE kind='alias-follow-up:chunk'") >= 1, "reviewed identity decision retains its extraction follow-up or running owner " || error)
 
   errors = errors + check(scalarint(database,"SELECT count(DISTINCT target_concept_id) FROM aliases WHERE normalized_alias='peer' AND target_concept_id IS NOT NULL AND visible_to_generation IS NULL") = 2 & scalarint(database,"SELECT count(*) FROM aliases WHERE normalized_alias='peer' AND ambiguity_id IS NOT NULL AND visible_to_generation IS NULL") > 0, "shared spelling retains both identities and explicit ambiguity")
   errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE state='open'") = 0, "automatic and supervised identity workflows settle their questions")
@@ -1363,6 +1421,8 @@ main: procedure = .int
     id = "zz-cursor-note-" || i
     errors = errors + check(sqliteexec(database,"INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('" || id || "','lead','Platform Peer',1,1,'','active','{}','fixture',1,'fixture','fixture'); INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('" || id || "-link','" || id || "','chunk','chunk-lifecycle','chunk-lifecycle',0,13)") = 0, "seed cursor note")
   end
+  errors = errors + check(sqliteexec(database,"INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('zz-informational-note','observation','A source annotation',1,1,'','active','{}','fixture',1,'fixture','fixture')") = 0,"seed retrievable informational note")
+  errors = errors + check(sqliteexec(database,"INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('zz-informational-recommendation','recommendation','A source annotation with no action',1,1,'','active','{}','fixture',1,'fixture','fixture')") = 0,"seed recommendation without an actionable next step")
   manual_policy = changestr('"mode":"automatic"',changestr('"batch_items":100',policy_json,'"batch_items":1'),'"mode":"manual"')
   previous = scalarint(database,"SELECT count(*) FROM provider_runs")
   errors = errors + check(nextwindow(store,manual_policy,job_id,error) = 0, "start manual small-batch census")
@@ -1370,7 +1430,7 @@ main: procedure = .int
     if scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") \= "active" then leave
     if tickbacklogwindow(store,job_id,error) < 0 then do; errors = errors+check(0,"manual census " || error); leave; end
   end
-  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE subject_id LIKE 'zz-cursor-note-%' AND state='review'") = 5 & scalarint(database,"SELECT count(*) FROM provider_runs") = previous, "complete cursor coverage and zero-call manual collection")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE subject_id LIKE 'zz-cursor-note-%' AND state='review'") = 5 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE subject_id IN('zz-informational-note','zz-informational-recommendation')") = 0 & scalarint(database,"SELECT count(*) FROM analysis_notes WHERE note_id IN('zz-informational-note','zz-informational-recommendation') AND state='active'") = 2 & scalarint(database,"SELECT count(*) FROM provider_runs") = previous, "complete cursor coverage and informational notes stay read-only")
   errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE subject_id LIKE 'zz-cursor-note-%' AND state='dispatched'") = 5, "automatic window resumes manually collected work")
   errors = errors + check(pausejob(store,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0, "close test window")
   errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0 & scalartext(database,"PRAGMA integrity_check") = "ok", "final backlog integrity")
@@ -1396,8 +1456,22 @@ main: procedure = .int
   errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE subject_type='gap' AND state='dispatched'") = 3,"all query gaps enter ordinary durable maintenance")
   evidence = '[{"evidence_id":"chunk-lifecycle","quote":"Platform Peer"}]'
   errors = errors + check(runresolution(store,job_id,gap_task,responsejson("retain","","[]",evidence),error) = 0 & scalartext(database,"SELECT state FROM query_gaps WHERE gap_id='gap-platform'") = "resolved","grounded maintenance can settle an investigated gap " || error)
+  resolved_gap_task = gap_task; settled_gap = ""
+  errors = errors + check(enqueuebacklogtask(database,"query-gap","gap","gap-platform","","",750000,policy,settled_gap,error) = 0 & settled_gap = resolved_gap_task,"settled query gap stays closed on unchanged rediscovery " || error)
+  errors = errors + check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('unrelated-catalogue','Unrelated catalogue entry','concept','active',(SELECT published_generation FROM library_meta)); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('unrelated-catalogue-mention','unrelated-catalogue','chunk-lifecycle',0,1,(SELECT published_generation FROM library_meta))") = 0,"add unrelated catalogue identity on a settled gap passage")
+  settled_gap = ""
+  errors = errors + check(enqueuebacklogtask(database,"query-gap","gap","gap-platform","","",750000,policy,settled_gap,error) = 0 & settled_gap = resolved_gap_task & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id='" || resolved_gap_task || "'") = 0,"unrelated catalogue growth does not reopen settled gap " || error)
+  errors = errors + check(sqliteexec(database,"DELETE FROM mentions WHERE mention_id='unrelated-catalogue-mention'; DELETE FROM concepts WHERE concept_id='unrelated-catalogue'") = 0,"remove unrelated catalogue fixture")
   gap_task = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE subject_id='gap-missing' AND state='dispatched'")
-  errors = errors + check(runresolution(store,job_id,gap_task,responsejson("unresolved"),error) = 0 & scalartext(database,"SELECT state FROM query_gaps WHERE gap_id='gap-missing'") = "open" & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || gap_task || "'") = "unresolved","missing source evidence stays explicitly unresolved " || error)
+  previous_generation=scalarint(database,"SELECT published_generation FROM library_meta")
+  insufficient=responsejson("insufficient-evidence","","[]","[]","","A new source passage identifying Vestiarium Scoticum in this question's context")
+  grounds=""
+  errors=errors+check(validatebacklogresponse(database,gap_task,responsejson("insufficient-evidence"),grounds,error)<>0 & pos("reopening trigger",error)>0,"insufficient evidence requires a material reopening trigger")
+  errors = errors + check(runresolution(store,job_id,gap_task,insufficient,error) = 0 & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || gap_task || "'") = "review","unapproved insufficient conclusion retains review authority " || error)
+  insufficient_review=scalartext(database,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(gap_task) || " AND state='pending'")
+  errors=errors+check(insufficient_review<>"" & reviewbacklogdecision(store,insufficient_review,"accept",genericprofile(),error)=0 & scalartext(database,"SELECT state FROM query_gaps WHERE gap_id='gap-missing'")="open" & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(gap_task))="resolved" & scalarint(database,"SELECT published_generation FROM library_meta")=previous_generation,"reviewed insufficient evidence settles the question without graph publication " || error)
+  settled_gap=""
+  errors=errors+check(enqueuebacklogtask(database,"query-gap","gap","gap-missing","","",750000,policy,settled_gap,error)=0 & settled_gap=gap_task,"final insufficient evidence remains settled on unchanged context " || error)
   errors = errors + check(pausejob(store,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0,"close query-gap test window")
   errors = errors + check(scalartext(database,"SELECT text FROM chunk_contents WHERE content_id='content-lifecycle'") = "Platform Peer" & scalartext(database,"SELECT hex(vector) FROM embeddings WHERE embedding_id='fixture-vector'") = "0000803F" & scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"query-gap maintenance preserves source and vector state")
   /* Budget completion is a successful boundary, with uncalled tasks retained
@@ -1497,7 +1571,7 @@ main: procedure = .int
   errors = errors + check(resolveknownmention(database,"candidate-identity-collision",label,selected_type,selected,error) = 1 & selected \= collision_id & selected_type = "evidence-span","occurrence remembers its resolved identity")
   errors = errors + check(scalartext(database,"SELECT concept_type FROM concepts WHERE concept_id='" || collision_id || "'") = "concept","repair never overwrites old identity")
   repair_followup = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE parent_task_id='" || alias_task || "' AND kind LIKE 'alias-follow-up:%'")
-  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0 & sqliteexec(database,"UPDATE job_items SET priority=4000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || repair_followup || "') AND state='queued'") = 0,"dispatch repaired extraction follow-up")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0 & sqliteexec(database,"UPDATE job_items SET priority=4000001 WHERE item_id IN(SELECT m.item_id FROM maintenance_task_items m JOIN maintenance_tasks t ON t.task_id=m.task_id WHERE t.kind='alias-follow-up:chunk' AND t.subject_id='chunk-lifecycle' AND t.state='dispatched') AND state='queued'") = 0,"dispatch current combined extraction follow-up")
   errors = errors + check(runworkeronce(store,job_id,"identity-fixture",60,3,identity_policy,collision_provider,disposition,error,genericprofile()) = 0 & disposition = "concepts-and-notes","follow-up reuses resolved identity " || disposition || " " || error)
   errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE candidate_id='candidate-identity-collision' AND state='open'") = 0 & scalarint(database,"SELECT count(*) FROM mentions WHERE concept_id='" || selected || "' AND visible_to_generation IS NULL") > 0,"repair converges without reopening the same question")
   errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"identity repair preserves foreign keys")
@@ -1507,6 +1581,8 @@ main: procedure = .int
   errors = errors + refreshchecks(store,policy_json)
   errors = errors + zerobudgetchecks(store,policy_json)
   errors = errors + sourcecontinuationchecks(store,policy_json)
+  errors = errors + invalidretirementchecks(store,policy_json)
+  errors = errors + aliascoalescencechecks(store,policy_json)
   call closeragstore store,error
   if errors > 0 then return 1
   say "DURABLE_BACKLOG_OK deduplicated split_fanout fenced_decisions resume uncertainty source_preservation"
@@ -1561,7 +1637,7 @@ reconsiderationchecks: procedure = .int
   errors=errors+check(alias_child<>"" & scalartext(db,"SELECT state FROM maintenance_alias_issues WHERE issue_id=" || _testquote(issue))="open","closed alias is reopened once with lineage")
   errors=errors+check(resolveknownmention(db,"reconsider-candidate",label,kind,known,error)=0,"old occurrence binding cannot bypass new ambiguity")
   if alias_child<>"" then errors=errors+check(runresolution(store,job,alias_child,responsejson("no-change"),error)=0 & nextwindow(store,raw,job,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE subject_id=" || _testquote(issue))=2,"final no-change on new alias context converges")
-  errors=errors+check(scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE kind='alias-follow-up:'||" || _testquote(issue))>=1,"alias keeps existing extraction follow-up")
+  errors=errors+check(scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE kind='alias-follow-up:chunk' AND subject_id='chunk-lifecycle'")>=1,"alias keeps existing extraction follow-up")
   errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning',escalation_origin='worker',escalation_reason='retained hard question' WHERE task_id=" || _testquote(alias_child) || "; UPDATE concepts SET concept_type='evidence-span' WHERE concept_id='new-peer'")=0,"changed advanced alias fixture")
   errors=errors+check(nextwindow(store,raw,job,error)=0,"advanced successor discovery")
   advanced_child=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE parent_task_id=" || _testquote(alias_child) || " AND subject_type='alias-issue'")

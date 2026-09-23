@@ -870,6 +870,12 @@ _stageproviderbatch: procedure = .int
   do i = 1 to mentions.0
     promoted = ""; aliases = mentions[i].aliases()
     selected = mentions[i].concept_id()
+    if _boundcount(store.database(),"SELECT count(*) FROM candidate_decisions d WHERE d.candidate_id=?1 AND d.state='rejected' AND d.decision_version=(SELECT max(v.decision_version) FROM candidate_decisions v WHERE v.candidate_id=d.candidate_id)",mentions[i].candidate_id())>0 then do
+      /* A reviewed rejection is specific to this immutable candidate/source
+       * occurrence. Preserve the provider receipt without repromoting it. */
+      unresolved[unresolved.0+1]=selected
+      iterate
+    end
     if ambiguous_mentions[i] = 1 | _boundcount(store.database(),"SELECT count(*) FROM concepts WHERE concept_id=?1 AND (lifecycle_state<>'active' OR visible_to_generation IS NOT NULL)",selected) > 0 then do
       if recordaliasissue(store.database(),mentions[i].candidate_id(),mentions[i].label(),mentions[i].concept_type(),aliases,error) \= 0 then return -1
       unresolved[unresolved.0+1] = selected; iterate

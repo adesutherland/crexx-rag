@@ -1,5 +1,50 @@
 # Maintenance refactoring delivery
 
+## Combined convergence candidate — 23 September 2026, in progress
+
+`ragbacklog` owns the shared accepted-first-pass predicate, settled-question
+context, bounded phase/cohort selection, identity candidate context and
+coalesced alias follow-up. `ragmaintain` binds reviewed invalid-candidate
+rejection to the retired occurrence; ingestion and extraction consumers honor
+the latest accepted decision. `ragresolutioncontract` owns the revised
+insufficient-evidence and lifecycle response schema/instructions.
+`ragreportservice` owns the logical-debt projection and reconciliation;
+`ragqueryservice` owns the evaluation gap-recording option and
+`ragcommandcatalog` forwards explicit false through MCP. No schema or native
+provider change is part of this candidate.
+
+Fail-first controls reproduced the processed-control first-pass bypass,
+irrelevant note/gap reopening, retirement impact omission, informational
+recommendation scheduling and MCP false-option loss. Current targeted
+`regression_source_maintenance`, `durable_backlog`, `native_surfaces`,
+`regression_command_catalogue` and six evidence-overflow checks have passed
+at their relevant intermediate builds. The required local gate accounts for
+**135/135 exact-input passing cases**: the final selection executed 72 and
+reused 63 retained passes; the QA report has no failed, disabled, interrupted
+or not-run cases. An earlier full selection stopped at `durable_backlog_reconsideration`:
+the new candidate-cluster display and an occurrence's own promoted mention
+were misread as changed identity evidence. `ragbacklog._reviewcontext` now
+excludes those self-effects while retaining other candidate passages and
+identity changes; the isolated reconsideration case and final gate pass.
+The next gate exposed the intentionally changed resolution prompt/schema
+golden. Its reviewed snapshot now records the new `dispositions` and
+`insufficient-evidence` contract; extraction, answer and report are unchanged.
+Full cohort restart/fencing, deterministic canonical survivor
+enforcement, complete unscoped dry-run discovery and a single end-to-end
+synthetic C0–C6 journey remain unqualified. Do not treat this as an installed
+or remotely published convergence release.
+
+## Public evidence byte bounding — 23 September 2026, targeted local checks
+
+`ragevidencejson` remains the owner of whole-record evidence encoding and its
+configured byte ceiling. `ragqueryservice` exposes the encoder's incomplete
+state and omission counts in public command fields, without adding a second
+budgeting rule to the CLI or MCP adapter. The answer route retains its refusal
+when an oversized packet could separate a generated answer from its citation.
+Fail-first component and public lexical/hybrid tests, retained positive controls,
+and the deferred full-QA boundary are recorded in the
+[delivery evidence](query-evidence-bounding-20260923.md).
+
 ## Configured provider selection — 22 September 2026
 
 `ragquerypolicy` and `provider_contract` remove the duplicated non-public/hosted

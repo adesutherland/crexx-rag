@@ -283,6 +283,9 @@ available for scripts and agents. Start with the
 [user guide](docs/user-guide.md), [agent integration](docs/agent-integration.md),
 the [methodology and algorithm description](docs/algorithm.md), and the
 [methodology closure checklist](docs/methodology-closure.md).
+`query evidence` and `query inspect` keep the configured byte ceiling: when
+graph expansion makes a packet too large, they return whole cited records with
+explicit incomplete and omission fields rather than discarding the result.
 
 For a source whose bytes and chunks are already ingested, use
 `crexxrag maintain --source SOURCE_ID --initial-extraction-only --minutes 60 --yes`

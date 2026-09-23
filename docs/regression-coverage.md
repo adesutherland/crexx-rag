@@ -1,5 +1,25 @@
 # Regression coverage baseline — REG-01
 
+## Combined convergence and evidence-bound candidate — 23 September 2026
+
+The current implementation is still a local candidate. `regression_source_maintenance`
+checks a failed initial extraction with processed controls, accepted-empty
+completion, explicit reset/retry recovery, repeat zero-call selection, source
+scoping and identity/graph/finish cohort selection with continuation retention.
+`durable_backlog` checks settled note/gap reopening,
+insufficient-evidence closure, reviewed invalid-node retirement including an
+incident claim, same-label ambiguity, candidate defining passages, alias
+follow-up coalescing, bounded held-input metadata and informational notes.
+`native_surfaces` checks CLI/MCP `record_gaps:false`, the first-pass census and
+positive plus offsetting-negative logical-debt reconciliation. The graph-enabled
+lexical/hybrid evidence overflow fixture and fitting/refusal controls live in
+`gemini_query` and `evidence_methodology`; the public result, retrieval,
+vector and command-catalogue cases remain required. The current combined build
+accounts for 135/135 required local passes (72 executed in the final selection,
+63 retained exact-input passes); the separate scale lane remains outside this
+gate. Coverage is still missing for full selected-cohort
+restart/fencing and an end-to-end C0–C6 synthetic convergence journey.
+
 ## Configured provider selection — 22 September 2026
 
 `query_policy` adds public/restricted/local/internal acceptance for configured
@@ -63,6 +83,21 @@ constraint. [Fail-first and final results](esc-ops-03-delivery-20260919.md).
 The stable required selection passes **131/131 in 676.62s**, with 129 fresh
 executions and two retained exact-input passes. Final documentation-only
 verification and the current-input report preserve that complete accounting.
+
+## Public evidence byte bounding — 23 September 2026, targeted local checks
+
+`evidence_methodology` reproduces a 262,144-byte graph-claim fanout against the
+previous encoder, then checks whole retained claims, citation/qualification and
+provenance, exact omission counts, unchanged fitting packets, mandatory-metadata
+refusal and generated-answer citation fencing. `gemini_query` uses public
+`query evidence --hops 1 --limit 12` in lexical and hybrid modes, with a
+traversal-off control and a scratch graph claim large enough to cross the
+ceiling. The two cases and adjacent `regression_result_contract`,
+`regression_retrieval`, `native_vector_public` and
+`regression_command_catalogue` pass locally. The combined required local
+selection accounts for 135/135 passes. The generation-3194 Q03 replay remains
+for the later private-corpus qualification.
+[Focused evidence](query-evidence-bounding-20260923.md).
 
 ## Local answer follow-up — 19 September 2026, locally qualified
 

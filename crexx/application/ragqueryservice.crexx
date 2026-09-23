@@ -90,7 +90,7 @@ querycommand: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
   if commandhasaccess(request, "read") \= 1 then return commandfailure(operation, 4, "query requires read access")
-  if commandoptions(request, "limit hops mode direction at during time-unknown", error) \= 0 then return commandfailure(operation, 2, error)
+  if commandoptions(request, "limit hops mode direction at during time-unknown record-gaps", error) \= 0 then return commandfailure(operation, 2, error)
   positionals = request.positionals()
   if positionals.0 \= 1 | positionals[1] = "" then return commandfailure(operation, 2, "query requires exactly one question")
   if request.profile_id() = "" then return commandfailure(operation, 2, "query requires --profile")
@@ -99,6 +99,10 @@ querycommand: procedure = .ragcommandresult
   config_lookup = registry.config(request.config_id())
   if config_lookup.found() \= 1 then return commandfailure(operation, 5, "configuration is not registered")
   config = config_lookup.config(); profile = profile_lookup.profile(); budget = config.budget()
+  record_gaps = commandoption(request, "record-gaps", error)
+  if record_gaps = "" then record_gaps = "true"
+  if wordpos(record_gaps,"true false")=0 then return commandfailure(operation,2,"--record-gaps must be true or false")
+  if operation = "query.inspect" & record_gaps = "true" then record_gaps = "false"
   retrieval_policy = config.retrieval(); limit = retrieval_policy.passage_limit(); hops = retrieval_policy.graph_hops()
   limit_text = commandoption(request, "limit", error); hops_text = commandoption(request, "hops", error); mode = commandoption(request, "mode", error); graph_direction = commandoption(request, "direction", error)
   if error \= "" then return commandfailure(operation, 2, error)
@@ -183,7 +187,7 @@ querycommand: procedure = .ragcommandresult
   if mode = "hybrid" & (retrieval.vector_state() \= "active-ann-ivf-rxvector" & retrieval.vector_state() \= "active-exact-native") then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "hybrid query requires a valid vector sidecar; run vector rebuild to recover it from SQLite"); end
   evidence = retrieval.evidence(); answer_context = ""; canonical_answer_context=""; answer_references=.raganswerreferences("{}")
   query_gaps_recorded = 0
-  if operation \= "query.inspect" then if recordquerygaps(store, evidence, query_gaps_recorded, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
+  if record_gaps = "true" then if recordquerygaps(store, evidence, query_gaps_recorded, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
   if answer_planned = 1 then do
     prompt_bytes=binlength((answerprompt(answer_role.system_prompt()) || answerresponseschema()) as .binary)
     context_limit=queryanswercontextlimit(budget,answer_provider,answer_role.maximum_input_tokens(),requested_output,embedding_planned,prompt_bytes,retrieval_policy.maximum_evidence_bytes(),error)
@@ -228,6 +232,18 @@ querycommand: procedure = .ragcommandresult
   embedding_usage = embedding_output.usage(); answer_usage = answer_output.usage()
   if queryusagewithin(budget, embedding_provider, embedding_usage, embedding_attempted, answer_provider, answer_usage, answer_called) \= 1 then return commandfailure(operation, 6, "query provider usage exceeded the configured token or cost ceiling, or monetary usage was unavailable")
   if encodeevidence(evidence, retrieval_policy.maximum_evidence_bytes(), evidence_json, error) \= 0 then return commandfailure(operation, 1, error)
+  evidence_incomplete=0; omitted_passages=0; omitted_claims=0; omitted_leads=0; omitted_notes=0; omitted_ambiguities=0; omitted_gaps=0
+  if pos('"truncation":{"incomplete":true',evidence_json)>0 then do
+    evidence_incomplete=1
+    encoded_document=.jsondocument(evidence_json)
+    omitted_object=encoded_document.member(encoded_document.member(encoded_document.root(),"truncation"),"omitted")
+    omitted_passages=encoded_document.node_get(encoded_document.member(omitted_object,"passages")) as .int
+    omitted_claims=encoded_document.node_get(encoded_document.member(omitted_object,"claims")) as .int
+    omitted_leads=encoded_document.node_get(encoded_document.member(omitted_object,"leads")) as .int
+    omitted_notes=encoded_document.node_get(encoded_document.member(omitted_object,"analysis_notes")) as .int
+    omitted_ambiguities=encoded_document.node_get(encoded_document.member(omitted_object,"ambiguities")) as .int
+    omitted_gaps=encoded_document.node_get(encoded_document.member(omitted_object,"gaps")) as .int
+  end
   fields = .ragresultfield[]
   fields[1] = .ragresultfield("evidence_schema", "string", "crexx-rag.evidence/2")
   fields[2] = .ragresultfield("query_plan_fingerprint", "string", plan.fingerprint())
@@ -237,7 +253,7 @@ querycommand: procedure = .ragcommandresult
   if generated_answer = "" then fields[6] = .ragresultfield("generated_answer", "null", "")
   else fields[6] = .ragresultfield("generated_answer", "string", generated_answer)
   evidence_summary = ""; evidence_citation = ""; accepted_claims = evidence.claims()
-  if accepted_claims.0 > 0 then do
+  if accepted_claims.0 > omitted_claims then do
     evidence_summary = accepted_claims[1].subject() || " --" || accepted_claims[1].relationship_type() || "--> " || accepted_claims[1].object()
     supports = accepted_claims[1].supports()
     if supports.0 > 0 then evidence_citation = supports[1].citation().citation()
@@ -275,9 +291,10 @@ querycommand: procedure = .ragcommandresult
   else fields[33] = .ragresultfield("answer_grounding", "string", answer_grounding)
   fields[34] = .ragresultfield("answer_citations_json", "string", answer_citations_json)
   query_leads = .raggraphlead[]; query_leads = evidence.leads()
-  fields[35] = .ragresultfield("lead_count", "integer", query_leads.0)
+  retained_leads=query_leads.0-omitted_leads
+  fields[35] = .ragresultfield("lead_count", "integer", retained_leads)
   leading_lead = ""; leading_follow_question = ""
-  if query_leads.0 > 0 then do
+  if retained_leads > 0 then do
     lead_path = .string[]; lead_path = query_leads[1].path()
     if lead_path.0 > 0 then leading_lead = lead_path[1]
     if lead_path.0 > 1 then do
@@ -293,18 +310,28 @@ querycommand: procedure = .ragcommandresult
   end
   fields[36] = .ragresultfield("leading_lead", "string", leading_lead)
   fields[37] = .ragresultfield("leading_follow_question", "string", leading_follow_question)
+  incomplete_text="false"; if evidence_incomplete=1 then incomplete_text="true"
+  fields[38] = .ragresultfield("evidence_incomplete", "boolean", incomplete_text)
+  if evidence_incomplete=1 then do
+    fields[fields.0+1] = .ragresultfield("omitted_passages", "integer", omitted_passages)
+    fields[fields.0+1] = .ragresultfield("omitted_claims", "integer", omitted_claims)
+    fields[fields.0+1] = .ragresultfield("omitted_leads", "integer", omitted_leads)
+    fields[fields.0+1] = .ragresultfield("omitted_analysis_notes", "integer", omitted_notes)
+    fields[fields.0+1] = .ragresultfield("omitted_ambiguities", "integer", omitted_ambiguities)
+    fields[fields.0+1] = .ragresultfield("omitted_gaps", "integer", omitted_gaps)
+  end
   projection = ""
   if operation = "query.trace" then do
     if encodetraceprojection(evidence, retrieval_policy.maximum_evidence_bytes(), projection, error) \= 0 then return commandfailure(operation, 1, error)
-    fields[38] = .ragresultfield("trace_json", "string", projection)
+    fields[fields.0+1] = .ragresultfield("trace_json", "string", projection)
   end
   else if operation = "query.path" then do
     if encodepathprojection(evidence, retrieval_policy.maximum_evidence_bytes(), projection, error) \= 0 then return commandfailure(operation, 1, error)
-    fields[38] = .ragresultfield("paths_json", "string", projection)
+    fields[fields.0+1] = .ragresultfield("paths_json", "string", projection)
   end
   else if operation = "query.timeline" then do
     if encodetimelineprojection(evidence, retrieval_policy.maximum_evidence_bytes(), projection, error) \= 0 then return commandfailure(operation, 1, error)
-    fields[38] = .ragresultfield("timeline_json", "string", projection)
+    fields[fields.0+1] = .ragresultfield("timeline_json", "string", projection)
   end
   record_kind = changestr(".", operation, "-")
   records = .ragresultrecord[]; records[1] = .ragresultrecord(record_kind, fields)

@@ -2,6 +2,7 @@ options levelg
 
 import rxfnsb
 import rxsqlite
+import rxjson
 import ragstore
 import ragretrieval
 import ragquery
@@ -114,6 +115,55 @@ main: procedure = .int
   packet=.ragevidence("crexx-rag.evidence/2","fixture",1,"In which country was it lost?",empty_strings,packet_passages,packet_claims,empty_strings,empty_leads,empty_notes,empty_strings,outbound.evidence().trace(),"Preserve uncertainty.")
   errors=errors+check(encodeanswercontext(packet,65536,answer_context,error)=0 & pos('"claim_id":"related-claim"',answer_context)>0 & pos("lost in France",answer_context)>0,"source and graph retained when both fit")
   errors=errors+check(encodeanswercontext(packet,2500,answer_context,error)=0 & pos("lost in France",answer_context)>0 & pos('"truncation":{"incomplete":true',answer_context)>0 & pos(metadata,answer_context)>0,"best source survives tight context with provenance and explicit omissions " || error)
+  roomy=""
+  errors=errors+check(encodeevidence(packet,65536,roomy,error)=0 & pos('"truncation"',roomy)=0,"fitting public evidence stays complete")
+  /* Q03-shaped graph fanout: the passage fits, but whole cited claims with
+   * qualification/provenance exceed the normal public 262144-byte ceiling. */
+  wide_metadata='{"qualification":"' || copies("q",30000) || '"}'
+  graph_supports=.ragsupportcitation[]
+  graph_supports[1]=.ragsupportcitation(citation,"support","assertion","","independent","","direct","{}",wide_metadata)
+  graph_claims=.ragacceptedclaim[]
+  do i=1 to 12
+    graph_claims[i]=.ragacceptedclaim("graph-claim-" || i,"manuscript","related-to","place-" || i,"outbound",1.0,"","","",graph_supports,scores,empty_strings,'{"qualification":"qualified"}')
+  end
+  graph_packet=.ragevidence("crexx-rag.evidence/2","fixture",1,"In which country was it lost?",empty_strings,packet_passages,graph_claims,empty_strings,empty_leads,empty_notes,empty_strings,outbound.evidence().trace(),"Preserve uncertainty.")
+  bounded=""
+  bounded_status=encodeevidence(graph_packet,262144,bounded,error)
+  errors=errors+check(bounded_status=0 & binlength(bounded as .binary)<=262144 & pos('"truncation":{"incomplete":true',bounded)>0,"graph packet returns bounded incomplete evidence " || error)
+  if bounded_status=0 then do
+    bounded_doc=.jsondocument(bounded)
+    retained=bounded_doc.node_count(bounded_doc.member(bounded_doc.root(),"claims"))
+    truncation=bounded_doc.member(bounded_doc.root(),"truncation")
+    omitted=bounded_doc.member(truncation,"omitted")
+    errors=errors+check(retained>0 & retained<12 & bounded_doc.node_get(bounded_doc.member(omitted,"claims"))=(12-retained) & pos('"citation":{"id":"crexx-rag:source-answer"',bounded)>0 & pos('"qualifiers":{"qualification":"qualified"}',bounded)>0 & pos(wide_metadata,bounded)>0,"whole graph claims retain citations, qualifications and exact omitted count")
+  end
+  rejected=""
+  errors=errors+check(encodeevidence(packet,100,rejected,error)=-2 & rejected="" & pos("mandatory evidence metadata",error)>0,"ceiling still refuses mandatory metadata overflow")
+  answered_graph=graph_packet.with_generated_answer("The manuscript was lost in France [crexx-rag:source-answer].")
+  errors=errors+check(encodeevidence(answered_graph,262144,rejected,error)=-2 & rejected="" & pos("serialized evidence exceeds",error)>0,"answer citations are not silently separated from omitted evidence")
+  wide_gaps=.string[]
+  do i=1 to 3;wide_gaps[i]="gap-" || i || ":" || copies("g",3500);end
+  no_claims=.ragacceptedclaim[]
+  gaps_packet=.ragevidence("crexx-rag.evidence/2","fixture",1,"In which country was it lost?",empty_strings,packet_passages,no_claims,empty_strings,empty_leads,empty_notes,wide_gaps,outbound.evidence().trace(),"Preserve uncertainty.")
+  bounded_gaps=""
+  gaps_status=encodeevidence(gaps_packet,6000,bounded_gaps,error)
+  errors=errors+check(gaps_status=0 & binlength(bounded_gaps as .binary)<=6000 & pos('"citation":{"id":"crexx-rag:source-answer"',bounded_gaps)>0,"diagnostic string overflow retains the cited source passage " || error)
+  if gaps_status=0 then do
+    gaps_document=.jsondocument(bounded_gaps)
+    gaps_omitted=gaps_document.member(gaps_document.member(gaps_document.root(),"truncation"),"omitted")
+    gaps_retained=gaps_document.node_count(gaps_document.member(gaps_document.root(),"gaps"))
+    errors=errors+check(gaps_retained<3 & gaps_retained+gaps_document.node_get(gaps_document.member(gaps_omitted,"gaps"))=3,"diagnostic strings have exact omission counts")
+  end
+  ambiguities_packet=.ragevidence("crexx-rag.evidence/2","fixture",1,"In which country was it lost?",empty_strings,packet_passages,no_claims,wide_gaps,empty_leads,empty_notes,empty_strings,outbound.evidence().trace(),"Preserve uncertainty.")
+  bounded_ambiguities=""
+  ambiguities_status=encodeevidence(ambiguities_packet,6000,bounded_ambiguities,error)
+  if ambiguities_status=0 then do
+    ambiguities_document=.jsondocument(bounded_ambiguities)
+    ambiguities_omitted=ambiguities_document.member(ambiguities_document.member(ambiguities_document.root(),"truncation"),"omitted")
+    ambiguities_retained=ambiguities_document.node_count(ambiguities_document.member(ambiguities_document.root(),"ambiguities"))
+    errors=errors+check(binlength(bounded_ambiguities as .binary)<=6000 & ambiguities_retained<3 & ambiguities_retained+ambiguities_document.node_get(ambiguities_document.member(ambiguities_omitted,"ambiguities"))=3,"ambiguity strings retain exact whole-record omission counts")
+  end
+  else errors=errors+check(0,"ambiguity string overflow should return bounded evidence " || error)
   trace_json = ""; paths_json = ""; timeline_json = ""
   errors = errors + check(encodetraceprojection(outbound.evidence(), 65536, trace_json, error) = 0 & pos('"schema":"crexx-rag.query-trace/1"', trace_json) > 0, "dedicated trace projection " || error)
   errors = errors + check(encodepathprojection(outbound.evidence(), 65536, paths_json, error) = 0 & pos('"schema":"crexx-rag.query-paths/2"', paths_json) > 0 & pos('"follow_question":', paths_json) > 0, "dedicated path and follow-up projection " || error)

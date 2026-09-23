@@ -1410,9 +1410,17 @@ _maintainapply: procedure = .ragcommandresult
   embedding_only = sqlreadint(store.database(),"SELECT coalesce(json_extract(" || sqlquote(reviewed_policy) || ",'$.embeddings_only'),0)") = 1
   initial_only = sqlreadint(store.database(),"SELECT coalesce(json_extract(" || sqlquote(reviewed_policy) || ",'$.initial_extraction_only'),0)") = 1
   source_id=sqlreadtext(store.database(),"SELECT coalesce(json_extract(" || sqlquote(reviewed_policy) || ",'$.source_id'),'')")
+  phase=sqlreadtext(store.database(),"SELECT coalesce(json_extract(" || sqlquote(reviewed_policy) || ",'$.phase'),'')")
+  phase_cohort="[]";phase_next_cursor=""
+  if phase<>"" then do
+    phase_cohort=sqlreadtext(store.database(),"SELECT coalesce(json_extract(" || sqlquote(reviewed_policy) || ",'$.phase_cohort'),'[]')")
+    phase_next_cursor=sqlreadtext(store.database(),"SELECT coalesce(json_extract(" || sqlquote(reviewed_policy) || ",'$.phase_next_cursor'),'')")
+    cohort_doc=.jsondocument(phase_cohort)
+    if wordpos(phase,"identity graph finish")=0 | cohort_doc.valid()<>1 | cohort_doc.node_type(cohort_doc.root())<>"array" | cohort_doc.node_count(cohort_doc.root())>256 then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,3,"reviewed phase cohort is invalid; re-plan");end
+  end
   plan = .ragimproveplan
   census = .ragmaintenancecensus
-  plan_status = _preparemaintenance(store, config, snapshot_id, plan, census, error, embedding_only, source_id, initial_only)
+  plan_status = _preparemaintenance(store, config, snapshot_id, plan, census, error, embedding_only, source_id, initial_only, phase, phase_cohort, phase_next_cursor)
   reviewed_maintenance_digest = _actionstring(plan_json, "maintenance_digest", error)
   if plan_status = 0 & (reviewed_maintenance_digest = "" | reviewed_maintenance_digest \= census.digest()) then do; error = "reviewed maintenance digest does not match the current canonical census"; plan_status = -2; end
   if plan_status = 0 & config.maintenance().mode() \= "reviewed" then do
@@ -1423,7 +1431,7 @@ _maintainapply: procedure = .ragcommandresult
     if recovery_status < 0 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,7,error); end
     old_job = sqlreadtext(store.database(),"SELECT job_id FROM maintenance_windows WHERE state='active' ORDER BY created_epoch LIMIT 1")
     if old_job \= "" then if tickbacklogwindow(store,old_job,error) < 0 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,7,error); end
-    policy_json = backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only,source_id,initial_only)
+    policy_json = backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only,source_id,initial_only,phase,phase_cohort,phase_next_cursor)
     reviewed_policy = _actionstring(plan_json,"window_policy",error)
     if reviewed_policy \= policy_json then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,6,"reviewed maintenance window policy changed"); end
     run_id = ""; job_id = ""; items = 0
@@ -1484,7 +1492,7 @@ _maintainplan: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
   if commandhasaccess(request, "plan") \= 1 then return commandfailure(operation, 4, "maintenance planning requires plan access")
-  if commandoptions(request, "minutes until overnight embeddings-only initial-extraction-only enrich-provenance input source", error) \= 0 then return commandfailure(operation, 2, error)
+  if commandoptions(request, "minutes until overnight embeddings-only initial-extraction-only enrich-provenance input source phase cohort-limit cohort-after", error) \= 0 then return commandfailure(operation, 2, error)
   positionals = request.positionals()
   if positionals.0 \= 0 | request.config_id() = "" | request.profile_id() = "" then return commandfailure(operation, 2, "maintenance planning requires registered --config and --profile ids and no positional arguments")
   config_lookup = registry.config(request.config_id())
@@ -1514,11 +1522,26 @@ _maintainplan: procedure = .ragcommandresult
   if source_id<>"" & enrichment="true" then return commandfailure(operation,2,"source selection applies to ordinary maintenance, not provenance enrichment")
   if initial_only = 1 & source_id = "" then return commandfailure(operation,2,"initial extraction requires --source with a current source ID")
   if initial_only = 1 & enrichment = "true" then return commandfailure(operation,2,"choose initial extraction or provenance enrichment")
+  phase=commandoption(request,"phase",error);cohort_limit_text=commandoption(request,"cohort-limit",error);cohort_after=commandoption(request,"cohort-after",error)
+  if phase<>"" & wordpos(phase,"identity graph finish")=0 then return commandfailure(operation,2,"--phase requires identity, graph or finish")
+  if phase="" & (cohort_limit_text<>"" | cohort_after<>"") then return commandfailure(operation,2,"cohort bounds require --phase")
+  if phase<>"" & (initial_only=1 | embedding_only=1 | source_id<>"" | enrichment="true" | maintenance.mode()="reviewed") then return commandfailure(operation,2,"phase selection requires ordinary automatic, supervised or manual maintenance without another selector")
+  cohort_limit=32
+  if cohort_limit_text<>"" then do
+    if length(cohort_limit_text)>3 | verify(cohort_limit_text,"0123456789")<>0 then return commandfailure(operation,2,"cohort limit must be in 1..256")
+    cohort_limit=cohort_limit_text as .int
+    if cohort_limit<1 | cohort_limit>256 then return commandfailure(operation,2,"cohort limit must be in 1..256")
+  end
+  if length(cohort_after)>512 | pos("00"x,cohort_after)>0 then return commandfailure(operation,2,"cohort cursor must be at most 512 characters without NUL")
   privacy = queryprivacy(config)
   store = .ragstorehandle
   if openragstore(request.library(), "readonly", store, error) \= 0 then return commandopenfailure(operation, error)
   if source_id<>"" then do
     if sqlreadint(store.database(),"SELECT count(*) FROM sources WHERE source_id=" || sqlquote(source_id) || " AND visible_to_generation IS NULL")<>1 then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,5,"source was not found");end
+  end
+  phase_cohort="[]";phase_next_cursor=""
+  if phase<>"" then do
+    if freezephasecohort(store.database(),phase,cohort_after,cohort_limit,maintenance.sparse_max_degree(),phase_cohort,phase_next_cursor,error)<>0 then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,2,error);end
   end
   timing_json = ""
   if maintenance.mode() \= "reviewed" then do
@@ -1531,14 +1554,14 @@ _maintainplan: procedure = .ragcommandresult
   if enrichment = "true" then return _enrichmentplan(request,registry,store,config,profile_lookup.profile(),timing_json,enrichment_input)
   plan = .ragimproveplan
   census = .ragmaintenancecensus
-  plan_status = _preparemaintenance(store, config, snapshot_id, plan, census, error, embedding_only, source_id, initial_only)
+  plan_status = _preparemaintenance(store, config, snapshot_id, plan, census, error, embedding_only, source_id, initial_only, phase, phase_cohort, phase_next_cursor)
   selection_json = ""
-  if plan_status=0 & maintenance.mode()<>"reviewed" then selection_json = backlogselection(store.database(),.jsondocument(backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only,source_id,initial_only)),0,min(98,maintenance.batch_items()),"")
+  if plan_status=0 & maintenance.mode()<>"reviewed" then selection_json = backlogselection(store.database(),.jsondocument(backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only,source_id,initial_only,phase,phase_cohort,phase_next_cursor)),0,min(98,maintenance.batch_items()),"")
   close_error = ""; close_status = closeragstore(store, close_error)
   if plan_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return commandfailure(operation, 1, error); end
   foundation_plan = .ragplan
   action = '{"maintenance_digest":' || jsonquote(census.digest()) || '}'
-  if maintenance.mode() \= "reviewed" then action = '{"maintenance_digest":' || jsonquote(census.digest()) || ',"window_policy":' || jsonquote(backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only,source_id,initial_only)) || '}'
+  if maintenance.mode() \= "reviewed" then action = '{"maintenance_digest":' || jsonquote(census.digest()) || ',"window_policy":' || jsonquote(backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only,source_id,initial_only,phase,phase_cohort,phase_next_cursor)) || '}'
   foundation_status = createfoundationplan(request.library(), request.config_id(), request.profile_id(), "maintain.apply", action, "curate", registry, foundation_plan, error)
   if foundation_status = -2 then return commandfailure(operation, 6, error)
   if foundation_status \= 0 then return commandfailure(operation, 7, error)
@@ -1584,13 +1607,20 @@ _maintainplan: procedure = .ragcommandresult
   fields[fields.0+1] = .ragresultfield("embeddings_only","boolean",changestr("0",changestr("1",embedding_only || "","true"),"false"))
   fields[fields.0+1] = .ragresultfield("initial_extraction_only","boolean",changestr("0",changestr("1",initial_only || "","true"),"false"))
   if source_id<>"" then fields[fields.0+1]=.ragresultfield("source_id","string",source_id)
+  if phase<>"" then do
+    cohort_doc=.jsondocument(phase_cohort)
+    fields[fields.0+1]=.ragresultfield("phase","string",phase)
+    fields[fields.0+1]=.ragresultfield("phase_cohort","string",phase_cohort)
+    fields[fields.0+1]=.ragresultfield("phase_denominator","integer",cohort_doc.node_count(cohort_doc.root()))
+    fields[fields.0+1]=.ragresultfield("phase_next_cursor","string",phase_next_cursor)
+  end
   if selection_json<>"" then fields[fields.0+1]=.ragresultfield("selection","string",selection_json)
   records[records.0 + 1] = .ragresultrecord("maintenance-preview", fields)
   if maintenance.mode()<>"reviewed" then return .ragcommandresult(operation,"ok",0,"bounded maintenance policy previewed; task selection occurs at activation",records)
   return .ragcommandresult(operation, "ok", 0, "bounded maintenance census and worklist created without library writes", records)
 
 _preparemaintenance: procedure = .int
-  arg store = .ragstorehandle, config = .ragconfig, snapshot_id = .string, expose plan = .ragimproveplan, expose census = .ragmaintenancecensus, expose error = .string, embedding_only = 0, source_id = "", initial_only = 0
+  arg store = .ragstorehandle, config = .ragconfig, snapshot_id = .string, expose plan = .ragimproveplan, expose census = .ragmaintenancecensus, expose error = .string, embedding_only = 0, source_id = "", initial_only = 0, phase = "", phase_cohort = "[]", phase_next_cursor = ""
   error = ""; budget = config.budget(); workers = config.workers(); maintenance_policy = config.maintenance()
   extractor = roleproviderconfig(config, "extractor"); embedder = roleproviderconfig(config, "embedding"); extractor_role = rolebinding(config, "extractor"); embedding_role = rolebinding(config, "embedding")
   if snapshot_id = "" | budget.item_limit() < 1 | budget.item_limit() > 100000 | budget.model_calls() < 1 | (maintenance_policy.mode() = "reviewed" & budget.minutes() < 1) | extractor.provider_id() = "" | embedder.provider_id() = "" | embedder.kind() = "codex" then do; error = "maintenance requires positive item, provider-call and time budgets plus extractor and embedding providers"; return -1; end
@@ -1630,7 +1660,7 @@ _preparemaintenance: procedure = .int
   triggers = .string[]; triggers[1] = "bridge"; triggers[2] = "conflict"; triggers[3] = "maintenance-priority"; triggers[4] = "operator-review"; triggers[5] = "unprocessed-extraction"; triggers[6] = "unresolved"; triggers[7] = "weak-support"
   if createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, cognitive_limit, cognitive_call_budget, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), total_time, maximum_call_input, maximum_call_output, maximum_call_cost, maximum_call_time, maximum_inflight, extractor.max_attempts(), privacy, extractor.provider_id(), extractor.credential().ref_string(), discovery_context, plan, error) \= 0 then return -3
   if maintenance_policy.mode()<>"reviewed" then do
-    return previewbacklogwindow(store.database(),embedding_profile_id,batch_items,embedding_only,census,error,source_id,initial_only)
+    return previewbacklogwindow(store.database(),embedding_profile_id,batch_items,embedding_only,census,error,source_id,initial_only,phase,phase_cohort,phase_next_cursor)
   end
   maximum_passes = plan.item_count() + 2
   do pass = 1 to maximum_passes

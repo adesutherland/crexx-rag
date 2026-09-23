@@ -268,6 +268,74 @@ if(NOT metadata_rc EQUAL 0 OR NOT metadata_out MATCHES "canonical_plan")
 endif()
 
 # Actual no-write paths must work under a client that only approves read tools.
+find_program(CPRAG_GAP_SQLITE sqlite3 REQUIRED)
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT count(*) FROM revision_chunks WHERE visible_to_generation IS NULL;" OUTPUT_VARIABLE current_chunks OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${cli} --format json --access read library report --narrative off
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE closure_out ERROR_VARIABLE closure_err RESULT_VARIABLE closure_rc TIMEOUT 30)
+if(NOT closure_rc EQUAL 0 OR NOT closure_out MATCHES "\"kind\":\"convergence-census\"" OR
+   NOT closure_out MATCHES "\"current_chunks\":${current_chunks}" OR
+   NOT closure_out MATCHES "\"incomplete_first_pass_chunks\":${current_chunks}")
+    message(FATAL_ERROR "Read-only convergence census omitted current first-pass debt: ${closure_out}${closure_err}")
+endif()
+file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/debt-report")
+file(COPY "${CPRAG_WORK_DIR}/library" DESTINATION "${CPRAG_WORK_DIR}/debt-report")
+set(debt_library "${CPRAG_WORK_DIR}/debt-report/library")
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${debt_library}/library.sqlite"
+    "INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,parent_task_id) VALUES('debt-open','fixture','note','open','fixture','fixture','{}','Open','pending',1,1,1,''),('debt-settled','fixture','note','settled','fixture','fixture','{}','Settled','resolved',1,1,1,''),('debt-reopened-old','fixture','note','reopened','old','fixture','{}','Old','resolved',1,1,1,''),('debt-reopened-new','fixture','note','reopened','new','fixture','{}','New','pending',1,2,2,'debt-reopened-old'),('debt-parked','fixture','note','parked','fixture','fixture','{}','Parked','pending',1,1,1,''); INSERT INTO maintenance_task_waivers(waiver_id,task_id,reason,state,created_epoch) VALUES('debt-parked-waiver','debt-parked','Reviewed exception','active',1);"
+    RESULT_VARIABLE debt_seed_rc ERROR_VARIABLE debt_seed_err)
+if(NOT debt_seed_rc EQUAL 0)
+    message(FATAL_ERROR "Could not seed mixed logical-debt report fixture: ${debt_seed_err}")
+endif()
+execute_process(COMMAND ${cli} --library "${debt_library}" --format json --access read library report --narrative off
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE debt_out ERROR_VARIABLE debt_err RESULT_VARIABLE debt_rc TIMEOUT 30)
+if(NOT debt_rc EQUAL 0 OR NOT debt_out MATCHES "\"new_logical_questions\":4" OR
+   NOT debt_out MATCHES "\"materially_reopened_questions\":1" OR
+   NOT debt_out MATCHES "\"durable_settlements\":2" OR
+   NOT debt_out MATCHES "\"parked_exceptions\":1" OR
+   NOT debt_out MATCHES "\"closing_actionable_debt\":2" OR
+   NOT debt_out MATCHES "\"reconciliation_delta\":0" OR
+   NOT debt_out MATCHES "\"debt_reconciliation_available\":true")
+    message(FATAL_ERROR "Mixed logical-debt ledger did not reconcile independently: ${debt_out}${debt_err}")
+endif()
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${debt_library}/library.sqlite"
+    "INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,parent_task_id) VALUES('debt-unlinked-settlement','fixture','note','settled','second','fixture','{}','Unlinked settlement','resolved',1,2,2,''),('debt-orphan-version','fixture','note','orphan','fixture','fixture','{}','Orphan version','superseded',1,2,2,'');"
+    RESULT_VARIABLE debt_legacy_rc ERROR_VARIABLE debt_legacy_err)
+if(NOT debt_legacy_rc EQUAL 0)
+    message(FATAL_ERROR "Could not seed unreconciled task-history control: ${debt_legacy_err}")
+endif()
+execute_process(COMMAND ${cli} --library "${debt_library}" --format json --access read library report --narrative off
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE debt_legacy_out ERROR_VARIABLE debt_legacy_report_err RESULT_VARIABLE debt_legacy_report_rc TIMEOUT 30)
+if(NOT debt_legacy_report_rc EQUAL 0 OR NOT debt_legacy_out MATCHES "\"reconciliation_delta\":0" OR
+   NOT debt_legacy_out MATCHES "\"unreconciled_logical_questions\":2" OR
+   NOT debt_legacy_out MATCHES "\"debt_reconciliation_available\":false")
+    message(FATAL_ERROR "Offsetting lineage gaps must not be reported as reconciled: ${debt_legacy_out}${debt_legacy_report_err}")
+endif()
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT count(*) FROM query_gaps;" OUTPUT_VARIABLE gaps_before OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${cli} --format json query evidence "unsupported quantum algorithm" --mode lexical --record-gaps false
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE quiet_out ERROR_VARIABLE quiet_err RESULT_VARIABLE quiet_rc TIMEOUT 30)
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT count(*) FROM query_gaps;" OUTPUT_VARIABLE gaps_quiet OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT quiet_rc EQUAL 0 OR NOT quiet_out MATCHES "\"query_gaps_recorded\":0" OR NOT gaps_before STREQUAL gaps_quiet)
+    message(FATAL_ERROR "Evaluation evidence query changed durable gap demand: ${quiet_out}${quiet_err}")
+endif()
+file(WRITE "${CPRAG_WORK_DIR}/quiet-query-mcp.jsonl" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_evidence\",\"arguments\":{\"question\":\"unsupported quantum algorithm\",\"mode\":\"lexical\",\"record_gaps\":false}}}\n")
+execute_process(COMMAND ${cli} --access read serve mcp WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    INPUT_FILE "${CPRAG_WORK_DIR}/quiet-query-mcp.jsonl"
+    OUTPUT_VARIABLE mcp_quiet_out ERROR_VARIABLE mcp_quiet_err RESULT_VARIABLE mcp_quiet_rc TIMEOUT 30)
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT count(*) FROM query_gaps;" OUTPUT_VARIABLE gaps_mcp_quiet OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT mcp_quiet_rc EQUAL 0 OR NOT mcp_quiet_out MATCHES "\"query_gaps_recorded\":0" OR NOT gaps_mcp_quiet STREQUAL gaps_quiet)
+    message(FATAL_ERROR "MCP evaluation query changed durable gap demand: ${mcp_quiet_out}${mcp_quiet_err}")
+endif()
+execute_process(COMMAND ${cli} --format json query evidence "unsupported quantum algorithm" --mode lexical
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE observed_out ERROR_VARIABLE observed_err RESULT_VARIABLE observed_rc TIMEOUT 30)
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT count(*) FROM query_gaps;" OUTPUT_VARIABLE gaps_observed OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT observed_rc EQUAL 0 OR gaps_observed LESS_EQUAL gaps_quiet)
+    message(FATAL_ERROR "Ordinary evidence query stopped recording durable gap demand: ${observed_out}${observed_err}")
+endif()
 file(SHA256 "${CPRAG_WORK_DIR}/library/library.sqlite" read_database_before)
 execute_process(COMMAND ${cli} --format json --access read query inspect "unsupported quantum algorithm" --mode lexical
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"

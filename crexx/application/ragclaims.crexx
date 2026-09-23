@@ -775,7 +775,7 @@ _candidate: procedure = .int
   arg database = .binary, candidate_id = .string, expose chunk = .string, expose start = .int, expose finish = .int, expose decision = .string
   chunk = ""; start = 0; finish = 0; decision = ""
   prepared = .binary
-  sql = "SELECT c.revision_chunk_id,c.span_start,c.span_end,d.decision_id FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.candidate_id=?1 AND c.visible_to_generation IS NULL ORDER BY d.decision_version DESC LIMIT 1"
+  sql = "SELECT c.revision_chunk_id,c.span_start,c.span_end,d.decision_id FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' AND d.decision_version=(SELECT max(v.decision_version) FROM candidate_decisions v WHERE v.candidate_id=d.candidate_id) WHERE c.candidate_id=?1 AND c.visible_to_generation IS NULL LIMIT 1"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, candidate_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
   status = sqlitecolumntext(prepared, 0, chunk) | sqlitecolumnint(prepared, 1, start) | sqlitecolumnint(prepared, 2, finish) | sqlitecolumntext(prepared, 3, decision)
   call sqlitefinalize prepared

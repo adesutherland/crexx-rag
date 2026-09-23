@@ -1166,8 +1166,12 @@ current chunk's **first** concept review, use:
 The matching machine operation is `maintain plan --source SOURCE_ID
 --initial-extraction-only` (MCP: `rag_maintain_plan` with
 `initial_extraction_only: true`). The reviewed plan freezes this selection.
-Activation and continuation admit only current source chunks without an
-accepted first concept-review result. Alias follow-ups, identity questions,
+Activation and continuation admit only current source chunks without a
+succeeded, validated first extraction receipt. Processed search, read, extract,
+defer and escalation controls do not count; a validated empty extraction does.
+`maintain tasks --source SOURCE_ID` reports accepted, accepted-empty,
+incomplete and explicitly excepted current chunks separately. A held chunk
+remains incomplete even when it cannot be dispatched. Alias follow-ups, identity questions,
 embedding repairs and already reviewed chunks remain for normal source
 maintenance. The mode does not reingest source bytes or chunks, and it cannot
 be combined with `--embeddings-only` or provenance enrichment. A source ID is
@@ -1180,6 +1184,19 @@ plan. The source is retained in that window and through its normal continuation;
 configured bounds. After checking the source block and remaining overall
 allowance, start ordinary `maintain` without `--source` to resume the library
 backlog. No per-chunk worklist or reingestion is needed.
+
+For a bounded concept or graph phase, use `maintain plan --phase identity
+--cohort-limit 32` or `maintain plan --phase graph --cohort-limit 32`, then
+apply its exact canonical plan and digest. `--cohort-after ID` pages further
+subjects; follow `phase_next_cursor` until empty. The selected IDs and
+denominator remain in the window policy across continuation. Unrelated
+higher-priority tasks do not displace the selected concepts. `--phase finish`
+includes pending reviews and unfinished workflows in its selected cohort.
+Reviews still use `review list`, `review decide` and their existing authority;
+workflow consequences use `maintain reconcile` and the retained task/review
+controls. A finish window with a selected pending review reports incomplete.
+Plan calls are read-only; iterate all cohort pages for a complete dry-run
+preview before claiming the selected phase is quiet.
 
 For automatic maintenance, `maintain --yes` returns success (exit code 0) when
 its reviewed budget or window is exhausted and admitted calls have finished.
@@ -1399,6 +1416,20 @@ These are work-object counts, not estimates of distinct future provider calls.
 Old snapshots remain unchanged; their stored report identifies which counters
 were available when they were captured.
 
+The `convergence-census` record separates current accepted first-pass chunks,
+accepted-empty assessments, incomplete and waived chunks from distinct open and
+settled logical questions. It also reports final insufficient-evidence
+conclusions, applied changes, pending review kinds, technical holds, unfinished
+migrations and dependent task versions. The retained task-history ledger reports
+opening actionable debt (zero at task-ledger creation), new questions, linked
+reopenings, settlements, parked exceptions and closing actionable debt. The
+ledger is reconciled only when both its global delta and each logical question's
+balance are zero. Missing or inconsistent legacy lineage is counted separately
+as unreconciled logical questions. Parked exceptions remain
+unresolved quality debt, and neither current-state counts nor this ledger alone
+measure answer quality. A resolved origin task
+does not close an unfinished workflow or pending review.
+
 `--narrative cached` reads a matching prior advisory result without a provider
 call. `--narrative refresh` makes exactly one call through the configured
 `advisory` role after privacy and budget preflight. Human refresh requires
@@ -1547,11 +1578,23 @@ source-grounded answers without opening a writing route. Query limits are
 1–200 and graph hops 0–4. Omit the query limit to use `retrieval.passage_limit`
 (default 12). The CLI override is `--limit 200`; MCP uses `"limit": 200`.
 This is a maximum returned-passage count. Available candidates, source diversity
-and `retrieval.maximum_evidence_bytes` remain independent controls. To retrieve
-large packets, configure sufficient `retrieval.lexical_candidates` and evidence
-bytes; a byte ceiling exceeded is reported explicitly. Resolve returned citations
-with `rag_citation_show`. Ordinary agents should retain broad evidence and filter
-it, rather than routinely request only three passages.
+and `retrieval.maximum_evidence_bytes` remain independent controls. If the
+selected evidence exceeds that byte ceiling, `query evidence` and `query inspect`
+return a bounded packet of whole records. Check `evidence_incomplete`, the
+`omitted_*` command fields, and `evidence_json.truncation.omitted`; absence from
+an incomplete packet is not negative evidence. Retained citations, source
+metadata and claim qualifications are unchanged. If mandatory packet metadata
+alone cannot fit, the query still fails rather than exceeding the ceiling.
+Resolve returned citations with `rag_citation_show`. Ordinary agents should
+retain broad evidence and filter it, rather than routinely request only three
+passages.
+
+For a frozen evaluation question that must not create new maintenance demand,
+use `query evidence 'question' --mode lexical --record-gaps false` or the MCP
+`rag_query_evidence` argument `"record_gaps": false`. The default continues
+to record durable gap observations. `query inspect` remains a read-only lexical
+route. Suppressing observations does not suppress normal provider receipts for
+a provider-backed hybrid query.
 
 For ordinary MCP Q&A, the current assistant composes the answer from that
 evidence. Use `rag_query_answer` only for an explicit request to use or test
@@ -1619,7 +1662,10 @@ job attempt eligibility; ordinary `maintain retry` keeps the task context.
 
 For an oversized task, `maintain evidence-index --id TASK_ID --kind passages
 --scope current` pages an addressable inventory; catalogue and context are also
-available. `maintain refresh-plan --id TASK_ID --reason 'Review complete evidence'`
+available. Its held packet reports `evidence_complete: false`, exact omitted
+passage and catalogue counts, and the inventory tool; an empty packet is not
+evidence that the library lacks a candidate. `maintain refresh-plan --id
+TASK_ID --reason 'Review complete evidence'`
 prepares a complete replacement, defaulting to 1 MiB/1000 concepts. Authorized
 `maintain refresh-apply --plan-json PLAN --expect-digest DIGEST` preserves and
 supersedes the old task. Read and resolve the returned successor. Per-task

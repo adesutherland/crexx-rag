@@ -332,13 +332,22 @@ the same run through status and inspection. Ordinary catalogue maintenance can
 finish its bounded window with a remaining backlog without becoming an error.
 
 `ragbacklog` owns the `initial_extraction_only` selector for a source-scoped
-durable window. Its census and dispatch admit current chunks needing their
-first concept-review result, while outcome reconciliation still sees a task
-after its result arrives. A prior accepted result, recorded decision or
-resolved first-pass task excludes that chunk from later first-pass windows;
-alias follow-ups and embedding repair remain in ordinary maintenance. The
+durable window. Its census, dispatch, source status and completion use the same
+predicate: only a succeeded, validated first extraction receipt with an output
+hash assesses a current chunk. A processed search/read/extract/defer/escalate
+control or a resolved task without such a receipt does not establish coverage;
+an accepted empty extraction does. Alias follow-ups and embedding repair remain
+in ordinary maintenance. The
 selection is frozen in the reviewed plan and can be used in automatic,
 supervised or manual mode. No new task kind, schema or ingestion path is added.
+
+`ragbacklog` also freezes a bounded identity, graph or finish cohort into the
+reviewed maintenance plan and window policy. Selection and checkpoints use that
+cohort to prevent unrelated higher-priority work from displacing it. Its note
+census retains recommendation annotations without a next action as read-only
+context. `ragreportservice` reports a separate logical-debt ledger and marks
+retained history unreconciled when either the global or per-question balance
+fails. These projections do not treat task traffic as evidence of quality.
 
 Codex's required preflight reads current account allowance before new work.
 Durable receipts settle actual usage. There is no additional account refresh
@@ -665,6 +674,14 @@ qualifications are not substituted. Provider history retains the map in
 `recovery_json.reference_map`, including for rejected responses.
 
 The existing evidence byte ceiling still bounds the public evidence packet.
+`ragevidencejson` keeps fitting packets unchanged. On overflow, it removes whole
+lower-priority records, retaining ranked source passages ahead of graph additions,
+and publishes exact omission counts plus incomplete guidance. Citation spans,
+provenance and claim qualifications remain part of each retained record. Mandatory
+metadata still must fit; generated answers still refuse an oversized public
+packet rather than risk returning an answer whose citation was omitted. The
+query service mirrors omission counts in command fields for human and machine
+callers. [Focused delivery evidence](query-evidence-bounding-20260923.md).
 The answer context has an additional ceiling derived from the answer role,
 per-command input allowance and model context minus requested output. It uses
 the existing maintenance convention of three UTF-8 bytes per estimated token,

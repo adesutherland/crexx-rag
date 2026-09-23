@@ -24,6 +24,23 @@ prompt/quotation, checkpoint/restart and advanced-call repairs remain included.
 
 ## Recent defects and delivery status
 
+Combined convergence and evidence-bound candidate (23 September): **local
+implementation in progress; not installed, published or corpus-qualified**.
+The first-pass predicate now requires a validated successful extraction receipt;
+phase/cohort selection, relevant-context settlement, scoped invalid-node
+retirement, identity candidate passages, coalesced alias follow-up, input-hold
+completeness and logical-debt reporting have focused synthetic coverage.
+Evaluation evidence queries can suppress gap observations. The whole-record
+query-output overflow repair is included and both graph-enabled retrieval
+modes pass synthetic tests. The current combined build accounts for **135/135
+required local passes** with exact-input receipt reuse. Remaining acceptance
+includes full cohort restart/fencing, deterministic canonical survivor
+enforcement, complete read-only discovery and the integrated C0–C6 journey. No
+private-corpus maintenance or installation has been run for this candidate.
+[Ownership and focused evidence](maintenance-refactoring-delivery.md#combined-convergence-candidate--23-september-2026-in-progress),
+[coverage matrix](regression-coverage.md#combined-convergence-and-evidence-bound-candidate--23-september-2026),
+[overflow delivery](query-evidence-bounding-20260923.md).
+
 Provider selection (22 September): the operator-selected route must not be
 overridden by an automatic source-privacy veto. Both shared refusals are removed
 locally; fail-first public-maintenance and provider-contract acceptance is
@@ -284,7 +301,7 @@ consolidated delivery and dependency map, not a new feature specification.
 | ID | Outcome | Existing owner, dependency and acceptance focus |
 | --- | --- | --- |
 | RAG-QE-01 | Selectable graph entry points in search results | `ragretrieval`, evidence types/serialization and shared surfaces. Stable concept IDs, types, mention citations, passage origin, lifecycle/ambiguity and generation; bound/page candidates and expose truncation. Do not invent nodes for unextracted passages. |
-| RAG-QE-02 | Explicitly selected, bounded graph expansion | Query plan plus traversal/evidence. Preserve ordinary inferred anchors. Selected IDs, direction/hops/time, generation/staleness, missing IDs, cycles, high-degree nodes and duplicate paths need tested bounds and trace. Compare curated and optional automatic expansion under QE-09; similarity is not a claim. |
+| RAG-QE-02 | Explicitly selected, bounded graph expansion | Query plan plus traversal/evidence. Preserve ordinary inferred anchors. Selected IDs, direction/hops/time, generation/staleness, missing IDs, cycles, high-degree nodes and duplicate paths need tested bounds and trace. The Q03 graph-on public-packet overflow has a local whole-record bounding repair with explicit omissions and synthetic lexical/hybrid tests; the combined required local gate passes 135/135. Installed Q03 replay and publication remain pending. [Focused delivery](query-evidence-bounding-20260923.md). Compare curated and optional automatic expansion under QE-09; similarity is not a claim. |
 | RAG-QE-03 | Standalone human or optional LLM-directed querying | Shared query service and surfaces. Installed reader without extraction credentials; preserve zero-write/zero-provider `query inspect`. Bound searcher calls/privacy/budgets, validate citations/IDs, and prevent implicit claim writes. Answerer changes do not invalidate embeddings. |
 | RAG-QE-04 | Local embeddings with persistent CREXX ownership | Existing provider abstraction and process/session ownership; upstream NI-01–06. Prove offline installed cold/warm use, model reuse, actual CPU/GPU backend, per-owner memory, bounded batches and durable recovery. Preserve HTTP routes; no cross-process native handles or assumed shared allocation. |
 | RAG-QE-05 | Deliberately embedding-free lifecycle | Configuration, ingest, maintenance, health and query. Disabled is distinct from missing/failed required coverage; no embedding calls or endless repair census. Later enabling creates only embedding/index work, retaining evidence and graph. This crosses more than the query adapter. |

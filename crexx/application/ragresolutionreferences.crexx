@@ -22,7 +22,8 @@ ragresolutionreferences: class
     _ready=0;_concepts=0;_evidence=0
     if _document.valid()<>1 then return
     root=_document.root();packet=_document.member(root,"evidence");subject=_document.member(packet,"subject")
-    if _text(_document,root,"resolution_contract")<>"crexx-rag.resolution-contract/5" | _text(_document,subject,"type")="provenance-chunk" then return
+    version=_text(_document,root,"resolution_contract")
+    if wordpos(version,"crexx-rag.resolution-contract/5 crexx-rag.resolution-contract/6 crexx-rag.resolution-contract/7")=0 | _text(_document,subject,"type")="provenance-chunk" then return
     _enabled=1
     return
 

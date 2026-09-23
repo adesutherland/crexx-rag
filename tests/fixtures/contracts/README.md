@@ -72,3 +72,13 @@ preconditions and directs supported alternatives or final no-change. All schema
 hashes and extraction/answer/report system hashes remain unchanged. Direct
 initial/correction ordinary/advanced inspection and lifecycle positive/refusal
 cases provide behavioral evidence; see `docs/beta-delivery-20260920.md`.
+
+23 September combined convergence candidate: only the two resolution captures
+change (`a09a2b40…`/`d037405b…` become `6caff9d2…`/`c6155283…`). Their common
+schema hash changes from `75103edd…` to `05b3f4a2…` for optional reviewed
+impact dispositions and `insufficient-evidence`; the system prompts now require
+source-supported equivalence before merge and distinguish final lack of evidence
+from an affirmative no-change. Extraction, answer and report pairs remain
+byte-identical. The lifecycle, settled-question and public maintenance scenarios
+exercise these semantics; the captured requests and observed digest are retained
+in the regression prompt-contract QA run.

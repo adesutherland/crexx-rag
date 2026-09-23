@@ -1419,7 +1419,7 @@ _queuework: procedure = .int
 _candidatecatalog: procedure = .string
   arg database = .binary, chunk_id = .string, generation = .int, maximum_candidates = .int, expose error = .string
   prepared = .binary; output = ""; error = ""
-  sql = "SELECT c.candidate_id,c.normalized_candidate,c.span_start,c.span_end,d.evidence_json FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) ORDER BY c.span_start,c.span_end,c.candidate_id LIMIT ?3"
+  sql = "SELECT c.candidate_id,c.normalized_candidate,c.span_start,c.span_end,d.evidence_json FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' AND d.decision_version=(SELECT max(v.decision_version) FROM candidate_decisions v WHERE v.candidate_id=d.candidate_id) WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) ORDER BY c.span_start,c.span_end,c.candidate_id LIMIT ?3"
   if maximum_candidates < 1 | sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitebindint(prepared, 3, maximum_candidates) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare work candidate catalog"; return ""; end
   do forever
     step = sqlitestep(prepared)

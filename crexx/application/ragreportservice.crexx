@@ -5,6 +5,7 @@ namespace ragreportservice expose libraryreport reportoperationaldigest
 import provider_contract
 import ragcommand
 import ragcommandutil
+import ragbacklog
 import ragconfig
 import ragconfiguration
 import ragdirectcalls
@@ -118,10 +119,18 @@ libraryreport: procedure = .ragcommandresult
   disposition_read=disposition_document.node_int(disposition_document.member(disposition_document.root(),"unwaived_open_tasks"),unwaived_open)
   disposition_read=disposition_document.node_int(disposition_document.member(disposition_document.root(),"waived_dead_letters"),waived_dead)
   durable = _durablereportcensus(database)
+  convergence=_convergencecensus(database)
+  debt=_debtledger(database,convergence[6])
   durable_open = 0
   do i = 1 to durable.0
     if durable[i] < 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation,7,"cannot read durable maintenance report census"); end
     if i <= 5 then durable_open = durable_open + durable[i]
+  end
+  do i=1 to convergence.0
+    if convergence[i]<0 then do; ignored="";call closeragstore store,ignored;return commandfailure(operation,7,"cannot read convergence census");end
+  end
+  do i=1 to 5
+    if debt[i]<0 then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,7,"cannot read logical debt ledger");end
   end
 
   required_metrics = .int[]
@@ -180,7 +189,7 @@ libraryreport: procedure = .ragcommandresult
   semantic = semantic || ']}'
   semantic_digest = rxhash..sha256hex(semantic as .binary)
   operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification.issue_count() || ',' || repository_verification.issue_count() || ',' || fts_rows || '],"reconciliation_warning":' || commandboolean(reconciliation_warning) || '}'
-  operational = substr(operational,1,length(operational)-1) || ',"vector_current":' || commandboolean(vector_current) || ',"durable":' || _durablereportjson(durable) || ',"operator_dispositions":' || dispositions || '}'
+  operational = substr(operational,1,length(operational)-1) || ',"vector_current":' || commandboolean(vector_current) || ',"durable":' || _durablereportjson(durable) || ',"convergence":' || _durablereportjson(convergence) || ',"debt_ledger":' || _durablereportjson(debt) || ',"operator_dispositions":' || dispositions || '}'
   operational_digest = rxhash..sha256hex(operational as .binary)
   report_id = "report-sha256:" || semantic_digest
   provider_context = '{"schema":"crexx-rag.library-report-context/1","semantic":' || semantic || ',"operational":' || operational || ',"passages":[' || passages || ']}'
@@ -223,6 +232,22 @@ libraryreport: procedure = .ragcommandresult
   durable_fields[13]=.ragresultfield("waived_tasks","integer",waived_tasks)
   durable_fields[14]=.ragresultfield("unwaived_open_tasks","integer",unwaived_open)
   records[records.0 + 1] = .ragresultrecord("durable-maintenance-backlog",durable_fields)
+  convergence_fields=.ragresultfield[]
+  convergence_names="current_chunks accepted_first_pass_chunks accepted_empty_first_pass_chunks incomplete_first_pass_chunks explicitly_excepted_first_pass_chunks open_logical_questions durably_settled_logical_questions final_insufficient_evidence applied_change_questions pending_extraction_reviews pending_maintenance_reviews pending_other_reviews technically_held_or_failed_questions unfinished_migrations dependent_task_versions superseded_task_versions materially_reopened_task_versions"
+  do i=1 to convergence.0
+    convergence_fields[i]=.ragresultfield(word(convergence_names,i),"integer",convergence[i])
+  end
+  convergence_fields[18]=.ragresultfield("pending_review_kinds","string",_pendingreviewkinds(database))
+  convergence_fields[19]=.ragresultfield("debt_reconciliation_available","boolean",commandboolean(debt[7]))
+  convergence_fields[20]=.ragresultfield("opening_actionable_debt","integer",0)
+  convergence_fields[21]=.ragresultfield("new_logical_questions","integer",debt[1])
+  convergence_fields[22]=.ragresultfield("materially_reopened_questions","integer",debt[2])
+  convergence_fields[23]=.ragresultfield("durable_settlements","integer",debt[3])
+  convergence_fields[24]=.ragresultfield("parked_exceptions","integer",debt[4])
+  convergence_fields[25]=.ragresultfield("closing_actionable_debt","integer",debt[5])
+  convergence_fields[26]=.ragresultfield("reconciliation_delta","integer",debt[6])
+  convergence_fields[27]=.ragresultfield("unreconciled_logical_questions","integer",debt[8])
+  records[records.0+1]=.ragresultrecord("convergence-census",convergence_fields)
 
   storage_issues = verification.issue_count() + repository_verification.issue_count()
   storage_state = "pass"; if storage_issues > 0 then storage_state = "attention"
@@ -433,13 +458,81 @@ reportoperationaldigest: procedure = .string
   reviews = sqlreadint(database, "SELECT count(*) FROM reviews WHERE state='pending'"); gaps = sqlreadint(database, "SELECT count(*) FROM query_gaps WHERE state='open' AND observed_generation<=" || generation); fts_rows = sqlreadint(database, "SELECT count(*) FROM chunks_fts"); reconciliation_warning = actionable_dead_letters > 0 & active_jobs = 0
   operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification_issues || ',' || repository_issues || ',' || fts_rows || '],"reconciliation_warning":' || commandboolean(reconciliation_warning) || '}'
   durable = _durablereportcensus(database)
+  convergence=_convergencecensus(database)
+  debt=_debtledger(database,convergence[6])
   do i = 1 to durable.0
     if durable[i] < 0 then return ""
   end
+  do i=1 to convergence.0
+    if convergence[i]<0 then return ""
+  end
+  do i=1 to 5
+    if debt[i]<0 then return ""
+  end
   dispositions=_dispositionreportjson(database,reconciliation_counts[4])
   if dispositions="" then return ""
-  operational = substr(operational,1,length(operational)-1) || ',"vector_current":' || commandboolean(vector_current) || ',"durable":' || _durablereportjson(durable) || ',"operator_dispositions":' || dispositions || '}'
+  operational = substr(operational,1,length(operational)-1) || ',"vector_current":' || commandboolean(vector_current) || ',"durable":' || _durablereportjson(durable) || ',"convergence":' || _durablereportjson(convergence) || ',"debt_ledger":' || _durablereportjson(debt) || ',"operator_dispositions":' || dispositions || '}'
   return rxhash..sha256hex(operational as .binary)
+
+/* Reconcile retained logical task history only when its predecessor chain and
+ * terminal states account for every current question. A nonzero delta exposes
+ * legacy or otherwise incomplete lineage instead of manufacturing closure. */
+_debtledger: procedure = .int[]
+  arg database=.binary,closing=.int
+  values=.int[]
+  values[1]=sqlreadint(database,"SELECT count(*) FROM (SELECT kind,subject_type,subject_id,workflow_id FROM maintenance_tasks GROUP BY kind,subject_type,subject_id,workflow_id)")
+  values[2]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_tasks p ON p.task_id=t.parent_task_id WHERE p.state='resolved' AND t.kind=p.kind AND t.subject_type=p.subject_type AND t.subject_id=p.subject_id AND t.workflow_id=p.workflow_id")
+  values[3]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE state='resolved'")
+  waived=taskwaived("t.task_id")
+  values[4]=sqlreadint(database,"SELECT count(*) FROM (SELECT t.kind,t.subject_type,t.subject_id,t.workflow_id FROM maintenance_tasks t GROUP BY t.kind,t.subject_type,t.subject_id,t.workflow_id HAVING sum(CASE WHEN " || waived || " THEN 1 ELSE 0 END)>0 AND sum(CASE WHEN t.state IN('pending','dispatched','unresolved','review','failed') AND NOT " || waived || " THEN 1 ELSE 0 END)=0 AND sum(t.state='resolved')=0)")
+  values[5]=closing
+  values[6]=values[1]+values[2]-values[3]-values[4]-values[5]
+  open_condition="t.state IN('pending','dispatched','unresolved','review','failed') AND NOT " || waived
+  open_count="sum(CASE WHEN " || open_condition || " THEN 1 ELSE 0 END)"
+  settled_count="sum(t.state='resolved')"
+  reopened_count="sum(CASE WHEN EXISTS(SELECT 1 FROM maintenance_tasks p WHERE p.task_id=t.parent_task_id AND p.state='resolved' AND p.kind=t.kind AND p.subject_type=t.subject_type AND p.subject_id=t.subject_id AND p.workflow_id=t.workflow_id) THEN 1 ELSE 0 END)"
+  parked_count="CASE WHEN sum(CASE WHEN " || waived || " THEN 1 ELSE 0 END)>0 AND " || open_count || "=0 AND " || settled_count || "=0 THEN 1 ELSE 0 END"
+  balance="1+" || reopened_count || "-" || settled_count || "-" || parked_count || "-CASE WHEN " || open_count || ">0 THEN 1 ELSE 0 END"
+  values[8]=sqlreadint(database,"SELECT count(*) FROM (SELECT " || balance || " group_balance FROM maintenance_tasks t GROUP BY t.kind,t.subject_type,t.subject_id,t.workflow_id) WHERE group_balance<>0")
+  values[7]=values[6]=0 & values[8]=0
+  return values
+
+/* Current-state logical debt is separate from task-version throughput. The
+ * interval opening balance is deliberately unavailable without a prior
+ * comparable snapshot; do not manufacture an improvement equation. */
+_convergencecensus: procedure = .int[]
+  arg database=.binary
+  counts=.int[]
+  do i=1 to 17;counts[i]=0;end
+  counts[1]=sqlreadint(database,"SELECT count(*) FROM revision_chunks WHERE visible_to_generation IS NULL")
+  version=sqlreadint(database,"SELECT schema_version FROM library_meta WHERE singleton=1")
+  if version<0 then do;counts[1]=-1;return counts;end
+  if version<10 then do;counts[4]=counts[1];return counts;end
+  missing=firstreviewmissing("c.revision_chunk_id")
+  counts[2]=sqlreadint(database,"SELECT count(*) FROM revision_chunks c WHERE c.visible_to_generation IS NULL AND NOT " || missing)
+  empty="EXISTS(SELECT 1 FROM maintenance_tasks t JOIN maintenance_task_items m ON m.task_id=t.task_id JOIN job_items i ON i.item_id=m.item_id JOIN attempts a ON a.item_id=i.item_id JOIN job_events e ON e.item_id=i.item_id AND e.attempt_id=a.attempt_id AND e.event_type='processed' WHERE t.kind='concept-review' AND t.subject_type='chunk' AND t.subject_id=c.revision_chunk_id AND i.item_type='improve-extraction' AND i.state='processed' AND a.outcome='succeeded' AND a.validation_state='validated-discovery-batch' AND json_valid(e.message) AND json_extract(e.message,'$.mentions')=0 AND json_extract(e.message,'$.relationships')=0 AND json_extract(e.message,'$.notes')=0)"
+  counts[3]=sqlreadint(database,"SELECT count(*) FROM revision_chunks c WHERE c.visible_to_generation IS NULL AND NOT " || missing || " AND " || empty)
+  counts[4]=counts[1]-counts[2]
+  counts[5]=sqlreadint(database,"SELECT count(*) FROM revision_chunks c WHERE c.visible_to_generation IS NULL AND " || missing || " AND EXISTS(SELECT 1 FROM maintenance_tasks t WHERE t.kind='concept-review' AND t.subject_type='chunk' AND t.subject_id=c.revision_chunk_id AND " || taskwaived("t.task_id") || ")")
+  counts[6]=sqlreadint(database,"SELECT count(*) FROM (SELECT kind,subject_type,subject_id,workflow_id FROM maintenance_tasks t WHERE state IN('pending','dispatched','unresolved','review','failed') AND NOT " || taskwaived("t.task_id") || " GROUP BY kind,subject_type,subject_id,workflow_id)")
+  counts[7]=sqlreadint(database,"SELECT count(*) FROM (SELECT kind,subject_type,subject_id,workflow_id FROM maintenance_tasks GROUP BY kind,subject_type,subject_id,workflow_id HAVING sum(state='resolved')>0 AND sum(state NOT IN('resolved','superseded'))=0)")
+  counts[8]=sqlreadint(database,"SELECT count(DISTINCT d.task_id) FROM maintenance_decisions d JOIN maintenance_tasks t ON t.task_id=d.task_id WHERE t.state='resolved' AND d.disposition IN('insufficient-evidence:resolved','insufficient-evidence:review:accept')")
+  counts[9]=sqlreadint(database,"SELECT count(DISTINCT task_id) FROM maintenance_decisions WHERE applied_generation IS NOT NULL AND json_extract(response_json,'$.action') NOT IN('no-change','insufficient-evidence','retain','defer','search','read','extract')")
+  counts[10]=sqlreadint(database,"SELECT count(*) FROM reviews WHERE state='pending' AND review_type='external-proposal'")
+  counts[11]=sqlreadint(database,"SELECT count(*) FROM reviews WHERE state='pending' AND review_type LIKE 'maintenance-%'")
+  counts[12]=sqlreadint(database,"SELECT count(*) FROM reviews WHERE state='pending' AND review_type<>'external-proposal' AND review_type NOT LIKE 'maintenance-%'")
+  counts[13]=sqlreadint(database,"SELECT count(*) FROM (SELECT kind,subject_type,subject_id,workflow_id FROM maintenance_tasks WHERE state='failed' OR (state='review' AND json_extract(evidence_json,'$.limit_exceeded')=1) GROUP BY kind,subject_type,subject_id,workflow_id)")
+  counts[14]=sqlreadint(database,"SELECT count(*) FROM maintenance_workflows WHERE state IN('migrating','waiting')")
+  counts[15]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id<>'' OR kind LIKE 'alias-follow-up:%'")
+  counts[16]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE state='superseded'")
+  counts[17]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_tasks p ON p.task_id=t.parent_task_id WHERE t.kind=p.kind AND t.subject_type=p.subject_type AND t.subject_id=p.subject_id AND t.workflow_id=p.workflow_id")
+  return counts
+
+_pendingreviewkinds: procedure = .string
+  arg database=.binary
+  value=sqlreadtext(database,"SELECT coalesce(json_group_object(review_type,total),'{}') FROM (SELECT review_type,count(*) total FROM reviews WHERE state='pending' GROUP BY review_type ORDER BY review_type)")
+  if value="" then return "{}"
+  return value
 _durablereportcensus: procedure = .int[]
   arg database = .binary
   counts = .int[]

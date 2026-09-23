@@ -771,6 +771,7 @@ _applylifecycle: procedure = .int
     if action = "move-child" | action = "copy-child" | action = "retract" then do
       if _applyobjectdisposition(database, concept_id, object_type, object_id, action, target, current, generation, error) \= 0 then return _lifecycleabort(store, error, error)
     end
+    if operation="retire" & object_type="mention" & action="retract" then if _rejectretiredcandidate(database,object_id,concept_id,maintenance_item_id,disposition_reasons[i],error)<>0 then return _lifecycleabort(store,error,error)
     disposition_id = "disposition-sha256:" || rxhash..sha256hex((maintenance_item_id || "00"x || object_type || "00"x || object_id) as .binary)
     prepared = .binary
     sql = "INSERT INTO maintenance_dispositions(disposition_id,maintenance_item_id,object_type,object_id,action,target_concept_id,confidence,reason,applied_generation) VALUES(?1,?2,?3,?4,?5,NULLIF(?6,''),?7,?8,?9)"
@@ -794,6 +795,30 @@ _applylifecycle: procedure = .int
     if publishmanifest(store, error) \= 0 then return -4
   end
   published_generation = generation; disposition = operation || "-applied"
+  return 0
+
+/* The reviewed retraction belongs to the exact source occurrence. Keep the
+ * candidate and its earlier acceptance for audit; its latest decision stops
+ * an unchanged extraction from promoting the retired artefact again. */
+_rejectretiredcandidate: procedure = .int
+  arg database=.binary,mention_id=.string,concept_id=.string,item_id=.string,reason=.string,expose error=.string
+  sql="SELECT c.candidate_id,c.revision_chunk_id,c.span_start,c.span_end,k.content_digest FROM candidate_mentions c JOIN mentions m ON m.revision_chunk_id=c.revision_chunk_id AND m.span_start=c.span_start AND m.span_end=c.span_end JOIN revision_chunks r ON r.revision_chunk_id=c.revision_chunk_id JOIN chunk_contents k ON k.content_id=r.content_id WHERE m.mention_id=" || _q(mention_id) || " AND m.concept_id=" || _q(concept_id) || " AND c.visible_to_generation IS NULL AND (SELECT d.state FROM candidate_decisions d WHERE d.candidate_id=c.candidate_id ORDER BY d.decision_version DESC LIMIT 1)='accepted' ORDER BY c.candidate_id"
+  prepared=.binary;ids=.string[];chunks=.string[];starts=.int[];ends=.int[];digests=.string[]
+  if sqliteprepare(database,sql,prepared)<>0 then do;error="cannot inspect retired source candidates";return -1;end
+  do forever
+    step=sqlitestep(prepared);if step=101 then leave
+    candidate="";chunk="";begin=0;finish=0;digest=""
+    columns=sqlitecolumntext(prepared,0,candidate) | sqlitecolumntext(prepared,1,chunk) | sqlitecolumnint(prepared,2,begin) | sqlitecolumnint(prepared,3,finish) | sqlitecolumntext(prepared,4,digest)
+    if step<>100 | columns<>0 then do;call sqlitefinalize prepared;error="cannot read retired source candidate";return -1;end
+    ids[ids.0+1]=candidate;chunks[chunks.0+1]=chunk;starts[starts.0+1]=begin;ends[ends.0+1]=finish;digests[digests.0+1]=digest
+  end
+  call sqlitefinalize prepared
+  do i=1 to ids.0
+    decision="candidate-retirement:" || rxhash..sha256hex((item_id || "00"x || ids[i]) as .binary)
+    evidence='{"schema":"crexx-rag.candidate-retirement/1","maintenance_item_id":' || jsonquote(item_id) || ',"retired_concept_id":' || jsonquote(concept_id) || ',"revision_chunk_id":' || jsonquote(chunks[i]) || ',"span_start":' || starts[i] || ',"span_end":' || ends[i] || ',"content_digest":' || jsonquote(digests[i]) || ',"reason":' || jsonquote(reason) || '}'
+    sql="INSERT INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,policy_version,created_at) SELECT " || _q(decision) || "," || _q(ids[i]) || ",coalesce(max(decision_version),0)+1,'rejected'," || _q(evidence) || ",'retirement-review-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM candidate_decisions WHERE candidate_id=" || _q(ids[i])
+    if sqliteexec(database,sql)<>0 then do;error="cannot retain reviewed occurrence rejection";return -1;end
+  end
   return 0
 
 _impact: procedure = .int

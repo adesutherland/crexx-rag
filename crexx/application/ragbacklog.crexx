@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose backlogselection deferbacklogtask resetbacklogtasks setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh resolutioncorrectioninput
+namespace ragbacklog expose backlogselection deferbacklogtask resetbacklogtasks setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy freezephasecohort startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary firstreviewmissing planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh resolutioncorrectioninput
 
 import rxfnsb
 import rxjson
@@ -119,7 +119,7 @@ _cleanupseconds: procedure = .int
 /* Durable, evidence-bound maintenance. This module owns no provider transport:
  * ordinary fenced job items carry its questions through the configured route. */
 backlogpolicy: procedure = .string
-  arg config = .ragconfig, profile = .ragprofile, discovery_context = .string, timing_json = "", embedding_only = 0, source_id = "", initial_only = 0
+  arg config = .ragconfig, profile = .ragprofile, discovery_context = .string, timing_json = "", embedding_only = 0, source_id = "", initial_only = 0, phase = "", phase_cohort = "[]", phase_next_cursor = ""
   policy = config.maintenance(); budget = config.budget(); workers = config.workers()
   roles = config.roles(); providers = config.providers(); role = .ragrolebinding; provider = .ragproviderconfig
   do i = 1 to roles.0
@@ -161,9 +161,46 @@ backlogpolicy: procedure = .string
   if embedding_only = 1 then embedding_json = embedding_json || '"embeddings_only":1,"embedding_attempts":' || embedding_provider.max_attempts() || ','
   if source_id <> "" then embedding_json = embedding_json || '"source_id":' || jsonquote(source_id) || ','
   if initial_only = 1 then embedding_json = embedding_json || '"initial_extraction_only":1,'
+  if phase<>"" then embedding_json=embedding_json || '"phase":' || jsonquote(phase) || ',"phase_cohort":' || phase_cohort || ',"phase_denominator":' || _jsonarraycount(phase_cohort) || ',"phase_next_cursor":' || jsonquote(phase_next_cursor) || ','
   identity = _hash(canonicalprofile(profile) || "00"x || role.system_prompt() || "00"x || policy.resolution_prompt() || "00"x || "durable-resolution-v1")
   embedding_json = embedding_json || '"resolution_route":' || _resolutionroute(config,"resolver",seconds,inflight) || ',"advanced_route":' || _resolutionroute(config,"advanced-resolver",seconds,inflight) || ',"advanced_attempts":' || policy.advanced_attempts() || ',"search_reads":' || policy.search_reads() || ',"evidence_expected":' || policy.evidence_expected() || ',"advanced_first":' || policy.advanced_first() || ',"identity_prompt":' || jsonquote(policy.identity_prompt()) || ',"connection_prompt":' || jsonquote(policy.connection_prompt()) || ','
   return embedding_json || '"timing":' || jsonquote(timing_json) || ',"provider_time_budget_ms":' || policy.provider_time_minutes() * 60000 || ',"mode":' || jsonquote(policy.mode()) || ',"window_seconds":' || seconds || ',"automatic_actions":' || jsonquote(policy.automatic_actions()) || ',"maximum_impact":' || policy.maximum_impact() || ',"maximum_attempts":' || _configuredattemptlimit(policy.maximum_attempts(),embedding_only,embedding_provider.max_attempts()) || ',"retry_seconds":' || policy.retry_seconds() || ',"maximum_evidence_bytes":' || policy.maximum_evidence_bytes() || ',"sparse_max_degree":' || policy.sparse_max_degree() || ',"query_gap_min_occurrences":' || policy.query_gap_min_occurrences() || ',"batch_items":' || policy.batch_items() || ',"resolution_prompt":' || jsonquote(policy.resolution_prompt()) || ',"knowledge_policy":' || jsonquote(identity) || ',"provider_id":' || jsonquote(provider.provider_id()) || ',"model":' || jsonquote(provider.model()) || ',"charging_basis":' || jsonquote(provider.charging_basis()) || ',"privacy":' || jsonquote(privacy) || ',"profile_id":' || jsonquote(profile.profile_id()) || ',"discovery_context":' || jsonquote(discovery_context) || ',"input_tokens":' || input_cap || ',"output_tokens":' || output_cap || ',"cost_microunits":' || cost_cap || ',"time_ms":' || time_cap || ',"inflight":' || inflight || ',"item_limit":' || budget.item_limit() || ',"model_calls":' || budget.model_calls() || ',"input_budget":' || budget.input_tokens() || ',"output_budget":' || budget.output_tokens() || ',"cost_budget":' || budget.cost_microunits() || ',"codex_turns":' || budget.codex_turns() || '}'
+
+_jsonarraycount: procedure = .int
+  arg value=.string
+  document=.jsondocument(value)
+  if document.valid()<>1 | document.node_type(document.root())<>"array" then return 0
+  return document.node_count(document.root())
+
+/* The selected logical subjects are frozen into the reviewed plan and its
+ * durable window policy. The cursor pages large corpora without priority
+ * competition from unrelated work. This read is side-effect free. */
+freezephasecohort: procedure = .int
+  arg database=.binary,phase=.string,after_id=.string,maximum=.int,sparse_degree=.int,expose cohort=.string,expose next_cursor=.string,expose error=.string
+  cohort="[]";next_cursor="";error=""
+  if wordpos(phase,"identity graph finish")=0 | maximum<1 | maximum>256 | length(after_id)>512 then do;error="phase cohort requires identity, graph or finish, a limit in 1..256 and a bounded cursor";return -1;end
+  base=""
+  if phase="identity" then base="SELECT concept_id id FROM concepts WHERE lifecycle_state='active' AND visible_to_generation IS NULL"
+  if phase="graph" then base="SELECT c.concept_id id FROM concepts c WHERE c.lifecycle_state='active' AND c.visible_to_generation IS NULL AND (SELECT count(*) FROM claims q WHERE (q.source_concept_id=c.concept_id OR q.target_concept_id=c.concept_id) AND q.visible_to_generation IS NULL)<=" || sparse_degree
+  if phase="finish" then base="SELECT workflow_id id FROM maintenance_workflows WHERE state IN('migrating','waiting') UNION SELECT review_id id FROM reviews WHERE state='pending'"
+  sql="SELECT id FROM (" || base || ") WHERE id>" || _q(after_id) || " ORDER BY id LIMIT " || (maximum+1)
+  prepared=.binary;ids=.string[]
+  if sqliteprepare(database,sql,prepared)<>0 then do;error="cannot prepare phase cohort";return -1;end
+  do forever
+    step=sqlitestep(prepared);if step=101 then leave
+    id="";if step<>100 | sqlitecolumntext(prepared,0,id)<>0 then do;call sqlitefinalize prepared;error="cannot read phase cohort";return -1;end
+    ids[ids.0+1]=id
+  end
+  call sqlitefinalize prepared
+  cohort="["
+  count=min(ids.0,maximum)
+  do i=1 to count
+    if i>1 then cohort=cohort || ","
+    cohort=cohort || jsonquote(ids[i])
+  end
+  cohort=cohort || "]"
+  if ids.0>maximum then next_cursor=ids[maximum]
+  return 0
 
 _resolutionroute: procedure = .string
   arg config = .ragconfig, name = .string, seconds = .int, inflight = .int
@@ -179,13 +216,14 @@ _resolutionroute: procedure = .string
 /* Automatic plans approve the durable selection policy. Discovery and task
  * packets belong to activation/checkpoints, not a discarded cognitive census. */
 previewbacklogwindow: procedure = .int
-  arg database=.binary, embedding_profile=.string, maximum_items=.int, embedding_only=.int, expose census=.ragmaintenancecensus, expose error=.string, source_id="", initial_only=0
+  arg database=.binary, embedding_profile=.string, maximum_items=.int, embedding_only=.int, expose census=.ragmaintenancecensus, expose error=.string, source_id="", initial_only=0, phase="", phase_cohort="[]", phase_next_cursor=""
   generation=_number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
   if generation<1 then do;error="cannot read backlog preview generation";return -1;end
   canonical='{"schema":"crexx-rag.backlog-preview/1","expected_generation":' || generation || ',"embedding_profile_id":' || jsonquote(embedding_profile) || ',"maximum_items":' || maximum_items || ',"embeddings_only":' || embedding_only || ',"selection":"durable-backlog-at-activation"}'
   strings=.string[];scores=.int[]
   if source_id<>"" then canonical=left(canonical,length(canonical)-1) || ',"source_id":' || jsonquote(source_id) || '}'
   if initial_only=1 then canonical=left(canonical,length(canonical)-1) || ',"initial_extraction_only":1}'
+  if phase<>"" then canonical=left(canonical,length(canonical)-1) || ',"phase":' || jsonquote(phase) || ',"phase_cohort":' || phase_cohort || ',"phase_denominator":' || _jsonarraycount(phase_cohort) || ',"phase_next_cursor":' || jsonquote(phase_next_cursor) || '}'
   census=.ragmaintenancecensus(generation,embedding_profile,strings,strings,strings,scores,strings,strings,strings,canonical,rxhash..sha256hex(canonical as .binary))
   return 0
 
@@ -387,7 +425,7 @@ recordaliasissue: procedure = .int
 resolveknownmention: procedure = .int
   arg database = .binary, candidate_id = .string, expose label = .string, expose concept_type = .string, expose concept_id = .string, expose error = .string
   error = ""; concept_id = ""
-  decision = .jsondocument(_text(database,"SELECT d.evidence_json FROM candidate_decisions d JOIN candidate_mentions m ON m.candidate_id=d.candidate_id WHERE d.candidate_id=" || _q(candidate_id) || " AND d.state='accepted' AND m.visible_to_generation IS NULL ORDER BY d.decision_version DESC LIMIT 1"))
+  decision = .jsondocument(_text(database,"SELECT d.evidence_json FROM candidate_decisions d JOIN candidate_mentions m ON m.candidate_id=d.candidate_id WHERE d.candidate_id=" || _q(candidate_id) || " AND d.state='accepted' AND d.decision_version=(SELECT max(v.decision_version) FROM candidate_decisions v WHERE v.candidate_id=d.candidate_id) AND m.visible_to_generation IS NULL LIMIT 1"))
   selected = _s(decision,"resolved_concept_id")
   if selected = "" then return 0
   if _number(database,"SELECT count(*) FROM maintenance_alias_issues WHERE candidate_id=" || _q(candidate_id) || " AND state='open'")>0 then return 0
@@ -416,11 +454,17 @@ resolveknownconcept: procedure = .int
   return count
 
 buildbacklogevidence: procedure = .int
-  arg database = .binary, subject_type = .string, subject_id = .string, workflow_id = .string, maximum_bytes = .int, expose output = .string, expose fingerprint = .string, expose error = .string, maximum_concepts = 100, include_settled = 0
+  arg database = .binary, subject_type = .string, subject_id = .string, workflow_id = .string, maximum_bytes = .int, expose output = .string, expose fingerprint = .string, expose error = .string, maximum_concepts = 100, include_settled = 0, alias_context = 0
   output = ""; fingerprint = ""; error = ""
   if subject_type = "provenance-chunk" then return enrichmentpacket(database,subject_id,maximum_bytes,output,fingerprint,error)
   subject = _subject(database, subject_type, subject_id,include_settled)
   if subject = "" then return 1
+  if subject_type="chunk" & alias_context=1 then do
+    context=_text(database,"SELECT coalesce(json_group_array(json(detail)),'[]') FROM (SELECT json_object('candidate_id',c.candidate_id,'normalized_candidate',c.normalized_candidate,'span_start',c.span_start,'span_end',c.span_end,'decision_id',d.decision_id,'decision_version',d.decision_version,'state',d.state,'resolved_concept_id',json_extract(d.evidence_json,'$.resolved_concept_id')) detail FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.decision_version=(SELECT max(v.decision_version) FROM candidate_decisions v WHERE v.candidate_id=c.candidate_id) WHERE c.revision_chunk_id=" || _q(subject_id) || " AND c.visible_to_generation IS NULL ORDER BY c.candidate_id)")
+    if context="" then do;error="cannot read settled alias context";return -1;end
+    subject=_text(database,"SELECT json_set(" || _q(subject) || ",'$.alias_context',json(" || _q(context) || "))")
+    if subject="" then do;error="cannot assemble settled alias context";return -1;end
+  end
   successors = "[]"
   if workflow_id \= "" then successors = _text(database, "SELECT json_group_array(json_object('concept_id',c.concept_id,'canonical_label',c.canonical_label,'concept_type',c.concept_type,'lifecycle',c.lifecycle_state,'version',coalesce((SELECT max(version) FROM concept_versions v WHERE v.concept_id=c.concept_id),0))) FROM maintenance_workflows w,json_each(w.successors_json) j JOIN concepts c ON c.concept_id=json_extract(j.value,'$.concept_id') WHERE w.workflow_id=" || _q(workflow_id))
   if successors = "" then do; error = "maintenance workflow is unavailable"; return -1; end
@@ -494,10 +538,10 @@ enqueueextractionreview: procedure = .int
 
 enqueuebacklogtask: procedure = .int
   arg database = .binary, kind = .string, subject_type = .string, subject_id = .string, workflow_id = .string, parent_task_id = .string, priority = .int, policy = .jsondocument, expose task_id = .string, expose error = .string
-  evidence = ""; fingerprint = ""; task_id = ""
+  evidence = ""; fingerprint = ""; task_id = ""; reopen_reason=""
   group_filter="kind=" || _q(kind) || " AND subject_type=" || _q(subject_type) || " AND subject_id=" || _q(subject_id) || " AND workflow_id=" || _q(workflow_id)
   settled=""
-  if workflow_id="" & wordpos(subject_type,"concept alias-issue")>0 then do
+  if workflow_id="" & (wordpos(subject_type,"concept alias-issue note gap")>0 | (subject_type="chunk" & kind="alias-follow-up:chunk")) then do
     /* Ownership and explicit holds survive discovery of a changed question. */
     held=_text(database,"SELECT t.task_id FROM maintenance_tasks t WHERE " || group_filter || " AND t.state<>'superseded' AND (" || taskwaived("t.task_id") || " OR EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=t.task_id AND r.state='pending') OR EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=t.task_id AND i.state IN('queued','running','cancel_requested'))) ORDER BY t.created_epoch DESC,t.task_id LIMIT 1")
     if held<>"" then do;task_id=held;error="";return 0;end
@@ -514,16 +558,23 @@ enqueuebacklogtask: procedure = .int
       if fingerprint = _text(database,"SELECT evidence_fingerprint FROM maintenance_tasks WHERE task_id=" || _q(refreshed)) then do; task_id = refreshed; return 0; end
     end
   end
-  status = buildbacklogevidence(database, subject_type, subject_id, workflow_id, _n(policy,"maximum_evidence_bytes"), evidence, fingerprint, error,100,settled<>"")
+  status = buildbacklogevidence(database, subject_type, subject_id, workflow_id, _n(policy,"maximum_evidence_bytes"), evidence, fingerprint, error,100,settled<>"",kind="alias-follow-up:chunk")
   if status = 1 then return 0
   state = "pending"
   if status = 2 then do
     issue = error; identity = ""
     if _inventoryidentity(database,subject_type,subject_id,workflow_id,identity,error) \= 0 then return -1
+    omitted_passages=0;omitted_catalogue=0
+    selection=_passagequery(database,subject_type,subject_id)
+    if selection<>"" then do
+      omitted_passages=_number(database,"SELECT count(*) FROM (" || selection || ")")
+      if subject_type<>"chunk" then omitted_catalogue=_number(database,"SELECT count(*) FROM (" || _cataloguequery("SELECT revision_chunk_id FROM (" || selection || ")") || ")")
+    end
+    if omitted_passages<0 | omitted_catalogue<0 then do;error="cannot count omitted resolution evidence";return -1;end
     error = issue
     subject = _subject(database,subject_type,subject_id)
-    if subject="" then subject='{"type":' || jsonquote(subject_type) || ',"id":' || jsonquote(subject_id) || '}'
-    evidence = '{"subject":' || subject || ',"successors":[],"passages":[],"limit_exceeded":true,"inventory_fingerprint":' || jsonquote(identity) || '}'
+    if subject="" | binlength(subject as .binary)>4096 then subject='{"type":' || jsonquote(subject_type) || ',"id":' || jsonquote(subject_id) || '}'
+    evidence = '{"subject":' || subject || ',"successors":[],"catalogue":[],"passages":[],"limit_exceeded":true,"evidence_complete":false,"omitted_passages":' || omitted_passages || ',"omitted_catalogue":' || omitted_catalogue || ',"inventory_tool":"maintain.evidence-index","inventory_fingerprint":' || jsonquote(identity) || '}'
     fingerprint = _hash(evidence); state = "review"
   end
   else if status \= 0 then return -1
@@ -538,6 +589,7 @@ enqueuebacklogtask: procedure = .int
     end
     if previous=context then do;task_id=settled;error="";return 0;end
     if parent_task_id="" then parent_task_id=settled
+    reopen_reason="material subject, passage, connection or linked identity context changed"
     if subject_type="alias-issue" then if sqliteexec(database,"UPDATE maintenance_alias_issues SET state='open' WHERE issue_id=" || _q(subject_id))<>0 then do;error="cannot reopen changed alias question";return -1;end
   end
   completed = _text(database,"SELECT task_id FROM maintenance_tasks WHERE kind=" || _q(kind) || " AND subject_type=" || _q(subject_type) || " AND subject_id=" || _q(subject_id) || " AND workflow_id=" || _q(workflow_id) || " AND state='resolved' AND evidence_fingerprint=" || _q(fingerprint) || " ORDER BY created_epoch,task_id LIMIT 1")
@@ -550,8 +602,13 @@ enqueuebacklogtask: procedure = .int
   if held \= "" then do; task_id = held; error = ""; return 0; end
   task_id = "task:" || _hash(kind || "00"x || subject_type || "00"x || subject_id || "00"x || workflow_id || "00"x || fingerprint || "00"x || _s(policy,"knowledge_policy"))
   question = _question(kind)
-  sql = "INSERT OR IGNORE INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,parent_task_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,last_error) VALUES(" || _q(task_id) || "," || _q(kind) || "," || _q(subject_type) || "," || _q(subject_id) || "," || _q(workflow_id) || "," || _q(parent_task_id) || "," || _q(fingerprint) || "," || _q(_s(policy,"knowledge_policy")) || "," || _q(evidence) || "," || _q(question) || "," || _q(state) || "," || priority || ",unixepoch(),unixepoch()," || _q(error) || ")"
+  reason=error; if reopen_reason<>"" then reason=reopen_reason
+  sql = "INSERT OR IGNORE INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,parent_task_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,last_error) VALUES(" || _q(task_id) || "," || _q(kind) || "," || _q(subject_type) || "," || _q(subject_id) || "," || _q(workflow_id) || "," || _q(parent_task_id) || "," || _q(fingerprint) || "," || _q(_s(policy,"knowledge_policy")) || "," || _q(evidence) || "," || _q(question) || "," || _q(state) || "," || priority || ",unixepoch(),unixepoch()," || _q(reason) || ")"
   if sqliteexec(database, sql) \= 0 then do; error = "cannot enqueue durable maintenance question"; return -1; end
+  if kind="alias-follow-up:chunk" & state="pending" then do
+    sql="UPDATE maintenance_tasks SET state='superseded',last_error=" || _q("coalesced into " || task_id) || ",updated_epoch=unixepoch() WHERE subject_type='chunk' AND subject_id=" || _q(subject_id) || " AND kind LIKE 'alias-follow-up:%' AND kind<>'alias-follow-up:chunk' AND state='pending' AND required_capability='standard' AND NOT " || taskwaived("maintenance_tasks.task_id") || " AND NOT EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=maintenance_tasks.task_id AND r.state='pending') AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('queued','running','cancel_requested'))"
+    if sqliteexec(database,sql)<>0 then do;error="cannot coalesce pending per-issue alias follow-ups";return -1;end
+  end
   if settled<>"" & parent_task_id=settled then do
     if sqliteexec(database,"UPDATE maintenance_tasks SET required_capability=(SELECT required_capability FROM maintenance_tasks WHERE task_id=" || _q(settled) || "),escalation_origin=(SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || "),escalation_reason=(SELECT escalation_reason FROM maintenance_tasks WHERE task_id=" || _q(settled) || "),not_before_epoch=(SELECT not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") WHERE task_id=" || _q(task_id) || " AND attempt_count=0")<>0 then do;error="cannot retain settled successor routing";return -1;end
   end
@@ -570,7 +627,27 @@ enqueuebacklogtask: procedure = .int
  * catalogue/history versions do not invalidate an assessed local question. */
 _reviewcontext: procedure = .string
   arg database=.binary,packet=.string
-  value=_text(database,"SELECT json_object('subject',json_remove(json_extract(" || _q(packet) || ",'$.subject'),'$.version','$.recent_versions'),'passages',json_extract(" || _q(packet) || ",'$.passages'),'connections',json(coalesce(json_extract(" || _q(packet) || ",'$.connections'),'[]')),'supports',json(coalesce(json_extract(" || _q(packet) || ",'$.connection_supports'),'[]')))")
+  relevant="[]";kind=_text(database,"SELECT json_extract(" || _q(packet) || ",'$.subject.type')")
+  if kind="note" then do
+    id=_text(database,"SELECT json_extract(" || _q(packet) || ",'$.subject.id')")
+    relevant=_text(database,"SELECT coalesce(json_group_array(json(value)),'[]') FROM json_each(" || _q(packet) || ",'$.catalogue') WHERE lower(json_extract(value,'$.canonical_label')) IN(SELECT lower(c.canonical_label) FROM analysis_note_links l JOIN concepts c ON c.concept_id=l.object_id WHERE l.note_id=" || _q(id) || " AND l.object_type='concept')")
+  end
+  if kind="gap" then relevant=_text(database,"SELECT coalesce(json_group_array(json(value)),'[]') FROM json_each(" || _q(packet) || ",'$.catalogue') WHERE instr(lower(json_extract(" || _q(packet) || ",'$.subject.question')),lower(json_extract(value,'$.canonical_label')))>0")
+  subject="json_remove(json_extract(" || _q(packet) || ",'$.subject'),'$.version','$.recent_versions')"
+  if kind="alias-issue" then subject="json_remove(" || subject || ",'$.candidate_cluster')"
+  if kind="note" | kind="gap" then subject="json_remove(" || subject || ",'$.occurrences')"
+  passages="json_extract(" || _q(packet) || ",'$.passages')"
+  if kind="alias-issue" then do
+    /* Resolving this occurrence promotes its own mention. That new evidence
+     * row is an effect of the answer, not a new question; other candidate
+     * passages and changed candidate identities still reopen the issue. */
+    candidate=_text(database,"SELECT json_extract(" || _q(packet) || ",'$.subject.candidate_id')")
+    filtered=_text(database,"SELECT coalesce(json_group_array(json(p.value)),'[]') FROM json_each(" || _q(packet) || ",'$.passages') p WHERE NOT EXISTS(SELECT 1 FROM mentions m JOIN candidate_mentions c ON c.revision_chunk_id=m.revision_chunk_id AND c.span_start=m.span_start AND c.span_end=m.span_end WHERE c.candidate_id=" || _q(candidate) || " AND m.mention_id=json_extract(p.value,'$.evidence_id') AND m.concept_id=(SELECT json_extract(d.evidence_json,'$.resolved_concept_id') FROM candidate_decisions d WHERE d.candidate_id=c.candidate_id ORDER BY d.decision_version DESC LIMIT 1))")
+    passages="json(" || _q(filtered) || ")"
+  end
+  value_sql="SELECT json_object('subject'," || subject || ",'passages'," || passages || ",'connections',json(coalesce(json_extract(" || _q(packet) || ",'$.connections'),'[]')),'supports',json(coalesce(json_extract(" || _q(packet) || ",'$.connection_supports'),'[]'))"
+  if kind="note" | kind="gap" then value_sql=value_sql || ",'linked_catalogue',json(" || _q(relevant) || ")"
+  value=_text(database,value_sql || ")")
   return _hash(value)
 
 _assessedcontext: procedure = .string
@@ -593,7 +670,7 @@ _remembercontextvalue: procedure = .int
 _rememberassessment: procedure = .int
   arg database=.binary,task_id=.string,job_id=.string,maximum_bytes=.int,expose error=.string,review_id=""
   task=.jsondocument(_agenttaskstamp(database,task_id))
-  if _s(task,"workflow_id")<>"" | wordpos(_s(task,"subject_type"),"concept alias-issue")=0 then return 0
+  if _s(task,"workflow_id")<>"" | wordpos(_s(task,"subject_type"),"concept alias-issue note gap")=0 then return 0
   packet="";fingerprint=""
   status=buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),"",maximum_bytes,packet,fingerprint,error,100,1)
   if status<0 then return -1
@@ -606,7 +683,7 @@ _legacyreviewcontext: procedure = .string
   arg database=.binary,task_id=.string,current_packet=.string,expose error=.string
   error=""
   old=_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id))
-  response=_text(database,"SELECT response_json FROM maintenance_decisions WHERE task_id=" || _q(task_id) || " AND disposition IN('no-change:resolved','retain:resolved','reuse:resolved','distinct:resolved','synonym:resolved','type-correction:resolved','restore:resolved','no-change:review:accept','retain:review:accept','reuse:review:accept','distinct:review:accept','synonym:review:accept','type-correction:review:accept','restore:review:accept') ORDER BY created_epoch DESC,decision_id DESC LIMIT 1")
+  response=_text(database,"SELECT response_json FROM maintenance_decisions WHERE task_id=" || _q(task_id) || " AND disposition IN('no-change:resolved','insufficient-evidence:resolved','retain:resolved','reuse:resolved','distinct:resolved','synonym:resolved','type-correction:resolved','restore:resolved','no-change:review:accept','insufficient-evidence:review:accept','retain:review:accept','reuse:review:accept','distinct:review:accept','synonym:review:accept','type-correction:review:accept','restore:review:accept') ORDER BY created_epoch DESC,decision_id DESC LIMIT 1")
   if response="" then response=_text(database,"SELECT json_extract(a.canonical_plan,'$.response_json') FROM maintenance_agent_actions a JOIN reviews r ON r.review_id='review:'||a.action_id WHERE a.task_id=" || _q(task_id) || " AND r.state='accepted' ORDER BY a.created_epoch DESC,a.action_id DESC LIMIT 1")
   result=.jsondocument(response);action=_s(result,"action")
   if action="type-correction" then old=_text(database,"SELECT json_set(" || _q(old) || ",'$.subject.concept_type'," || _q(_s(result,"concept_type")) || ")")
@@ -628,8 +705,8 @@ _legacyreviewcontext: procedure = .string
 _question: procedure = .string
   arg kind = .string
   if kind = "provenance-enrichment" then return enrichmentprompt()
-  if kind = "alias-resolution" then return "Review this occurrence and the competing catalogue meanings. Does the source support reuse of a supplied concept or a distinct meaning? Explain any remaining uncertainty using the current route's outcome instructions. Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage."
-  if kind = "identity-review" then return "Review this concept's classification against its source passages, competing meanings and recorded changes. Correct only what the evidence supports. Distinguish an actor from the object or place it acts upon; an index heading alone does not classify every name in its entry. Prefer splitting mixed meanings and reviewing their connections over changing all occurrences to one type."
+  if kind = "alias-resolution" then return "Review this occurrence and the competing catalogue meanings. Establish real-world equivalence versus homonymy, edition or scope differences from defining passages before choosing a supplied candidate; an internal database ID is not source evidence. Does the source support reuse or a distinct meaning? Explain any remaining uncertainty using the current route's outcome instructions. Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage."
+  if kind = "identity-review" then return "Review this concept's classification against its source passages, competing meanings and recorded changes. Establish whether apparent duplicates denote the same real-world referent before proposing a merge; spelling or internal IDs alone cannot establish equivalence. Correct only what the evidence supports. Distinguish an actor from the object or place it acts upon; an index heading alone does not classify every name in its entry. Prefer splitting mixed meanings and reviewing their connections over changing all occurrences to one type."
   if kind = "connection" then return "Which successor does this particular connection belong to? Preserve its source-supported meaning and direction; retain uncertainty rather than copying a fact to every successor."
   if kind = "claim-conflict" then return "Are these claims contradictory, different in time or scope, or simultaneously valid? Decide whether to retain, qualify or retract one, with source evidence."
   if kind = "retirement" then return "Can this migration parent retire after all affected connections have been accounted for? Never discard remaining evidence."
@@ -681,8 +758,10 @@ _subject: procedure = .string
   if kind = "ambiguity" then sql = "SELECT json_object('type','ambiguity','id'," || key || ",'ambiguity_id',a.ambiguity_id,'concept_id',a.concept_id,'revision_chunk_id',a.revision_chunk_id) FROM ambiguity_candidates a WHERE a.ambiguity_id=json_extract(" || key || ",'$[0]') AND a.concept_id=json_extract(" || key || ",'$[1]') AND a.revision_chunk_id=json_extract(" || key || ",'$[2]') AND a.visible_to_generation IS NULL"
   if kind = "claim" then sql = "SELECT " || _claimobject("c") || " FROM claims c WHERE c.claim_id=" || key || " AND c.visible_to_generation IS NULL"
   if kind = "conflict" then sql = "SELECT json_object('type','conflict','id',f.conflict_id,'first',json(" || _claimobject("c") || "),'second',json(" || _claimobject("d") || ")) FROM claim_conflicts f JOIN claims c ON c.claim_id=f.claim_id JOIN claims d ON d.claim_id=f.competing_claim_id WHERE f.conflict_id=" || key || " AND f.visible_to_generation IS NULL AND f.review_state='pending'"
-  if kind = "note" then sql = "SELECT json_object('type','note','id',note_id,'kind',note_kind,'text',text,'next_action',next_action) FROM analysis_notes WHERE note_id=" || key || " AND state='active'"
-  if kind = "gap" then sql = "SELECT json_object('type','gap','id',gap_id,'question',normalized_question,'text',gap_text,'occurrences',occurrence_count) FROM query_gaps WHERE gap_id=" || key || " AND state='open'"
+  note_state="='active'";gap_state="='open'"
+  if include_settled=1 then do;note_state=" IN('active','resolved')";gap_state=" IN('open','resolved')";end
+  if kind = "note" then sql = "SELECT json_object('type','note','id',note_id,'kind',note_kind,'text',text,'next_action',next_action) FROM analysis_notes WHERE note_id=" || key || " AND state" || note_state
+  if kind = "gap" then sql = "SELECT json_object('type','gap','id',gap_id,'question',normalized_question,'text',gap_text,'occurrences',occurrence_count) FROM query_gaps WHERE gap_id=" || key || " AND state" || gap_state
   if kind = "alias-issue" then sql = "SELECT json_object('type','alias-issue','id',i.issue_id,'candidate_id',i.candidate_id,'canonical_label',i.proposed_label,'concept_type',i.proposed_type,'aliases',json(i.aliases_json),'candidates',json(coalesce((SELECT json_group_array(json_object('concept_id',z.concept_id,'canonical_label',z.canonical_label,'concept_type',z.concept_type,'lifecycle_state',z.lifecycle_state)) FROM (SELECT DISTINCT c.concept_id,c.canonical_label,c.concept_type,c.lifecycle_state FROM concepts c WHERE c.concept_id IN(SELECT concept_id FROM concepts WHERE lower(canonical_label)=lower(i.proposed_label) AND visible_to_generation IS NULL UNION SELECT target_concept_id FROM aliases WHERE visible_to_generation IS NULL AND normalized_alias IN(SELECT lower(i.proposed_label) UNION SELECT lower(value) FROM json_each(i.aliases_json))) AND c.visible_to_generation IS NULL AND c.lifecycle_state='active' ORDER BY c.concept_id) z),'[]'))) FROM maintenance_alias_issues i WHERE i.issue_id=" || key || " AND i.state='open'"
   if sql = "" then return ""
   if kind="alias-issue" & include_settled=1 then sql=changestr(" AND i.state='open'",sql,"")
@@ -691,6 +770,11 @@ _subject: procedure = .string
     history = _text(database,"SELECT json_group_array(json_object('version',version,'canonical_label',canonical_label,'concept_type',concept_type,'reason',reason,'generation',generation)) FROM (SELECT * FROM concept_versions WHERE concept_id=" || key || " ORDER BY version DESC LIMIT 8)")
     alternatives = _text(database,"SELECT json_group_array(json_object('concept_id',concept_id,'canonical_label',canonical_label,'concept_type',concept_type)) FROM (SELECT d.* FROM concepts d JOIN concepts c ON c.concept_id=" || key || " WHERE d.concept_id<>c.concept_id AND d.lifecycle_state='active' AND d.visible_to_generation IS NULL AND lower(d.canonical_label)=lower(c.canonical_label) ORDER BY d.concept_id LIMIT 16)")
     subject = _text(database,"SELECT json_set(" || _q(subject) || ",'$.recent_versions',json(" || _q(history) || "),'$.competing_identities',json(" || _q(alternatives) || "))")
+  end
+  if kind="alias-issue" & subject<>"" then do
+    cluster=_text(database,"SELECT coalesce(json_group_array(json(detail)),'[]') FROM (SELECT json_object('concept_id',c.concept_id,'canonical_label',c.canonical_label,'concept_type',c.concept_type,'visible_from_generation',c.visible_from_generation,'version',coalesce((SELECT max(version) FROM concept_versions v WHERE v.concept_id=c.concept_id),0),'aliases',json(coalesce((SELECT json_group_array(normalized_alias) FROM (SELECT normalized_alias FROM aliases a WHERE a.target_concept_id=c.concept_id AND a.visible_to_generation IS NULL ORDER BY normalized_alias)),'[]')),'source_scopes',json(coalesce((SELECT json_group_array(source_scope) FROM (SELECT DISTINCT s.observed_uri source_scope FROM mentions m JOIN revision_chunks r ON r.revision_chunk_id=m.revision_chunk_id JOIN source_revisions v ON v.revision_id=r.revision_id JOIN sources s ON s.source_id=v.source_id WHERE m.concept_id=c.concept_id AND m.visible_to_generation IS NULL AND r.visible_to_generation IS NULL ORDER BY source_scope)),'[]')),'mention_count',(SELECT count(*) FROM mentions m WHERE m.concept_id=c.concept_id AND m.visible_to_generation IS NULL)) detail FROM json_each(" || _q(subject) || ",'$.candidates') j JOIN concepts c ON c.concept_id=json_extract(j.value,'$.concept_id') ORDER BY c.concept_id)")
+    if cluster="" then return ""
+    subject=_text(database,"SELECT json_set(" || _q(subject) || ",'$.candidate_cluster',json(" || _q(cluster) || "))")
   end
   return subject
 
@@ -710,7 +794,11 @@ _passagequery: procedure = .string
   if kind = "claim" then selection = "SELECT support_id evidence_id,revision_chunk_id,span_start,span_end FROM claim_support WHERE claim_id=" || key || " AND visible_to_generation IS NULL"
   if kind = "conflict" then selection = "SELECT s.support_id evidence_id,s.revision_chunk_id,s.span_start,s.span_end FROM claim_support s JOIN claim_conflicts f ON s.claim_id=f.claim_id OR s.claim_id=f.competing_claim_id WHERE f.conflict_id=" || key || " AND s.visible_to_generation IS NULL"
   if kind = "note" then selection = "SELECT link_id evidence_id,revision_chunk_id,span_start,span_end FROM analysis_note_links WHERE note_id=" || key || " AND revision_chunk_id IS NOT NULL UNION SELECT m.mention_id,m.revision_chunk_id,m.span_start,m.span_end FROM analysis_note_links l JOIN mentions m ON m.concept_id=l.object_id WHERE l.note_id=" || key || " AND l.object_type='concept'"
-  if kind = "alias-issue" then selection = "SELECT c.candidate_id evidence_id,c.revision_chunk_id,c.span_start,c.span_end FROM candidate_mentions c JOIN maintenance_alias_issues i ON i.candidate_id=c.candidate_id WHERE i.issue_id=" || key || " AND c.visible_to_generation IS NULL"
+  if kind = "alias-issue" then do
+    selection = "SELECT c.candidate_id evidence_id,c.revision_chunk_id,c.span_start,c.span_end FROM candidate_mentions c JOIN maintenance_alias_issues i ON i.candidate_id=c.candidate_id WHERE i.issue_id=" || key || " AND c.visible_to_generation IS NULL"
+    subject=_subject(database,"alias-issue",id,1)
+    selection=selection || " UNION SELECT m.mention_id,m.revision_chunk_id,m.span_start,m.span_end FROM mentions m WHERE m.visible_to_generation IS NULL AND m.concept_id IN(SELECT json_extract(value,'$.concept_id') FROM json_each(" || _q(subject) || ",'$.candidates'))"
+  end
   if kind = "gap" then do
     /* The diagnostic describes a retrieval limitation, not its subject.
      * Existing observations already retain the originating question. */
@@ -785,7 +873,7 @@ _refreshpacket: procedure = .int
   arg database = .binary, task = .jsondocument, metadata = .string, expose packet = .string, expose fingerprint = .string, expose error = .string
   refresh = .jsondocument(metadata); maximum_bytes = _n(refresh,"maximum_bytes"); maximum_concepts = _n(refresh,"maximum_concepts")
   if maximum_bytes<1024 | maximum_bytes>8388608 | maximum_concepts<1 | maximum_concepts>1000 then do; error = "external refresh envelope is unsupported"; return -1; end
-  status = buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes-binlength(metadata as .binary)-32,packet,fingerprint,error,maximum_concepts)
+  status = buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes-binlength(metadata as .binary)-32,packet,fingerprint,error,maximum_concepts,0,_s(task,"kind")="alias-follow-up:chunk")
   if status \= 0 then return status
   packet = left(packet,length(packet)-1) || ',"external_refresh":' || metadata || '}'
   if binlength(packet as .binary)>maximum_bytes then do; error = "complete refreshed evidence exceeds its byte ceiling"; return 2; end
@@ -845,7 +933,10 @@ _freshbacklogtask: procedure = .int
   task = .jsondocument(_agenttaskstamp(database,task_id))
   metadata = _text(database,"SELECT coalesce(json_extract(evidence_json,'$.external_refresh'),'') FROM maintenance_tasks WHERE task_id=" || _q(task_id))
   if metadata \= "" then status = _refreshpacket(database,task,metadata,packet,fingerprint,error)
-  else status = buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes,packet,fingerprint,error)
+  else do
+    include_settled=wordpos(_s(task,"subject_type"),"note gap")>0
+    status = buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes,packet,fingerprint,error,100,include_settled,_s(task,"kind")="alias-follow-up:chunk")
+  end
   if status <> 0 then return status
   reads = _text(database,"SELECT coalesce(json_extract(evidence_json,'$.resolver_reads'),'[]') FROM maintenance_tasks WHERE task_id=" || _q(task_id))
   if additional_citation <> "" then reads = _text(database,"SELECT json_insert(" || _q(reads) || ",'$[#]'," || _q(additional_citation) || ")")
@@ -923,7 +1014,7 @@ _scan: procedure = .int
   queries = .string[]; kinds = .string[]; types = .string[]; priorities = .int[]
   queries[1] = "SELECT issue_id FROM maintenance_alias_issues WHERE state='open'"; kinds[1] = "alias-resolution"; types[1] = "alias-issue"; priorities[1] = 950000
   queries[2] = "SELECT conflict_id FROM claim_conflicts WHERE review_state='pending' AND visible_to_generation IS NULL"; kinds[2] = "claim-conflict"; types[2] = "conflict"; priorities[2] = 940000
-  queries[3] = "SELECT note_id FROM analysis_notes WHERE state='active'"; kinds[3] = "analysis-lead"; types[3] = "note"; priorities[3] = 800000
+  queries[3] = "SELECT note_id FROM analysis_notes WHERE state='active' AND (note_kind IN('question','gap','conflict','lead','follow-up','synonym','split','merge','type-correction','retire','restore') OR trim(next_action)<>'')"; kinds[3] = "analysis-lead"; types[3] = "note"; priorities[3] = 800000
   queries[4] = "SELECT gap_id FROM query_gaps WHERE state='open' AND occurrence_count>=" || _n(policy,"query_gap_min_occurrences"); kinds[4] = "query-gap"; types[4] = "gap"; priorities[4] = 750000
   queries[5] = "SELECT concept_id FROM concepts c WHERE visible_to_generation IS NULL AND lifecycle_state='active' AND (SELECT count(*) FROM claims q WHERE (q.source_concept_id=c.concept_id OR q.target_concept_id=c.concept_id) AND q.visible_to_generation IS NULL)<=" || _n(policy,"sparse_max_degree"); kinds[5] = "sparse-node"; types[5] = "concept"; priorities[5] = 500000
   queries[6] = "SELECT revision_chunk_id FROM revision_chunks WHERE visible_to_generation IS NULL"; kinds[6] = "concept-review"; types[6] = "chunk"; priorities[6] = 600000
@@ -935,8 +1026,17 @@ _scan: procedure = .int
   review_index = queries.0 + 1
   queries[review_index] = "SELECT c.concept_id FROM concepts c WHERE c.lifecycle_state='active' AND c.visible_to_generation IS NULL AND EXISTS(SELECT 1 FROM maintenance_alias_issues i WHERE i.state='open' AND lower(i.proposed_label)=lower(c.canonical_label) AND (i.proposed_type<>c.concept_type OR EXISTS(SELECT 1 FROM concepts d WHERE d.concept_id<>c.concept_id AND d.lifecycle_state='active' AND d.visible_to_generation IS NULL AND lower(d.canonical_label)=lower(c.canonical_label))))"
   kinds[review_index] = "identity-review"; types[review_index] = "concept"; priorities[review_index] = 960000
+  legacy_index=review_index+1
+  queries[legacy_index]="SELECT DISTINCT t.subject_id revision_chunk_id FROM maintenance_tasks t JOIN revision_chunks r ON r.revision_chunk_id=t.subject_id WHERE t.kind LIKE 'alias-follow-up:%' AND t.kind<>'alias-follow-up:chunk' AND t.subject_type='chunk' AND t.state='pending' AND t.required_capability='standard' AND NOT " || taskwaived("t.task_id") || " AND NOT EXISTS(SELECT 1 FROM reviews v WHERE v.subject_id=t.task_id AND v.state='pending') AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=t.task_id AND i.state IN('queued','running','cancel_requested')) AND r.visible_to_generation IS NULL"
+  kinds[legacy_index]="alias-follow-up:chunk";types[legacy_index]="chunk";priorities[legacy_index]=920000
+  phase=_s(policy,"phase")
+  if phase="identity" then queries[review_index]="SELECT concept_id FROM concepts WHERE lifecycle_state='active' AND visible_to_generation IS NULL"
   source_id=_s(policy,"source_id")
   do i = 1 to queries.0
+    if phase="identity" & kinds[i]<>"identity-review" then iterate
+    if phase="graph" & kinds[i]<>"sparse-node" then iterate
+    if phase="finish" then iterate
+    if phase<>"" then queries[i]=queries[i] || " AND " || _idcolumn(types[i]) || " IN(SELECT value FROM json_each(" || _q(policy.node_get(policy.member(policy.root(),"phase_cohort"))) || "))"
     if _n(policy,"initial_extraction_only")=1 & kinds[i]<>"concept-review" then iterate
     if source_id<>"" then do
       if types[i]<>"chunk" then iterate
@@ -978,9 +1078,11 @@ _scan: procedure = .int
     settled_status=_scansettled(database,policy,error,batch_items,scan_token)
     if settled_status<0 then return -1
     if settled_status>0 then more=1
-    workflow_status=_expandworkflows(database,policy,error,batch_items,scan_token)
-    if workflow_status<0 then return -1
-    if workflow_status>0 then more=1
+    if phase="" | phase="finish" then do
+      workflow_status=_expandworkflows(database,policy,error,batch_items,scan_token)
+      if workflow_status<0 then return -1
+      if workflow_status>0 then more=1
+    end
   end
   return more
 
@@ -992,7 +1094,7 @@ _scansettled: procedure = .int
   if _number(database,"SELECT count(*) FROM maintenance_scan_cursors WHERE kind=" || _q(bucket) || " AND scan_token=" || _q(scan_token) || " AND completed=1")=1 then return 0
   prefix=left(scan_token,pos(":",scan_token,pos(":",scan_token)+1)-1)
   cursor=_text(database,"SELECT after_id FROM maintenance_scan_cursors WHERE kind=" || _q(bucket) || " AND substr(scan_token,1," || length(prefix) || ")=" || _q(prefix))
-  sql="SELECT t.task_id FROM maintenance_tasks t WHERE t.state='resolved' AND t.workflow_id='' AND t.task_id>" || _q(cursor) || " AND (t.subject_type='alias-issue' OR (t.subject_type='concept' AND EXISTS(SELECT 1 FROM concepts c WHERE c.concept_id=t.subject_id AND c.visible_to_generation IS NULL AND c.lifecycle_state='active'))) AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_id=t.subject_id AND c.subject_type=t.subject_type AND c.workflow_id=t.workflow_id) ORDER BY t.task_id LIMIT " || batch_items
+  sql="SELECT t.task_id FROM maintenance_tasks t WHERE t.state='resolved' AND t.workflow_id='' AND t.task_id>" || _q(cursor) || " AND (t.subject_type='alias-issue' OR (t.subject_type='chunk' AND t.kind='alias-follow-up:chunk' AND EXISTS(SELECT 1 FROM revision_chunks r WHERE r.revision_chunk_id=t.subject_id AND r.visible_to_generation IS NULL)) OR (t.subject_type='concept' AND EXISTS(SELECT 1 FROM concepts c WHERE c.concept_id=t.subject_id AND c.visible_to_generation IS NULL AND c.lifecycle_state='active')) OR (t.subject_type='note' AND EXISTS(SELECT 1 FROM analysis_notes n WHERE n.note_id=t.subject_id AND n.state IN('active','resolved'))) OR (t.subject_type='gap' AND EXISTS(SELECT 1 FROM query_gaps g WHERE g.gap_id=t.subject_id AND g.state IN('open','resolved')))) AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_id=t.subject_id AND c.subject_type=t.subject_type AND c.workflow_id=t.workflow_id)" || _taskscope(policy) || " ORDER BY t.task_id LIMIT " || batch_items
   prepared=.binary;ids=.string[]
   if sqliteprepare(database,sql,prepared)<>0 then do;error="cannot prepare settled question census";return -1;end
   do forever
@@ -1143,7 +1245,9 @@ _windowroutefits: procedure = .int
 
 _reconcileoutcomes: procedure = .int
   arg database = .binary, policy = .jsondocument, job_id = .string, expose error = .string
-  sql = "UPDATE maintenance_tasks SET state=CASE WHEN EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('processed','skipped') AND m.attempt_number=maintenance_tasks.attempt_count) THEN 'resolved' ELSE 'pending' END,not_before_epoch=max(not_before_epoch,CASE WHEN " || _taskcallcount("maintenance_tasks.task_id") || ">0 AND " || _recoverablecount("maintenance_tasks.task_id") || "=0 THEN unixepoch()+" || _n(policy,"retry_seconds") || " ELSE 0 END),updated_epoch=unixepoch() WHERE state='dispatched' AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('queued','running','cancel_requested'))"
+  settled = "EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('processed','skipped') AND m.attempt_number=maintenance_tasks.attempt_count)"
+  if _n(policy,"initial_extraction_only")=1 then settled = "NOT " || _firstreviewmissing("maintenance_tasks.subject_id")
+  sql = "UPDATE maintenance_tasks SET state=CASE WHEN " || settled || " THEN 'resolved' ELSE 'pending' END,not_before_epoch=max(not_before_epoch,CASE WHEN " || _taskcallcount("maintenance_tasks.task_id") || ">0 AND " || _recoverablecount("maintenance_tasks.task_id") || "=0 THEN unixepoch()+" || _n(policy,"retry_seconds") || " ELSE 0 END),updated_epoch=unixepoch() WHERE state='dispatched' AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('queued','running','cancel_requested'))"
   sql = sql || _taskscope(policy)
   if job_id \= "" then sql = sql || " AND task_id IN(SELECT m.task_id FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE i.job_id=" || _q(job_id) || ")"
   if sqliteexec(database,sql) \= 0 then do; error = "cannot reconcile backlog task outcomes"; return -1; end
@@ -1165,7 +1269,9 @@ _closewindow: procedure = .int
   task_scope = _taskscope(policy)
   if _n(policy,"initial_extraction_only")=1 then task_scope=task_scope || " AND " || _firstreviewmissing("maintenance_tasks.subject_id")
   if _s(policy,"enrichment") \= "" then task_scope = " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
-  sql = "UPDATE maintenance_runs SET state=CASE WHEN EXISTS(SELECT 1 FROM maintenance_tasks WHERE state IN('pending','dispatched','unresolved','review','failed')" || task_scope || ") THEN 'incomplete' ELSE 'complete' END,completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=(SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")"
+  open_work="EXISTS(SELECT 1 FROM maintenance_tasks WHERE state IN('pending','dispatched','unresolved','review','failed')" || task_scope || ")"
+  if _s(policy,"phase")="finish" then open_work=open_work || " OR EXISTS(SELECT 1 FROM reviews WHERE state='pending' AND review_id IN(SELECT value FROM json_each(" || _q(policy.node_get(policy.member(policy.root(),"phase_cohort"))) || ")))"
+  sql = "UPDATE maintenance_runs SET state=CASE WHEN " || open_work || " THEN 'incomplete' ELSE 'complete' END,completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=(SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")"
   if _n(policy,"embeddings_only") = 1 then do
     missing = _embeddingmissing(database,policy)
     if missing < 0 then do; error = "cannot inspect embedding completion"; return -1; end
@@ -1191,6 +1297,13 @@ _taskscope: procedure = .string
   end
   if _s(policy,"enrichment")<>"" then scope=scope || " AND kind='provenance-enrichment' AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
   if _s(policy,"source_id")<>"" then scope=scope || " AND subject_type='chunk' AND subject_id IN(" || currentsourcechunks(_s(policy,"source_id")) || ")"
+  phase=_s(policy,"phase")
+  if phase<>"" then do
+    cohort=_q(policy.node_get(policy.member(policy.root(),"phase_cohort")))
+    if phase="identity" then scope=scope || " AND kind='identity-review' AND subject_type='concept' AND subject_id IN(SELECT value FROM json_each(" || cohort || "))"
+    if phase="graph" then scope=scope || " AND kind='sparse-node' AND subject_type='concept' AND subject_id IN(SELECT value FROM json_each(" || cohort || "))"
+    if phase="finish" then scope=scope || " AND workflow_id IN(SELECT value FROM json_each(" || cohort || "))"
+  end
   return scope
 
 /* Apply the configured route allowance while choosing work, so an unfunded
@@ -1214,11 +1327,16 @@ _taskdispatchscope: procedure = .string
   if callcostallowed(_s(advanced,"charging_basis"),_n(advanced,"cost_microunits")) = 0 then scope = scope || " AND required_capability<>'advanced-reasoning'"
   return scope
 
-/* A first pass ends after one accepted concept-review result for a current
- * chunk. Reopened tasks and alias follow-ups belong to ordinary maintenance. */
+/* Only a succeeded, validated extraction publication is an accepted first
+ * assessment. A processed resolver control, decision, or task state alone is
+ * not one; a validated empty discovery batch is. */
 _firstreviewmissing: procedure = .string
   arg chunk_expression = .string
-  return "NOT EXISTS(SELECT 1 FROM maintenance_tasks prior WHERE prior.kind='concept-review' AND prior.subject_type='chunk' AND prior.subject_id=" || chunk_expression || " AND (prior.state='resolved' OR EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=prior.task_id AND i.state='processed') OR EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.task_id=prior.task_id)))"
+  return "NOT EXISTS(SELECT 1 FROM maintenance_tasks prior JOIN maintenance_task_items m ON m.task_id=prior.task_id JOIN job_items i ON i.item_id=m.item_id JOIN attempts a ON a.item_id=i.item_id WHERE prior.kind='concept-review' AND prior.subject_type='chunk' AND prior.subject_id=" || chunk_expression || " AND i.item_type='improve-extraction' AND i.state='processed' AND a.outcome='succeeded' AND a.validation_state IN('validated-discovery-batch','accepted','accepted-no-op') AND a.output_hash IS NOT NULL)"
+
+firstreviewmissing: procedure = .string
+  arg chunk_expression = .string
+  return _firstreviewmissing(chunk_expression)
 
 /* One predicate and ordering serve dispatch and the inspectable selection. */
 _eligiblebacklog: procedure = .string
@@ -1291,8 +1409,12 @@ _refreshduetask: procedure = .int
   end
   if fingerprint=_text(database,"SELECT evidence_fingerprint FROM maintenance_tasks WHERE task_id=" || _q(task_id)) then return 0
   task=.jsondocument(_agenttaskstamp(database,task_id))
+  if wordpos(_s(task,"subject_type"),"note gap")>0 then do
+    old=_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+    if _reviewcontext(database,old)=_reviewcontext(database,packet) then return 0
+  end
   successor="task:" || _hash(_s(task,"kind") || "00"x || _s(task,"subject_type") || "00"x || _s(task,"subject_id") || "00"x || _s(task,"workflow_id") || "00"x || fingerprint || "00"x || _s(policy,"knowledge_policy"))
-  sql="INSERT OR IGNORE INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,parent_task_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,not_before_epoch,required_capability,escalation_origin,escalation_reason,created_epoch,updated_epoch) SELECT " || _q(successor) || ",kind,subject_type,subject_id,workflow_id,task_id," || _q(fingerprint) || "," || _q(_s(policy,"knowledge_policy")) || "," || _q(packet) || ",question,'pending',priority,not_before_epoch,required_capability,escalation_origin,escalation_reason,unixepoch(),unixepoch() FROM maintenance_tasks WHERE task_id=" || _q(task_id)
+  sql="INSERT OR IGNORE INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,parent_task_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,not_before_epoch,required_capability,escalation_origin,escalation_reason,created_epoch,updated_epoch,last_error) SELECT " || _q(successor) || ",kind,subject_type,subject_id,workflow_id,task_id," || _q(fingerprint) || "," || _q(_s(policy,"knowledge_policy")) || "," || _q(packet) || ",question,'pending',priority,not_before_epoch,required_capability,escalation_origin,escalation_reason,unixepoch(),unixepoch(),'material subject, passage, connection or linked identity context changed' FROM maintenance_tasks WHERE task_id=" || _q(task_id)
   if sqliteexec(database,sql)<>0 then do;error="cannot retain current evidence successor";return -1;end
   if sqliteexec(database,"UPDATE maintenance_tasks SET state='superseded',updated_epoch=unixepoch() WHERE task_id=" || _q(task_id))<>0 then do;error="cannot supersede prior evidence";return -1;end
   if _text(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _q(successor))<>"pending" then return 1
@@ -1347,7 +1469,9 @@ _dispatch: procedure = .int
     if operation = "improve-extraction" then do
       evidence = .jsondocument(_s(task,"evidence_json")); subject = evidence.member(evidence.root(),"subject"); body = ""; content_id = ""; source_scope = ""
       ignored = evidence.node_string(evidence.member(subject,"text"),body); ignored = evidence.node_string(evidence.member(subject,"content_id"),content_id); ignored = evidence.node_string(evidence.member(subject,"source_scope"),source_scope)
-      input = input || ',"revision_chunk_id":' || jsonquote(_s(task,"subject_id")) || ',"content_id":' || jsonquote(content_id) || ',"text":' || jsonquote(body) || ',"text_digest":' || jsonquote(_hash(body)) || ',"source_scope":' || jsonquote(source_scope) || ',"prompt_version":"durable-maintenance-v1","policy_version":"durable-maintenance-v1","discovery_context":' || jsonquote(_s(policy,"discovery_context")) || ',"maintenance_context":{},"candidates":[]'
+      maintenance_context="{}";aliases=evidence.member(subject,"alias_context")
+      if evidence.node_type(aliases)="array" then maintenance_context='{"settled_alias_context":' || evidence.node_get(aliases) || '}'
+      input = input || ',"revision_chunk_id":' || jsonquote(_s(task,"subject_id")) || ',"content_id":' || jsonquote(content_id) || ',"text":' || jsonquote(body) || ',"text_digest":' || jsonquote(_hash(body)) || ',"source_scope":' || jsonquote(source_scope) || ',"prompt_version":"durable-maintenance-v1","policy_version":"durable-maintenance-v1","discovery_context":' || jsonquote(_s(policy,"discovery_context")) || ',"maintenance_context":' || maintenance_context || ',"candidates":[]'
     end
     input_bound = _n(route,"input_tokens")
     if operation = "embedding" then do
@@ -1417,6 +1541,7 @@ _expandworkflows: procedure = .int
   arg database = .binary, policy = .jsondocument, expose error = .string, maximum_items = 0, scan_token = ""
   cursor=_text(database,"SELECT after_id FROM maintenance_scan_cursors WHERE kind='workflow'")
   eligible="SELECT workflow_id FROM maintenance_workflows f WHERE f.state<>'complete' AND NOT EXISTS(SELECT 1 FROM maintenance_scan_cursors c WHERE c.kind='workflow-connections:'||f.workflow_id AND c.scan_token=" || _q(scan_token) || " AND c.completed=1)"
+  if _s(policy,"phase")="finish" then eligible=eligible || " AND f.workflow_id IN(SELECT value FROM json_each(" || _q(policy.node_get(policy.member(policy.root(),"phase_cohort"))) || "))"
   id=_text(database,eligible || " AND workflow_id>" || _q(cursor) || " ORDER BY workflow_id LIMIT 1")
   if id="" & cursor<>"" then id=_text(database,eligible || " ORDER BY workflow_id LIMIT 1")
   if id="" then return 0
@@ -1538,13 +1663,41 @@ validatebacklogresponse: procedure = .int
   arg database = .binary, task_id = .string, response = .string, expose grounding_json = .string, expose error = .string, policy_json = ""
   error = ""; grounding_json = "[]"; result = .jsondocument(response)
   if _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id)) = "provenance-chunk" then return validateenrichment(database,task_id,response,grounding_json,error)
-  if result.valid() \= 1 | result.node_type(result.root()) \= "object" | result.node_count(result.root()) \= 12 | length(response) > 131072 then do; error = "resolution response has an invalid bounded shape"; return -1; end
+  if result.valid() \= 1 | result.node_type(result.root()) \= "object" | result.node_count(result.root()) < 12 | result.node_count(result.root()) > 13 | length(response) > 131072 then do; error = "resolution response has an invalid bounded shape"; return -1; end
   required = "action object_id target_concept_id canonical_label concept_type reason effective_from effective_to qualifiers_json question"
   do i = 1 to words(required)
     value = ""
     if result.node_string(result.member(result.root(),word(required,i)),value) \= 0 then do; error = "resolution response omitted a required string"; return -1; end
   end
   action = _s(result,"action")
+  dispositions_node=result.member(result.root(),"dispositions")
+  if result.node_count(result.root())=13 & result.node_type(dispositions_node)<>"array" then do;error="only lifecycle dispositions may extend a resolution response";return -1;end
+  if result.node_type(dispositions_node)="array" then do
+    if wordpos(action,"split merge retire")=0 | result.node_count(dispositions_node)>10000 then do;error="explicit impact dispositions apply only to bounded split, merge or retirement";return -1;end
+    do i=1 to result.node_count(dispositions_node)
+      node=result.element(dispositions_node,i);object_type="";object_id="";outcome="";target="";why="";confidence=-1
+      fields=result.node_string(result.member(node,"object_type"),object_type) | result.node_string(result.member(node,"object_id"),object_id) | result.node_string(result.member(node,"action"),outcome) | result.node_string(result.member(node,"target_concept_id"),target) | result.node_int(result.member(node,"confidence_millionths"),confidence) | result.node_string(result.member(node,"reason"),why)
+      if result.node_type(node)<>"object" | result.node_count(node)<>6 | fields<>0 | wordpos(object_type,"alias mention claim note")=0 | wordpos(outcome,"keep-parent move-child copy-child retract review unchanged")=0 | object_id="" | why="" | confidence<0 | confidence>1000000 then do;error="lifecycle impact disposition has an invalid bounded shape";return -1;end
+    end
+    if result.node_count(dispositions_node)>0 then do
+      task_kind=_text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+      task_subject=_text(database,"SELECT subject_id FROM maintenance_tasks WHERE task_id=" || _q(task_id));parent=""
+      if _lifecyclesubject(database,task_id,task_kind,task_subject,result,parent,error)<>0 then return -1
+      impact_types=.string[];impact_ids=.string[]
+      if lifecycleimpact(database,parent,_number(database,"SELECT published_generation FROM library_meta WHERE singleton=1"),impact_types,impact_ids,error)<>0 then return -1
+      if result.node_count(dispositions_node)<>impact_ids.0 then do;error="dispositions must cover the exact current lifecycle impact; inspect and re-plan";return -1;end
+      do i=1 to impact_ids.0
+        matches=0
+        do j=1 to result.node_count(dispositions_node)
+          node=result.element(dispositions_node,j)
+          object_type="";object_id=""
+          ignored=result.node_string(result.member(node,"object_type"),object_type);ignored=result.node_string(result.member(node,"object_id"),object_id)
+          if object_type=impact_types[i] & object_id=impact_ids[i] then matches=matches+1
+        end
+        if matches<>1 then do;error="dispositions must identify each current lifecycle object exactly once; inspect and re-plan";return -1;end
+      end
+    end
+  end
   if wordpos(action,resolutionactions("",0)) = 0 | _s(result,"reason") = "" | length(_s(result,"reason")) > 2048 | length(_s(result,"question")) > 2048 | length(_s(result,"canonical_label")) > 512 then do; error = "resolution action or rationale is invalid"; return -1; end
   qualifiers = .jsondocument(_s(result,"qualifiers_json"))
   if qualifiers.valid() \= 1 | qualifiers.node_type(qualifiers.root()) \= "object" then do; error = "resolution qualifiers must be a JSON object"; return -1; end
@@ -1576,8 +1729,8 @@ validatebacklogresponse: procedure = .int
     old_type = _text(database,"SELECT concept_type FROM concepts WHERE concept_id=" || _q(parent) || " AND visible_to_generation IS NULL")
     if validatetypechange(old_type,_s(result,"concept_type"),error) <> 0 then return -1
   end
-  if wordpos(action,"unresolved investigate escalate retire no-change defer search read extract") = 0 & result.node_count(evidence_node) = 0 then do; error = "resolution decision requires source evidence"; return -1; end
-  if wordpos(action,"no-change defer search read extract") > 0 then do
+  if wordpos(action,"unresolved investigate escalate retire no-change insufficient-evidence defer search read extract") = 0 & result.node_count(evidence_node) = 0 then do; error = "resolution decision requires source evidence"; return -1; end
+  if wordpos(action,"no-change insufficient-evidence defer search read extract") > 0 then do
     if _s(result,"target_concept_id") <> "" | _s(result,"canonical_label") <> "" | _s(result,"concept_type") <> "" | result.node_count(successor_node) <> 0 | _s(result,"effective_to") <> "" | _s(result,"qualifiers_json") <> "{}" then do; error = "resolution control must leave mutation fields empty"; return -1; end
     if action <> "read" & _s(result,"object_id") <> "" then do; error = "only a read request may select an object in a resolution control"; return -1; end
     if action = "defer" then do
@@ -1585,6 +1738,7 @@ validatebacklogresponse: procedure = .int
     end
     else if _s(result,"effective_from") <> "" then do; error = "only a deferral may set a date in a resolution control"; return -1; end
     if action = "search" & strip(_s(result,"question")) = "" then do; error = "search requires a question"; return -1; end
+    if action = "insufficient-evidence" & strip(_s(result,"question")) = "" then do; error = "insufficient evidence requires a specific material reopening trigger in question"; return -1; end
     if action = "read" & _s(result,"object_id") = "" then do; error = "read requires an exact corpus citation"; return -1; end
   end
   grounds = "["; seen = .string[]
@@ -1731,7 +1885,7 @@ completebacklogdecision: procedure = .int
     if review_status<0 then return _rollback(database,error,error)
     if review_status=1 then decision_state="review"
   end
-  if decision_state = "resolved" & action <> "no-change" then do
+  if decision_state = "resolved" & wordpos(action,"no-change insufficient-evidence")=0 then do
     snapshot_id = _text(database,"SELECT config_snapshot_id FROM jobs WHERE job_id=" || _q(job_id))
     if stagegeneration(store,current,snapshot_id,"maintenance resolution " || task_id,generation,error) \= 0 then return -3
     if _applydecision(store,task_id,task,result,profile,job_id,current,generation,policy,error) \= 0 then return _rollback(database,error,error)
@@ -1782,7 +1936,7 @@ reviewbacklogdecision: procedure = .int
   if validatebacklogresponse(database,task_id,response,grounds,error) \= 0 then return -1
   current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1"); generation = 0
   review_result = .jsondocument(response)
-  if decision = "accept" & wordpos(_s(review_result,"action"),"no-change defer") = 0 then do
+  if decision = "accept" & wordpos(_s(review_result,"action"),"no-change insufficient-evidence defer") = 0 then do
     snapshot_id = _text(database,"SELECT config_snapshot_id FROM jobs WHERE job_id=" || _q(job_id))
     if begingeneration(store,current,snapshot_id,"reviewed resolution " || task_id,generation,error) \= 0 then return -3
   end
@@ -1837,14 +1991,14 @@ inspectbacklog: procedure = .string
 _applydecision: procedure = .int
   arg store = .ragstorehandle, task_id = .string, task = .jsondocument, result = .jsondocument, profile = .ragprofile, job_id = .string, current = .int, generation = .int, policy = .jsondocument, expose error = .string
   database = store.database(); action = _s(result,"action"); kind = _s(task,"subject_type"); object = _s(task,"subject_id"); target = _s(result,"target_concept_id"); workflow_id = _s(task,"workflow_id")
-  if action = "no-change" then return 0
+  if action = "no-change" | action = "insufficient-evidence" then return 0
   if action = "defer" then return _applydeferral(database,task_id,result,error)
   if action = "assess-provenance" & kind = "provenance-chunk" then return applyenrichment(store,task_id,result.node_get(result.root()),profile,job_id,current,generation,error)
   if action = "reuse" | action = "distinct" then do
     if _resolvealias(store,task_id,task,result,profile,current,generation,error) \= 0 then return -1
     chunk = _text(database,"SELECT c.revision_chunk_id FROM maintenance_alias_issues i JOIN candidate_mentions c ON c.candidate_id=i.candidate_id WHERE i.issue_id=" || _q(object))
     child_task = ""
-    return enqueuebacklogtask(database,"alias-follow-up:" || object,"chunk",chunk,"",task_id,920000,policy,child_task,error)
+    return enqueuebacklogtask(database,"alias-follow-up:chunk","chunk",chunk,"",task_id,920000,policy,child_task,error)
   end
   if action = "investigate" then do
     child_task = ""
@@ -1905,7 +2059,8 @@ _applydecision: procedure = .int
     if _number(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.catalogue') c WHERE t.task_id=" || _q(task_id) || " AND json_extract(c.value,'$.concept_id')=" || _q(target)) \= 1 then do; error = "merge target is outside the source-scoped catalogue"; return -1; end
     life_target = target
   end
-  life_action = '{"schema":"crexx-rag.lifecycle-action/1","operation":' || jsonquote(action) || ',"concept_id":' || jsonquote(parent) || ',"target_concept_id":' || jsonquote(life_target) || ',"alias":' || jsonquote(alias) || ',"concept_type":' || jsonquote(new_type) || ',"reason":' || jsonquote(_s(result,"reason")) || ',"successors":' || successors || ',"dispositions":[]}'
+  dispositions="[]";if result.node_type(result.member(result.root(),"dispositions"))="array" then dispositions=result.node_get(result.member(result.root(),"dispositions"))
+  life_action = '{"schema":"crexx-rag.lifecycle-action/1","operation":' || jsonquote(action) || ',"concept_id":' || jsonquote(parent) || ',"target_concept_id":' || jsonquote(life_target) || ',"alias":' || jsonquote(alias) || ',"concept_type":' || jsonquote(new_type) || ',"reason":' || jsonquote(_s(result,"reason")) || ',"successors":' || successors || ',"dispositions":' || dispositions || '}'
   maintenance_item = "maintenance-action:" || task_id
   run_id = _text(database,"SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id))
   sql = "INSERT INTO maintenance_items(item_id,run_id,item_type,subject_type,subject_id,score,trigger_json,diagnosis_json,action_json,state,expected_generation,created_at,updated_at) VALUES(" || _q(maintenance_item) || "," || _q(run_id) || "," || _q(action) || ",'concept'," || _q(parent) || ",900000,'{}','{}'," || _q(life_action) || ",'approved'," || current || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
@@ -2155,7 +2310,7 @@ planagentaction: procedure = .int
 _agenteffects: procedure = .int
   arg database = .binary, config = .ragconfig, task_id = .string, task = .jsondocument, result = .jsondocument, current = .int, expose impact = .string, expose error = .string
   impact = "[]"; action = _s(result,"action")
-  if action = "no-change" | action = "defer" then return 0
+  if wordpos(action,"no-change insufficient-evidence defer")>0 then return 0
   parent = ""
   if _s(task,"subject_type") = "concept" then parent = _s(task,"subject_id")
   if _s(task,"subject_type") = "note" & wordpos(action,"split merge synonym type-correction retire restore")>0 then do
@@ -2326,7 +2481,7 @@ reviewagentaction: procedure = .int
     if _checkagentreview(database,plan,task,config,profile,impact,error) \= 0 then return _rollback(database,error,error)
     action = _s(result,"action")
     if action \= "unresolved" then do
-      if wordpos(action,"no-change defer")=0 then if stagegeneration(store,current,_s(plan,"config_snapshot_id"),"external resolution " || task_id,generation,error) \= 0 then return _rollback(database,error,error)
+      if wordpos(action,"no-change insufficient-evidence defer")=0 then if stagegeneration(store,current,_s(plan,"config_snapshot_id"),"external resolution " || task_id,generation,error) \= 0 then return _rollback(database,error,error)
       policy = .jsondocument(backlogpolicy(config,profile,""))
       if _applydecision(store,task_id,task,result,profile,_s(plan,"job_id"),current,generation,policy,error) \= 0 then return _rollback(database,error,error)
       task_state = "resolved"; if action = "investigate" | action = "defer" then task_state = "unresolved"

@@ -642,6 +642,105 @@ if(NOT partial_result STREQUAL "0" OR
     message(FATAL_ERROR "Partial-answer loopback failed:\n${final_partial_out}${final_partial_err}")
 endif()
 
+# Run the overflow controls after the snapshot assertions: query.evidence can
+# record gap observations, which legitimately change snapshot health.
+set(overflow_server_out "${CPRAG_WORK_DIR}/overflow-loopback.out")
+set(overflow_server_err "${CPRAG_WORK_DIR}/overflow-loopback.err")
+set(overflow_server_status "${CPRAG_WORK_DIR}/overflow-loopback.status")
+execute_process(COMMAND /bin/sh -c
+    "( \"$1\" \"$2\" 1 product-query; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
+    p5r-overflow "${CPRAG_LOOPBACK}" "${CPRAG_FIXTURE_PORT}"
+    "${overflow_server_out}" "${overflow_server_err}" "${overflow_server_status}"
+    RESULT_VARIABLE overflow_launch_result)
+if(NOT overflow_launch_result EQUAL 0)
+    message(FATAL_ERROR "could not start overflow query loopback")
+endif()
+set(overflow_ready FALSE)
+foreach(poll RANGE 1 200)
+    if(EXISTS "${overflow_server_out}")
+        file(READ "${overflow_server_out}" current_overflow_out)
+        if(current_overflow_out MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+            set(overflow_ready TRUE)
+            break()
+        endif()
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+endforeach()
+if(NOT overflow_ready)
+    message(FATAL_ERROR "overflow query loopback did not become ready")
+endif()
+
+# A graph claim larger than the public ceiling must not suppress the source
+# passage. The two public routes share the same bounded evidence projection.
+set(query_db "${CPRAG_WORK_DIR}/library/library.sqlite")
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${query_db}"
+    "SELECT qualifiers_json FROM claims LIMIT 1"
+    OUTPUT_VARIABLE original_qualifiers OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${query_db}"
+    "UPDATE claims SET qualifiers_json=json_object('note',replace(hex(zeroblob(135000)),'0','q'))"
+    COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND ${cli} --format json query evidence
+    "What does BillingService depend on?" --mode lexical --hops 0 --limit 12
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE graph_off_out
+    ERROR_VARIABLE graph_off_err RESULT_VARIABLE graph_off_result TIMEOUT 30)
+if(NOT graph_off_result EQUAL 0)
+    message(FATAL_ERROR "Traversal-off source control failed: ${graph_off_out}${graph_off_err}")
+endif()
+string(JSON graph_off_fields GET "${graph_off_out}" records 0 fields)
+string(JSON graph_off_incomplete GET "${graph_off_fields}" evidence_incomplete)
+if(graph_off_incomplete)
+    message(FATAL_ERROR "Traversal-off source control was incomplete: ${graph_off_out}")
+endif()
+foreach(query_mode IN ITEMS lexical hybrid)
+    execute_process(COMMAND ${cli} --format json query evidence
+        "What does BillingService depend on?" --mode ${query_mode} --hops 1 --limit 12
+        WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE overflow_out
+        ERROR_VARIABLE overflow_err RESULT_VARIABLE overflow_result TIMEOUT 60)
+    if(NOT overflow_result EQUAL 0)
+        message(FATAL_ERROR "${query_mode} graph evidence overflow failed: ${overflow_out}${overflow_err}")
+    endif()
+    string(JSON overflow_status GET "${overflow_out}" status)
+    string(JSON overflow_fields GET "${overflow_out}" records 0 fields)
+    string(JSON overflow_evidence GET "${overflow_fields}" evidence_json)
+    string(JSON overflow_truncated GET "${overflow_evidence}" truncation incomplete)
+    string(JSON overflow_omitted GET "${overflow_evidence}" truncation omitted claims)
+    string(JSON overflow_passages LENGTH "${overflow_evidence}" passages)
+    string(JSON overflow_hops GET "${overflow_fields}" effective_graph_hops)
+    string(JSON overflow_mode GET "${overflow_fields}" retrieval_mode)
+    string(JSON overflow_graph GET "${overflow_fields}" graph_candidates)
+    string(JSON overflow_field_incomplete GET "${overflow_fields}" evidence_incomplete)
+    string(JSON overflow_field_omitted GET "${overflow_fields}" omitted_claims)
+    string(JSON overflow_citation GET "${overflow_evidence}" passages 0 citation id)
+    string(LENGTH "${overflow_evidence}" overflow_bytes)
+    if(NOT overflow_status STREQUAL "ok" OR NOT overflow_truncated OR
+       NOT overflow_omitted EQUAL 1 OR overflow_passages LESS 1 OR
+       NOT overflow_hops EQUAL 1 OR NOT overflow_mode STREQUAL "${query_mode}" OR
+       overflow_graph LESS 1 OR NOT overflow_field_incomplete OR
+       NOT overflow_field_omitted EQUAL 1 OR NOT overflow_citation MATCHES "^crexx-rag:" OR
+       overflow_bytes GREATER 262144)
+        message(FATAL_ERROR "${query_mode} graph evidence was not bounded with exact omissions: ${overflow_out}${overflow_err}")
+    endif()
+endforeach()
+string(REPLACE "'" "''" original_qualifiers_sql "${original_qualifiers}")
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${query_db}"
+    "UPDATE claims SET qualifiers_json='${original_qualifiers_sql}'"
+    COMMAND_ERROR_IS_FATAL ANY)
+foreach(poll RANGE 1 200)
+    if(EXISTS "${overflow_server_status}")
+        break()
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+endforeach()
+if(NOT EXISTS "${overflow_server_status}")
+    message(FATAL_ERROR "overflow query loopback did not exit")
+endif()
+file(READ "${overflow_server_status}" overflow_server_result)
+file(READ "${overflow_server_out}" final_overflow_server_out)
+if(NOT overflow_server_result STREQUAL "0" OR
+   NOT final_overflow_server_out MATCHES "SUMMARY scenario=product-query connections=1")
+    message(FATAL_ERROR "overflow query loopback failed: ${final_overflow_server_out}")
+endif()
+
 execute_process(COMMAND ${cli} --access diagnose library verify
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE verify_out ERROR_VARIABLE verify_err

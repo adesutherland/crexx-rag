@@ -38,8 +38,43 @@ encodeevidence: procedure = .int
   trace_record = evidence.trace()
   encoded_trace = '{"trace_id":' || jsonquote(trace_record.trace_id()) || ',"query_plan":' || _strings(trace_record.query_plan()) || ',"notes":' || _strings(trace_record.notes()) || '}'
   output = '{"schema":' || jsonquote("crexx-rag.evidence/2") || ',"library_id":' || jsonquote(evidence.library_id()) || ',"active_generation":' || evidence.active_generation() || ',"original_question":' || jsonquote(evidence.original_question()) || ',"query_plan":' || encoded_plan || ',"passages":[' || encoded_passages || '],"claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"leads":[' || encoded_leads || '],"analysis_notes":[' || encoded_notes || '],"gaps":' || _strings(gaps) || ',"trace":' || encoded_trace || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || ',"generated_answer":' || jsonquote(evidence.generated_answer()) || '}'
-  if binlength(output as .binary) > maximum_bytes then do; error = "serialized evidence exceeds the configured byte ceiling"; output = ""; return -2; end
+  if binlength(output as .binary) > maximum_bytes then do
+    /* A generated answer may cite a record that a bounded public projection
+     * would omit. Keep the previous refusal until answer citations can be
+     * pinned to the returned evidence. */
+    if evidence.generated_answer() \= "" then do; error = "serialized evidence exceeds the configured byte ceiling"; output = ""; return -2; end
+    return _boundedevidence(evidence,maximum_bytes,output,error)
+  end
   return 0
+
+/* Keep complete cited records and their qualifications. Preserve the ranked
+ * source passages before graph additions so traversal cannot displace the
+ * primary evidence; omit lower-ranked graph records first. */
+_boundedevidence: procedure = .int
+  arg evidence=.ragevidence, maximum_bytes=.int, expose output=.string, expose error=.string
+  passages=evidence.passages(); claims=evidence.claims(); leads=evidence.leads(); notes=evidence.analysis_notes(); ambiguities=evidence.ambiguities(); gaps=evidence.gaps()
+  passage_rows=.string[]; claim_rows=.string[]; lead_rows=.string[]; note_rows=.string[]
+  do i=1 to passages.0; passage_rows[i]=_passage(passages[i]); end
+  do i=1 to claims.0; claim_rows[i]=_claim(claims[i]); end
+  do i=1 to leads.0; lead_rows[i]=_lead(leads[i]); end
+  do i=1 to notes.0; note_rows[i]=_analysisnote(notes[i]); end
+  pc=passages.0; cc=claims.0; lc=leads.0; nc=notes.0; ac=ambiguities.0; gc=gaps.0
+  trace_record=evidence.trace()
+  encoded_trace='{"trace_id":' || jsonquote(trace_record.trace_id()) || ',"query_plan":' || _strings(trace_record.query_plan()) || ',"notes":' || _strings(trace_record.notes()) || '}'
+  do forever
+    if nc>0 then nc=nc-1
+    else if lc>0 then lc=lc-1
+    else if gc>0 then gc=gc-1
+    else if ac>0 then ac=ac-1
+    else if cc>1 then cc=cc-1
+    else if pc>1 then pc=pc-1
+    else if cc>0 then cc=cc-1
+    else if pc>0 then pc=pc-1
+    else do; error="mandatory evidence metadata exceeds the configured byte ceiling"; output=""; return -2; end
+    omitted='{"passages":' || (passages.0-pc) || ',"claims":' || (claims.0-cc) || ',"leads":' || (leads.0-lc) || ',"analysis_notes":' || (notes.0-nc) || ',"ambiguities":' || (ambiguities.0-ac) || ',"gaps":' || (gaps.0-gc) || '}'
+    output='{"schema":"crexx-rag.evidence/2","library_id":' || jsonquote(evidence.library_id()) || ',"active_generation":' || evidence.active_generation() || ',"original_question":' || jsonquote(evidence.original_question()) || ',"query_plan":' || _strings(evidence.query_plan()) || ',"passages":' || _prefixobjects(passage_rows,pc) || ',"claims":' || _prefixobjects(claim_rows,cc) || ',"ambiguities":' || _prefixstrings(ambiguities,ac) || ',"leads":' || _prefixobjects(lead_rows,lc) || ',"analysis_notes":' || _prefixobjects(note_rows,nc) || ',"gaps":' || _prefixstrings(gaps,gc) || ',"trace":' || encoded_trace || ',"answer_guidance":' || jsonquote(evidence.answer_guidance() || " Evidence is incomplete: whole records were omitted to meet the byte ceiling. Report this limitation; absence is not negative evidence.") || ',"generated_answer":' || jsonquote(evidence.generated_answer()) || ',"truncation":{"incomplete":true,"omitted":' || omitted || '}}'
+    if binlength(output as .binary)<=maximum_bytes then return 0
+  end
 
 encoderetrieval: procedure = .int
   arg retrieval = .ragretrievalresult, maximum_bytes = 65536, expose output = .string, expose error = .string
@@ -108,6 +143,15 @@ _prefixobjects: procedure = .string
   do i=1 to count
     if i>1 then output=output || ","
     output=output || rows[i]
+  end
+  return output || "]"
+
+_prefixstrings: procedure = .string
+  arg rows=.string[], count=.int
+  output="["
+  do i=1 to count
+    if i>1 then output=output || ","
+    output=output || jsonquote(rows[i])
   end
   return output || "]"
 

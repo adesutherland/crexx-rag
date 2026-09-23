@@ -126,7 +126,9 @@ For ordinary MCP Q&A, the current assistant retrieves with `rag_query_inspect`,
 follows relevant evidence and graph leads, resolves citations with
 `rag_citation_show`, and composes the answer itself. This retrieval route makes
 **zero writes and zero cREXX-RAG provider calls**. Its CLI equivalent is
-`query inspect QUESTION`.
+`query inspect QUESTION`. Check `evidence_incomplete` and `omitted_*` counts:
+the packet may be bounded by the configured byte ceiling, so missing evidence
+in an incomplete result is not proof that the library lacks it.
 
 Use `rag_query_answer` only when the user explicitly requests using or testing
 cREXX-RAG's own answerer, within the configured privacy and provider budget.

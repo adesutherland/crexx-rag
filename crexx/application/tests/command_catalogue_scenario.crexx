@@ -27,6 +27,11 @@ main: procedure = .int
   if parsecommand(command_args,request,error)\=0 then do;say "COMMAND_CATALOGUE_FAIL line 27";return 1;end
   command_options=request.command_options()
   if command_options.0\=1 | command_options[1].name()\="embeddings-only" | command_options[1].value()\="true" | command_options[1].flag()\=1 then do;say "COMMAND_CATALOGUE_FAIL line 29";return 1;end
+  document=.jsondocument('{"question":"frozen evaluation","record_gaps":false}')
+  clear command_args;command_args=.string[];command_args[1]="--library";command_args[2]="unused"
+  if catalogcommand(commanddefinition("rag_query_evidence"),document,document.root(),command_args,error)\=0 | parsecommand(command_args,request,error)\=0 then do;say "COMMAND_CATALOGUE_FAIL explicit false forwarding";return 1;end
+  command_options=request.command_options()
+  if command_options.0\=1 | command_options[1].name()\="record-gaps" | command_options[1].value()\="false" then do;say "COMMAND_CATALOGUE_FAIL suppressed observation forwarding";return 1;end
   if commandknown("maintain","workflows")\=1 | commandknown("query","invented")\=0 then do;say "COMMAND_CATALOGUE_FAIL line 30";return 1;end
   if commandlibrary("config","prompt")\=0 | commandlibrary("schedule","show")\=0 | commandlibrary("job","items")\=1 then do;say "COMMAND_CATALOGUE_FAIL line 31";return 1;end
   if capabilityallows("curate","plan")\=1 | capabilityallows("curate","control")\=1 | capabilityallows("admin","diagnose")\=1 then do;say "COMMAND_CATALOGUE_FAIL line 32";return 1;end

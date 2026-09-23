@@ -18,13 +18,14 @@ The ordinary-maintenance file is one line: pass its complete text as the value o
 - Copy continuous quotations, preserving OCR, punctuation and line breaks, including line-end hyphens. Do not paraphrase or join fragments.
 - Choose relationship evidence first. Check both final endpoint labels, zero-based indexes, permitted semantics and direction. Account for negation, conditions, recommendations, attribution and scope; co-occurrence does not justify an edge.
 - Require aliases to identify the same referent. An organisation and its publication remain distinct even when the title names the publisher. Honour reviewed glossary identities.
+- Keep page markers and locators as provenance metadata; a useful isolated domain concept needs no invented relationship. Keep informational annotations separate from actionable leads.
 - On correction, reassess meaning across the result, remove unsupported components and repair dependent indexes. Empty output is appropriate only when nothing is supported, not as a substitute for examining the passage.
 
 **Ordinary maintenance** incorporates the improved Scottish guidance:
 
 - Prove the specific identity as well as its type; compare actual candidates and passage context. Stored names and classifications are hypotheses.
 - Require affirmative support for `retain`, not merely lack of contradiction. It is not a universal empty decision.
-- Match actions to the supplied subject and workflow. Lifecycle actions select an eligible catalogue concept; `restore` requires a retired concept, `merge` a different target, `split` supported successors, and `retire` an empty impact census.
+- Match actions to the supplied subject and workflow. Lifecycle actions select an eligible catalogue concept; `restore` requires a retired concept, `merge` evidence of referent equivalence and a different target, `split` supported successors, and `retire` a reviewed disposition for every active owned impact item.
 - Preserve quotation context that justifies the decision and overlaps the selected occurrence. Reassess the decision when correcting evidence.
 - Return a supported permitted decision or focused `escalate` handoff, rather than repeatedly returning unresolved work.
 
@@ -36,8 +37,9 @@ The ordinary-maintenance file is one line: pass its complete text as the value o
 | `search` | Empty | New lexical query, at most 256 characters | Evidence/call allowances permit follow-up |
 | `read` | Exact corpus citation from search | Empty | Not an S/C/E reference; allowance permits follow-up |
 | `no-change` | Empty | Empty | Explain why evidence does not justify a change |
+| `insufficient-evidence` | Empty | Specific material reopening trigger | Explain current uncertainty without affirming the graph |
 
-For these four controls, keep `target_concept_id`, `canonical_label`, `concept_type`, `effective_from` and `effective_to` empty, `successors` as `[]`, and `qualifiers_json` as the string `"{}"`. Evidence is optional for these controls, but any supplied citation must ground its selected occurrence. The advanced file includes a complete `extract` example. `defer` has separate policy/date requirements and is forbidden when `evidence_expected` is false. The final available call must conclude. A valid `extract` or evidence step is an intermediate decision, not completed maintenance.
+For these controls, keep `target_concept_id`, `canonical_label`, `concept_type`, `effective_from` and `effective_to` empty, `successors` as `[]`, and `qualifiers_json` as the string `"{}"`. Evidence is optional for these controls, but any supplied citation must ground its selected occurrence. The advanced file includes a complete `extract` example. `defer` has separate policy/date requirements and is forbidden when `evidence_expected` is false. The final available call must conclude. A valid `extract` or evidence step is an intermediate decision, not completed maintenance. Incomplete task packets expose omitted counts and `maintain.evidence-index` for bounded continuation; omitted evidence cannot support a definitive negative finding.
 
 ## Adapt and select
 
