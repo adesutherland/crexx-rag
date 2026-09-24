@@ -3,16 +3,16 @@
 ## Advanced response schema and terminal error — 24 September 2026
 
 The clean source baseline is `a58ec95b7cfe30b1cb885846a6535bb10a0a2aff`.
-This candidate is isolated on `temp/advanced-response-schema-repair`; no
-installed product or corpus workspace has been changed. Installed CREXX is
+The repair is committed as `7ea891956f473d5a9b02b4c42e020857356fc27e`
+and published on `main`. The per-user product installation was updated;
+the protected corpus workspace and its monitor were not touched. Installed CREXX is
 `crexx-1.0.0-beta.3+local.g5949ef27efd8`. The local owner map was checked
 before edits: `ragresolutioncontract` owns the prompt/schema/version,
 `ragbacklog` owns lifecycle validation and retry scheduling,
 `codex_provider` owns App Server protocol errors, and
 `ragapplicationprovider` composes frozen bindings and durable receipts. The
 provider source is part of this product; no CREXX provider fork is needed.
-The source remains uncommitted under the repository's local-commit rule. The
-modified product/test-file snapshot (16 sorted paths and bytes) has SHA-256
+The committed product/test-file snapshot (16 sorted paths and bytes) has SHA-256
 `fb09b9571b5ee8a5892b42feb540351b274cfded153a9a71691213ba28aad22c`.
 The linked Level-G image is
 `d965e1e576871478196b84c56246b9ee2bd2aa8440631c2f1454f3394c4db6a0`;
@@ -88,19 +88,33 @@ passing cases with no disabled, failed, interrupted or not-run entry. A prior
 full selection exposed a transient local-model load timeout in the unrelated
 `native_embedding_windows` fixture under concurrency. The unchanged case
 passed alone in 10.55 seconds and its exact-input pass was retained in the
-final selection. `git diff --check` passed. Hosted, real-provider,
-other-platform and corpus-specific qualification remain pending; no hosted
-call or installation was made.
+final selection. `git diff --check` passed. The exact committed package was
+installed first in a scratch prefix and then with `install-local` at
+`/Users/adrian/.local`. Both executable hashes equal
+`0714b6f116261bb3311c8611b6953bae7fd0d6d577a586ddd32c465643720ab8`;
+the installed resolution contract and Codex adapter match committed source
+byte for byte. A disposable installed-library `init` and `verify` passed, and
+the installed executable passed the four-worker `AdvancedFirstPass.cmake`
+journey through accepted first-pass receipt and unchanged replay. The previous
+product executable (SHA-256 `b83b34b07cde246449602a93b0a5412575a0849613053ada327f41f7726e18dc`)
+and application support trees are retained at
+`/Users/adrian/.local/rollback/crexxrag-pre-7ea8919/`.
+The [hosted package run for exact repair commit `7ea8919`](https://github.com/adesutherland/crexx-rag/actions/runs/35987323104)
+completed successfully: `metadata`, `macos-x86_64`, `macos-arm64` and
+`windows-x64` passed. The release `publish` job was skipped because the source
+was pushed to `main` without a version tag. This qualifies the hosted package
+checks, not real-provider behavior or wider platform functional regression.
+Corpus-specific qualification remains pending. No hosted provider call or
+corpus installation was made.
 
-### Proposed later deployment and selective recovery (not executed)
+### Proposed later corpus deployment and selective recovery (not executed)
 
-After separate publication and corpus authority, qualify the exact clean
-product revision and install it into a new prefix using the normal release
-path (`cmake --install cmake-build-debug --prefix PREFIX` is the local package
-form). Verify that prefix in an isolated scratch library before selecting it
-for any retained library. Keep the existing installed binary available for an
-immediate pre-recovery executable rollback. No product or corpus installation
-was performed in this repair task.
+After separate corpus authority, select a qualified exact product revision in
+a controlled prefix (`cmake --install cmake-build-debug --prefix PREFIX` is the
+local package form). Verify that prefix in an isolated scratch library before
+selecting it for any retained library. Keep the pre-recovery executable
+available for rollback. The per-user product installation reported above did
+not select an executable for the protected corpus or start any recovery.
 
 With the target monitor paused and its existing native backup verified by the
 authorized operator, inspect each affected task, job item, receipt and exact
