@@ -92,6 +92,24 @@ foreach(mode IN ITEMS noopt opt)
             message(FATAL_ERROR
                 "${mode}-${runtime_name} Codex protocol fixture failed (${run_result}):\n${run_out}\n${run_err}")
         endif()
+        foreach(terminal_stage IN ITEMS invalid-schema invalid-schema-start auth-terminal rate-terminal transient-terminal missing-terminal interrupted-terminal unsafe-terminal)
+            set(terminal_log "${CPRAG_WORK_DIR}/${mode}-${runtime_name}-${terminal_stage}.methods")
+            file(REMOVE "${terminal_log}")
+            execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+                "CREXXRAG_CODEX_FIXTURE_FAILURE=${terminal_stage}"
+                "CREXXRAG_CODEX_FIXTURE_LOG=${terminal_log}"
+                "${runtime}" -l "${imports}" "${program}" ${modules}
+                -a "${fixture}" "${CPRAG_WORK_DIR}/empty-cwd" 1 terminal-error
+                RESULT_VARIABLE terminal_status OUTPUT_VARIABLE terminal_out ERROR_VARIABLE terminal_err TIMEOUT 15)
+            if(NOT terminal_status EQUAL 0 OR NOT terminal_out MATCHES "PASS: terminal Codex classification")
+                message(FATAL_ERROR "${mode}-${runtime_name} ${terminal_stage} classification failed: ${terminal_out}${terminal_err}")
+            endif()
+            file(STRINGS "${terminal_log}" starts REGEX "^turn/start$")
+            list(LENGTH starts start_count)
+            if(NOT start_count EQUAL 1)
+                message(FATAL_ERROR "${mode}-${runtime_name} ${terminal_stage} submitted ${start_count} turns; expected exactly one")
+            endif()
+        endforeach()
         foreach(utf8_stage IN ITEMS utf8-fragments utf8-invalid)
             execute_process(COMMAND "${CMAKE_COMMAND}" -E env
                 "CREXXRAG_CODEX_FIXTURE_FAILURE=${utf8_stage}"

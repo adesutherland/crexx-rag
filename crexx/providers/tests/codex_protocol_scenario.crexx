@@ -17,6 +17,44 @@ main: procedure = .int
   end
   observer = .codexnoopobserver()
   provider = .codexprovider(args[1], args[2], observer)
+  if args.0=4 then if args[4]="terminal-error" then do
+    scenario=getenv("CREXXRAG_CODEX_FIXTURE_FAILURE")
+    expected_code=-103;expected_http=0;expected_retry=0
+    if scenario="invalid-schema" | scenario="invalid-schema-start" | scenario="unsafe-terminal" then do;expected_code=-101;expected_http=400;end
+    if scenario="auth-terminal" then do;expected_code=-104;expected_http=401;end
+    if scenario="rate-terminal" then do;expected_code=-429;expected_http=429;expected_retry=1;end
+    if scenario="transient-terminal" then do;expected_code=-103;expected_http=503;expected_retry=1;end
+    if scenario="interrupted-terminal" then expected_code=-105
+    messages=.providermessage[];inputs=.string[]
+    messages[1]=.providermessage("user","Return the synthetic ok field.")
+    schema='{"type":"object","additionalProperties":false,"required":["ok"],"properties":{"ok":{"type":"boolean"}}}'
+    request=.providerrequest("generate_structured","probe","default",messages,inputs,schema,5000,1,"public","terminal-fixture","terminal-fixture",32,0,0,0,1000,60000,250,"low")
+    thread_id="";turn_id="";error=""
+    if provider.start_thread(request,thread_id,error)<>0 then do;say "FAIL: start thread " || error;return 1;end
+    started=provider.start_structured_turn(request,thread_id,turn_id,error)
+    if scenario="invalid-schema-start" then do
+      failure=provider.turn_error()
+      if started=0 | failure.code()<>expected_code | failure.http_status()<>expected_http | failure.retryable()<>0 | pos("invalid_json_schema",failure.message())=0 then do;say "FAIL: start rejection " || error;return 1;end
+    end
+    else do
+      if started<>0 then do;say "FAIL: turn start " || error;return 1;end
+      result=provider.wait_structured(request,thread_id,turn_id)
+      failure=result.error()
+      if result.status()<>expected_code | failure.http_status()<>expected_http | failure.retryable()<>expected_retry then do;say "FAIL: terminal classification " || scenario || " " || failure.message();return 1;end
+      if scenario="invalid-schema" & (pos("invalid_json_schema",failure.message())=0 | pos("text.format.schema",failure.message())=0) then do;say "FAIL: structured upstream detail lost";return 1;end
+      if scenario="unsafe-terminal" & (pos("PRIVATE",failure.message())>0 | pos("private-token",failure.message())>0 | pos("invalid_json_schema",failure.message())=0) then do;say "FAIL: untrusted upstream message leaked source or lost safe code";return 1;end
+      state="";content="";error=""
+      if provider.inspect_turn_fresh(thread_id,turn_id,5000,state,content,error)<>0 then do;say "FAIL: exact turn read " || error;return 1;end
+      observed=provider.turn_error()
+      if observed.code()<>expected_code | observed.http_status()<>expected_http | observed.retryable()<>expected_retry then do;say "FAIL: read-back classification " || observed.message();return 1;end
+      if scenario="unsafe-terminal" & pos("PRIVATE",observed.message())>0 then do;say "FAIL: read-back leaked source text";return 1;end
+      recovered=provider.recover_structured(request,thread_id,turn_id,7,2)
+      if recovered.status()<>expected_code | recovered.error().http_status()<>expected_http | recovered.error().retryable()<>expected_retry | recovered.usage().input_tokens()<>7 | recovered.usage().output_tokens()<>2 then do;say "FAIL: recovered receipt classification";return 1;end
+    end
+    call provider.close()
+    say "PASS: terminal Codex classification " || scenario
+    return 0
+  end
   if args.0 = 4 then if args[4] = "utf8-fragments" | args[4] = "utf8-invalid" then do
     error="";account_type="";plan_type="";used_percent=-1
     status=provider.account_status(5000,account_type,plan_type,used_percent,error)

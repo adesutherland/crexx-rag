@@ -136,6 +136,7 @@ int main(int argc, char** argv)
     int paired_client = -1;
     std::string paired_response;
     int barrier_pairs = 0;
+    int first_pass_extractions = 0;
     std::unordered_map<std::string, int> retry_attempts;
     std::string embedding_retry_target;
     for (int index = 0; index < requests; ++index) {
@@ -254,8 +255,11 @@ int main(int argc, char** argv)
                         + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":240,\"candidatesTokenCount\":48}}";
                 }
             } else if (request.find("Durable resolution input:") != std::string::npos) {
-                if (!valid_auth || !valid_structured || request.find("maintenance-resolution") == std::string::npos
-                    || (scenario != "product-backlog-advanced" && scenario != "product-backlog-correction-advanced" && request.find("fixture-resolution-prompt") == std::string::npos)
+                if (scenario == "product-backlog-upgrade" && request.find("\"question\",\"dispositions\"") == std::string::npos) {
+                    http_status = 400;
+                    body = R"({"error":{"message":"Invalid schema for response_format codex_output_schema: Missing dispositions.","type":"invalid_request_error","code":"invalid_json_schema","param":"text.format.schema"}})";
+                } else if (!valid_auth || !valid_structured || request.find("maintenance-resolution") == std::string::npos
+                    || (scenario != "product-backlog-advanced" && scenario != "product-backlog-correction-advanced" && scenario != "product-backlog-upgrade" && scenario != "product-first-pass" && request.find("fixture-resolution-prompt") == std::string::npos)
                     || request.find("Reference contract:") == std::string::npos) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini resolution request shape mismatch"}})";
@@ -263,14 +267,17 @@ int main(int argc, char** argv)
                     std::string resolution = scenario == "product-backlog-malformed"
                         ? R"({"action":"synthetic-product-gemini-key"})"
                         : scenario == "product-backlog-rejected"
-                        ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})"
-                        : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})";
-                    if (scenario == "product-backlog-advanced") {
+                        ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[]})"
+                        : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[]})";
+                    if (scenario == "product-backlog-advanced" || scenario == "product-backlog-upgrade"
+                        || scenario == "product-first-pass") {
                         if (request.find("Resolve the maintenance question using validated source evidence") == std::string::npos
                             || request.find("advanced-resolver") == std::string::npos
                             || request.find("final reasoning route") == std::string::npos
                             || request.find("prompt_sha256") == std::string::npos) return 6;
-                        resolution = R"({"action":"no-change","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The retained evidence does not justify an additional change.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})";
+                        resolution = R"({"action":"no-change","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The retained evidence does not justify an additional change.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[]})";
+                        if (scenario == "product-first-pass")
+                            resolution = R"({"action":"extract","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"A corrected typed extraction can assess the source passage.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[]})";
                     }
                     if (scenario.rfind("product-backlog-correction", 0) == 0) {
                         const bool correcting = request.find("Citation correction (one attempt)") != std::string::npos;
@@ -341,18 +348,21 @@ int main(int argc, char** argv)
                 const bool valid_output_reservation =
                     request.find("\"maxOutputTokens\":512") != std::string::npos
                     || request.find("\"maxOutputTokens\":1024") != std::string::npos
+                    || request.find("\"maxOutputTokens\":2048") != std::string::npos
                     || request.find("\"maxOutputTokens\":4096") != std::string::npos;
                 if (!valid_auth || !valid_structured || request.find("crexx-rag.work-input/1") == std::string::npos
                     || request.find("crexx-rag.discovery-context/1") == std::string::npos
                     || request.find("crexx-rag.glossary/1") == std::string::npos
                     || request.find("Maximum mentions: 16; relationships: 16; notes:") == std::string::npos
                     || !valid_output_reservation
-                    || source_id.empty() || target_id.empty()) {
+                    || (scenario != "product-first-pass" && (source_id.empty() || target_id.empty()))) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini extraction request shape mismatch"}})";
                 } else {
                     std::string proposal;
-                    if (improvement) {
+                    if (scenario == "product-first-pass" && improvement && ++first_pass_extractions <= 2) {
+                        proposal = R"({"mentions":[{"label":"BillingService","canonical_label":"BillingService","concept_type":"application-component","evidence_quote":"An invented quotation.","aliases":[]}],"relationships":[],"notes":[]})";
+                    } else if (improvement) {
                         proposal =
                             "{\"mentions\":[],\"relationships\":[],\"notes\":["
                             "{\"kind\":\"insight\",\"text\":\"The repeated dependency deserves explicit validation.\",\"importance_millionths\":820000,\"uncertainty_millionths\":280000,\"next_action\":\"Compare the two independently cited dependency statements.\",\"evidence_quote\":\"BillingService depends on CustomerDatabase.\"}]}";

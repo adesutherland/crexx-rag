@@ -30,6 +30,16 @@ crexxrag_add_test(NAME regression_source_maintenance
 set_tests_properties(regression_source_maintenance PROPERTIES
     TIMEOUT 180 LABELS "regression;maintenance;source;zero-outbound")
 
+crexxrag_add_test(NAME advanced_first_pass
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-advanced-first-pass"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/AdvancedFirstPass.cmake")
+set_tests_properties(advanced_first_pass PROPERTIES
+    TIMEOUT 240 LABELS "regression;maintenance;source;provider;worker;recovery;zero-outbound")
+
 crexxrag_add_test(NAME regression_job_deadline
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -366,6 +376,20 @@ crexxrag_add_test(NAME codex_application
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CodexApplication.cmake")
 set_tests_properties(codex_application PROPERTIES
     TIMEOUT 180 LABELS "provider;codex;application;worker;durability;recovery;zero-outbound")
+
+foreach(case IN ITEMS invalid-schema invalid-schema-start)
+crexxrag_add_test(NAME codex_application_${case}
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-codex-application-${case}"
+        "-DCPRAG_TERMINAL_FAILURE=${case}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CodexApplication.cmake")
+set_tests_properties(codex_application_${case} PROPERTIES
+    TIMEOUT 180 LABELS "provider;codex;application;worker;durability;recovery;zero-outbound")
+endforeach()
 
 foreach(case IN ITEMS receipt-write preflight-once preflight-always preflight-disabled turn-disconnect admission-release citation-feedback citation-exhausted)
 crexxrag_add_test(NAME worker_recovery_${case}

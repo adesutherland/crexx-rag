@@ -88,19 +88,25 @@ ragapplicationprovider: class implements .ragworkprovider
     /* Observation settles an existing turn, not a new request. Later source or
      * budget edits do not change its identity or its retained attempt policy. */
     thread_id = _jsonstring(identity,node,"thread_id"); turn_id = _jsonstring(identity,node,"turn_id"); request_id = _jsonstring(identity,node,"request_id")
-    content = ""; state = "unavailable"; usage_complete = 0; detail = ""
+    content = ""; state = "unavailable"; usage_complete = 0; detail = "";observed_failure=.providererror()
     if _jsonstring(identity,node,"outcome") = "completed-unsettled" then do
       content = _jsonstring(identity,node,"content"); state = "completed"; usage_complete = _receiptint(identity,node,"usage_complete")
     end
     else if _ensurecodex(error) \= 0 then return -1
-    else if _codex_backend.inspect_turn(thread_id,turn_id,provider_config.timeout_ms(),state,content,detail) \= 0 then state = "unavailable"
+    else do
+      if _codex_backend.inspect_turn(thread_id,turn_id,provider_config.timeout_ms(),state,content,detail) \= 0 then state = "unavailable"
+      observed_failure=_codex_backend.turn_error()
+    end
     if state = "completed" & content = "" then state = "completed-without-output"
     if (state = "interrupted" | state = "failed") & content \= "" then state = "terminal-with-output"
     input_tokens = _receiptint(identity,node,"input"); output_tokens = _receiptint(identity,node,"output")
     output = .providerresult()
     usage = .providerusage(input_tokens,output_tokens,1,-1,1,0)
     if state = "completed" then call output.set_generation("codex",provider_config.model(),request_id,content,"reconciled",usage,0)
-    else call output.set_failure("codex",provider_config.model(),request_id,.providererror("reconciliation",-105,0,1,1,"observed Codex turn state: " || state),usage,0)
+    else do
+      if observed_failure.code()=0 then observed_failure=.providererror("reconciliation",-105,0,0,1,"observed Codex turn state: " || state)
+      call output.set_failure("codex",provider_config.model(),request_id,observed_failure,usage,0)
+    end
     receipt = _receiptjson(output,provider_config,request_id,_jsonstring(identity,node,"provider_run_id"))
     /* Completion may already have persisted the exact receipt before a crash.
      * Its original finish/usage fields are immutable and part of the digest. */
@@ -234,8 +240,9 @@ ragapplicationprovider: class implements .ragworkprovider
       messages=resolutionmessages(_profile,input_json,objective,subject_type)
       schema=resolutionresponseschema(subject_type,workflow)
       frozen_prompt=_jsonstring(document,root,"prompt_sha256"); frozen_schema=_jsonstring(document,root,"schema_sha256")
-      if frozen_prompt<>"" & frozen_prompt<>rxhash..sha256hex(messages[1].content() as .binary) then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"resolution prompt identity changed; reset/re-plan the task",0)
-      if frozen_schema<>"" & frozen_schema<>rxhash..sha256hex(schema as .binary) then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"resolution schema identity changed; reset/re-plan the task",0)
+      if (frozen_prompt<>"" & frozen_prompt<>rxhash..sha256hex(messages[1].content() as .binary)) | (frozen_schema<>"" & frozen_schema<>rxhash..sha256hex(schema as .binary)) then do
+        if resolutionlegacybinding(input_json,objective,subject_type,workflow,frozen_prompt,frozen_schema)<>1 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"frozen resolution binding is unsupported; inspect the task and use an explicit evidence refresh plan",0)
+      end
     end
     request_id = "extract-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
     reservation = document.member(root, "reservation"); maximum_output = -1
@@ -308,6 +315,7 @@ ragapplicationprovider: class implements .ragworkprovider
             if completeexternalrun(_store, durable_run_id, recovery.thread_id(), recovery.turn_id(), request_id, provider_output.content(), recovery.input_tokens(), recovery.output_tokens(), codex_error) \= 0 then provider_output = _codexfailure(active_request, "Codex recovered output durability failed: " || codex_error, 0, "durability")
             else call _finishcodexthread(recovery.thread_id(), provider_config.timeout_ms())
           end
+          else if _codex_backend.turn_error().code()<>0 & _codex_backend.health_error()="" then terminal_observed=1
         end
       end
       else do
@@ -318,7 +326,14 @@ ragapplicationprovider: class implements .ragworkprovider
         else do
           call _tracer.emit("codex", "durable", claim.item_id(), "preparing persisted thread and turn identities")
           thread_id = ""; turn_id = ""
-          if _codex_backend.start_thread(request, thread_id, codex_error) \= 0 then provider_output = _codexfailure(request, "Codex thread start failed: " || codex_error, 1, "transport")
+          if _codex_backend.start_thread(request, thread_id, codex_error) \= 0 then do
+            start_failure=_codex_backend.turn_error()
+            if start_failure.code()<>0 then do
+              provider_output=.providerresult()
+              call provider_output.set_failure("codex",request.model(),request_id,start_failure)
+            end
+            else provider_output = _codexfailure(request, "Codex thread start failed: " || codex_error, 1, "transport")
+          end
           else if beginexternalrun(_store, claim, provider_config.provider_id(), provider_config.model(), request_id, provider_config.charging_basis(), thread_id, allowance_used, durable_run_id, codex_error,_requestjson(request,provider_config,claim,input_json,_codex_backend.deadline_context())) \= 0 then do
             call _codex_backend.delete_thread(thread_id, provider_config.timeout_ms())
             provider_output = _codexfailure(request, "Codex thread durability failed: " || codex_error, 0, "durability")
@@ -327,7 +342,15 @@ ragapplicationprovider: class implements .ragworkprovider
             provider_charging_basis = provider_config.charging_basis()
             call _codex_backend.observe(.ragcodexusageobserver(_store,durable_run_id))
             if _codex_backend.start_structured_turn(request, thread_id, turn_id, codex_error) \= 0 then do
-              provider_output = _codexfailure(request, "Codex turn start failed: " || codex_error, 1, "transport")
+              start_failure=_codex_backend.turn_error()
+              if start_failure.code()<>0 then do
+                provider_output=.providerresult()
+                call provider_output.set_failure("codex",request.model(),request_id,start_failure)
+                /* A JSON-RPC rejection before a turn id is definitive. The
+                 * retained thread intent can be settled without a read-back. */
+                terminal_observed=1
+              end
+              else provider_output = _codexfailure(request, "Codex turn start failed: " || codex_error, 1, "transport")
             end
             else if updateexternalrunturn(_store, durable_run_id, thread_id, turn_id, codex_error) \= 0 then do
               provider_output = _codexfailure(request, "Codex turn durability failed: " || codex_error, 0, "durability")
@@ -335,6 +358,10 @@ ragapplicationprovider: class implements .ragworkprovider
             else do
               call _tracer.emit("codex", "running", claim.item_id(), "contained structured extraction started")
               provider_output = _codex_backend.wait_structured(request, thread_id, turn_id)
+              /* An interrupted turn is a confirmed terminal state, but a
+               * timeout/disconnect still needs the fresh read-back below to
+               * retain its original cause and measured deadline. */
+              if provider_output.status() \= 0 & _codex_backend.turn_error().code()<>0 & _codex_backend.turn_error().category()<>"interrupted" & _codex_backend.health_error()="" then terminal_observed=1
               /* Observe the exact submitted turn once through a fresh bounded
                * transport. Unknown history holds this item; it cannot drain peers. */
               if provider_output.status() \= 0 & _codex_backend.health_error() \= "" then do
@@ -346,6 +373,7 @@ ragapplicationprovider: class implements .ragworkprovider
                 observed_status = _codex_backend.inspect_turn_fresh(thread_id,turn_id,observation_timeout,observed_state,observed_content,observed_error)
                 if observed_status = 0 then do
                   usage = provider_output.usage()
+                  observed_failure=_codex_backend.turn_error()
                   if observed_state = "completed" & observed_content \= "" then do
                     validation = validatestructuredresponse(observed_content,request.schema())
                     provider_output = .providerresult()
@@ -355,7 +383,9 @@ ragapplicationprovider: class implements .ragworkprovider
                   end
                   else if (observed_state = "interrupted" | observed_state = "failed") & observed_content = "" then do
                     provider_output = .providerresult()
-                    call provider_output.set_failure("codex",request.model(),request_id,.providererror(original_failure.category(),original_failure.code(),original_failure.http_status(),1,1,original_failure.message() || "; confirmed Codex turn " || observed_state),usage,original_elapsed)
+                    if observed_failure.code()=0 then observed_failure=original_failure
+                    if original_failure.category()="timeout" | original_failure.category()="transport" then observed_failure=.providererror(original_failure.category(),original_failure.code(),original_failure.http_status(),1,1,original_failure.message() || "; confirmed Codex turn " || observed_state || "; " || observed_failure.message())
+                    call provider_output.set_failure("codex",request.model(),request_id,observed_failure,usage,original_elapsed)
                     terminal_observed = 1
                   end
                   if terminal_observed = 1 then do
@@ -395,6 +425,10 @@ ragapplicationprovider: class implements .ragworkprovider
       receipt_document = .jsondocument(receipt_body); omitted = _jsonstring(receipt_document,receipt_document.root(),"omitted")
       if omitted \= "" then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider receipt content omitted: " || omitted)
       provider_output = _receiptoutput(receipt_body)
+    end
+    if provider_config.kind()="codex" & durable_run_id<>"" & provider_output.status()<>0 & terminal_observed=1 & receipt_body="" then do
+      receipt_body=_receiptjson(provider_output,provider_config,request_id,durable_run_id)
+      if recordproviderresponse(_store,claim,receipt_body,codex_error) \= 0 then return _receiptfailure(provider_config,request_id,claim,empty_proposal,provider_output,codex_error,durable_run_id)
     end
     /* Codex owns a durable thread/turn intent before dispatch. Keep its
      * completed envelope after settlement too, for failed-publication replay. */

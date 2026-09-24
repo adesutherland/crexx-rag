@@ -1,5 +1,126 @@
 # Maintenance refactoring delivery
 
+## Advanced response schema and terminal error — 24 September 2026
+
+The clean source baseline is `a58ec95b7cfe30b1cb885846a6535bb10a0a2aff`.
+This candidate is isolated on `temp/advanced-response-schema-repair`; no
+installed product or corpus workspace has been changed. Installed CREXX is
+`crexx-1.0.0-beta.3+local.g5949ef27efd8`. The local owner map was checked
+before edits: `ragresolutioncontract` owns the prompt/schema/version,
+`ragbacklog` owns lifecycle validation and retry scheduling,
+`codex_provider` owns App Server protocol errors, and
+`ragapplicationprovider` composes frozen bindings and durable receipts. The
+provider source is part of this product; no CREXX provider fork is needed.
+The source remains uncommitted under the repository's local-commit rule. The
+modified product/test-file snapshot (16 sorted paths and bytes) has SHA-256
+`fb09b9571b5ee8a5892b42feb540351b274cfded153a9a71691213ba28aad22c`.
+The linked Level-G image is
+`d965e1e576871478196b84c56246b9ee2bd2aa8440631c2f1454f3394c4db6a0`;
+the native package executable is
+`0714b6f116261bb3311c8611b6953bae7fd0d6d577a586ddd32c465643720ab8`.
+
+Baseline `regression_prompt_inspection`, `provider_durability`,
+`codex_protocol_noopt_rxvme`, `durable_backlog_escalation` and
+`regression_lifecycle` passed before implementation. A recursive check of the
+actual generated schema then failed for all 20 non-provenance subject/workflow
+variants: root `required` omitted `dispositions`. It checks every nested object
+and array, exact `required`/`properties`, and `additionalProperties:false`.
+
+Contract `/8` requires `dispositions`; unused impact is `[]`. Legacy retained
+responses may still omit it. Nonempty dispositions remain restricted to
+split/merge/retire, with exact current impact, evidence and review validation
+unchanged. The recommendation text and field example now agree. The prompt
+and schema golden changed only for resolution; the synthetic Gemini fixture
+returns the full strict shape. Exact `/7` frozen prompt/schema hashes are
+verified before a queued old item uses the repaired request; tampered or
+unsupported hashes are refused. This does not rewrite old work or receipts.
+
+The Codex adapter retains bounded upstream message, code/type, HTTP status
+and schema parameter from matching thread **and** turn, including fresh
+`thread/read` and recovery. Deterministic invalid requests/authentication are
+nonretryable; rate limit and service errors remain retryable; interrupted and
+unknown outcomes remain separate. Only recognized short error messages leave
+the adapter; source-like or unrecognized upstream text is withheld while the
+safe classification fields remain. `ragapplicationprovider` records a terminal
+failure receipt and settles its existing run, including rejection at
+`turn/start` before a turn identity. Unknown outcomes keep the exact-turn hold.
+An explicit task retry in an active window bypasses automatic backoff but
+retains deliberate deferral, original attempt/call ceilings and all history.
+
+Synthetic old-to-new native evidence was generated from the baseline
+executable, then run with the candidate against the same disposable library.
+A queued `/7` item preserved its old prompt/schema hashes while the actual
+provider request used new hashes; it produced one validated no-change decision
+and one response receipt. A separate `/7` HTTP-400 failure retained its
+failed item and receipt. An explicit public `maintain retry` under the already
+active window dispatched one `/8` item and one validated no-change decision;
+the task resolved, the repeated worker run made zero calls, and the retry
+request became `completed/already-complete`. No reset, SQL recovery edit,
+configuration change across the upgrade, or added allowance was used. The
+disposable fixture's original envelope was sized to include later evidence.
+The old error had no reported usage; the test did not invent any.
+An additional old-to-new synthetic run seeded an unrelated pending `reviews`
+row and review-state task before upgrade. Both remained pending/in review;
+the prior accepted extraction and chunk remained one each, the two original
+`/7` items and failed receipt remained intact, and one `/8` decision added one
+attempt. Provider usage moved from the existing 204/60 to 414/124 input/output
+tokens after the one reported new call. Repeating the public retry returned
+`completed/already-complete` with the same request ID.
+
+The integration tests `codex_application_invalid-schema` and
+`codex_application_invalid-schema-start` verify native worker settlement,
+`-101`/HTTP 400/nonretryable durable receipt, and one turn start across replay.
+`codex_protocol_*` covers matching turn/read-back and malformed, missing,
+authentication, rate, transient and interrupted errors on both VMs and build
+modes. `durable_backlog` checks empty/absent/nonempty dispositions and existing
+split/merge/retire evidence and impact rules. `observability_providers` also
+guards fresh read-back of interrupted turns while retaining the original
+timeout or disconnect cause. `advanced_first_pass` runs a disposable native
+four-worker window from invalid ordinary quotations through one correction,
+escalation, an advanced `extract` decision and a successful typed follow-on.
+Its accepted extraction receipt completes first-pass coverage; restarting the
+workers and replaying the unchanged source add no work or provider response.
+Local configuration/build and `ctest --preset fast --output-on-failure`
+passed. Focused protocol/application/observability/first-pass selection passed
+8/8. The final `ctest --preset regression --output-on-failure` selection
+accounted for **138/138** required cases; `tests/qa/report.py` records 138
+passing cases with no disabled, failed, interrupted or not-run entry. A prior
+full selection exposed a transient local-model load timeout in the unrelated
+`native_embedding_windows` fixture under concurrency. The unchanged case
+passed alone in 10.55 seconds and its exact-input pass was retained in the
+final selection. `git diff --check` passed. Hosted, real-provider,
+other-platform and corpus-specific qualification remain pending; no hosted
+call or installation was made.
+
+### Proposed later deployment and selective recovery (not executed)
+
+After separate publication and corpus authority, qualify the exact clean
+product revision and install it into a new prefix using the normal release
+path (`cmake --install cmake-build-debug --prefix PREFIX` is the local package
+form). Verify that prefix in an isolated scratch library before selecting it
+for any retained library. Keep the existing installed binary available for an
+immediate pre-recovery executable rollback. No product or corpus installation
+was performed in this repair task.
+
+With the target monitor paused and its existing native backup verified by the
+authorized operator, inspect each affected task, job item, receipt and exact
+Codex turn through public commands. Reconcile any unknown turn before deciding
+on a new call. A queued exact `/7` binding can use the repaired schema when its
+existing window admits it. For a confirmed terminal invalid-schema item in an
+active compatible window with unused original allowance, issue `maintain retry
+TASK_ID --reason "corrected resolution schema"` only for that task, continue
+the owning job, and inspect the new receipt and accepted first-pass census.
+Repeat inspection/retry should add no call after completion. Do not reset the
+task, edit the plan/database, renew budget, waive coverage or alter provider
+policy. A closed window, insufficient original allowance, changed evidence,
+review hold or uncertain turn needs an explicit operator decision and possibly
+a separately reviewed plan; this repair does not make such a decision.
+
+Before any recovery call, rollback is the prior executable/prefix switch with
+the monitor still paused. Once `/8` work or new accepted results exist, pause
+again on failure and use a forward repair; do not assume the older executable
+can process the new contract or silently replace library state.
+
 ## Combined convergence candidate — 23 September 2026, in progress
 
 `ragbacklog` owns the shared accepted-first-pass predicate, settled-question

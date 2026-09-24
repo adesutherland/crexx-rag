@@ -1247,7 +1247,10 @@ _reconcileoutcomes: procedure = .int
   arg database = .binary, policy = .jsondocument, job_id = .string, expose error = .string
   settled = "EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('processed','skipped') AND m.attempt_number=maintenance_tasks.attempt_count)"
   if _n(policy,"initial_extraction_only")=1 then settled = "NOT " || _firstreviewmissing("maintenance_tasks.subject_id")
-  sql = "UPDATE maintenance_tasks SET state=CASE WHEN " || settled || " THEN 'resolved' ELSE 'pending' END,not_before_epoch=max(not_before_epoch,CASE WHEN " || _taskcallcount("maintenance_tasks.task_id") || ">0 AND " || _recoverablecount("maintenance_tasks.task_id") || "=0 THEN unixepoch()+" || _n(policy,"retry_seconds") || " ELSE 0 END),updated_epoch=unixepoch() WHERE state='dispatched' AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('queued','running','cancel_requested'))"
+  /* An explicit task retry already authorises the next eligible attempt.
+   * Preserve deliberate deferral, but do not impose an automatic backoff that
+   * lets unrelated work consume the remaining selected window first. */
+  sql = "UPDATE maintenance_tasks SET state=CASE WHEN " || settled || " THEN 'resolved' ELSE 'pending' END,not_before_epoch=max(not_before_epoch,CASE WHEN " || _taskcallcount("maintenance_tasks.task_id") || ">0 AND " || _recoverablecount("maintenance_tasks.task_id") || "=0 AND NOT " || retryrequested("NULL","maintenance_tasks.task_id") || " THEN unixepoch()+" || _n(policy,"retry_seconds") || " ELSE 0 END),updated_epoch=unixepoch() WHERE state='dispatched' AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('queued','running','cancel_requested'))"
   sql = sql || _taskscope(policy)
   if job_id \= "" then sql = sql || " AND task_id IN(SELECT m.task_id FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE i.job_id=" || _q(job_id) || ")"
   if sqliteexec(database,sql) \= 0 then do; error = "cannot reconcile backlog task outcomes"; return -1; end
@@ -1673,7 +1676,7 @@ validatebacklogresponse: procedure = .int
   dispositions_node=result.member(result.root(),"dispositions")
   if result.node_count(result.root())=13 & result.node_type(dispositions_node)<>"array" then do;error="only lifecycle dispositions may extend a resolution response";return -1;end
   if result.node_type(dispositions_node)="array" then do
-    if wordpos(action,"split merge retire")=0 | result.node_count(dispositions_node)>10000 then do;error="explicit impact dispositions apply only to bounded split, merge or retirement";return -1;end
+    if result.node_count(dispositions_node)>10000 | (result.node_count(dispositions_node)>0 & wordpos(action,"split merge retire")=0) then do;error="nonempty impact dispositions apply only to bounded split, merge or retirement";return -1;end
     do i=1 to result.node_count(dispositions_node)
       node=result.element(dispositions_node,i);object_type="";object_id="";outcome="";target="";why="";confidence=-1
       fields=result.node_string(result.member(node,"object_type"),object_type) | result.node_string(result.member(node,"object_id"),object_id) | result.node_string(result.member(node,"action"),outcome) | result.node_string(result.member(node,"target_concept_id"),target) | result.node_int(result.member(node,"confidence_millionths"),confidence) | result.node_string(result.member(node,"reason"),why)

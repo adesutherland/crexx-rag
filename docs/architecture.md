@@ -56,6 +56,14 @@ and subsequent owners. Operator settings still enter through `crexxrag.conf`.
 | `raganswercontract` / `raganswerreferences` / `ragreportcontract` | Answer and advisory-report message/schema pairs; answer references project a bounded context and restore canonical citations. Consumed by `ragqueryprovider` and `ragqueryservice`; token/byte ceilings remain in `ragquerypolicy`. |
 | `ragpromptinspection` | Public projection of those same builders, including exact system/schema hashes; no provider or library access. |
 
+Resolution contract `/8` requires every strict-schema property, including
+`dispositions`. Non-lifecycle actions return an empty array; only split, merge
+and retire may carry nonempty, exact-census impact. `ragbacklog` retains the
+legacy absent-field form for already retained responses. The contract owner
+verifies exact frozen `/7` prompt and schema hashes before an old queued item
+uses the repaired `/8` request; the stored input and hashes remain immutable.
+An unsupported or altered binding is refused with an evidence-refresh action.
+
 `ragapplicationprovider` retains execution, input-envelope checks, receipt
 recovery, secret redaction and extraction decoding/validation. `ragbacklog`
 retains shared eligibility/order, durable deferral and evidence handoff, task
@@ -1358,8 +1366,15 @@ timestamp. No new schema or restart/recovery protocol is introduced.
 Alias-resolution subject candidates require active lifecycle state and expose
 that state explicitly. Migration parents remain historical/contextual evidence.
 Shared initial/correction instructions explain split-parent identity and literal
-OCR escapes; final no-change remains a supported conclusion. Old frozen prompt
-identities retain their normal refusal and explicit refresh/reset path.
+OCR escapes; final no-change remains a supported conclusion. Exact frozen `/7`
+resolution bindings have the compatibility path above; other changed bindings
+retain the explicit evidence-refresh route. An explicit task retry can dispatch
+a fresh `/8` item within an active window under its existing attempt and call
+limits. It skips only automatic retry backoff; deliberate deferral remains.
+Terminal Codex failures retain bounded error message, type/code and HTTP status
+in the existing receipt and read-back surfaces. Invalid-schema and
+invalid-request rejection is nonretryable; unknown outcomes still require
+exact-turn reconciliation.
 
 
 ### Native exact vector owner in CREXX rxvector

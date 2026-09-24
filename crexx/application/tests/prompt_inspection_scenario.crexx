@@ -19,6 +19,24 @@ import generic_profile
 main: procedure = .int
   arg args=.string[]
   errors=0
+  subjects="chunk alias-issue concept note claim conflict alias mention support ambiguity provenance-chunk"
+  do s=1 to words(subjects)
+    do workflow=0 to 1
+      schema=.jsondocument(resolutionresponseschema(word(subjects,s),workflow))
+      strict_error=""
+      if schema.valid()<>1 | strictschema(schema,schema.root(),"root",strict_error)<>1 then do
+        say "PROMPT_FAIL resolution strict schema " || word(subjects,s) || " workflow=" || workflow || ": " || strict_error
+        errors=errors+1
+      end
+    end
+  end
+  if errors>0 then return 1
+  legacy_input='{"resolution_contract":"crexx-rag.resolution-contract/7","required_capability":"advanced-reasoning","evidence_expected":0}'
+  legacy_prompt='04266e71a6959391c3af8eb47ee422213122e958a17884b52b93f7d3ed22bb0c'
+  legacy_schema='fb5cbc3c4b7de68015a31328d0bca0cadeff4dffbec6d0ceb3297ebcde7bdd66'
+  if resolutionlegacybinding(legacy_input,"Synthetic objective","chunk",0,legacy_prompt,legacy_schema)<>1 then do;say "PROMPT_FAIL authentic v7 frozen binding";return 1;end
+  if resolutionlegacybinding(legacy_input,"Synthetic objective","chunk",0,legacy_prompt,changestr("fb5c",legacy_schema,"ffff"))=1 then do;say "PROMPT_FAIL tampered frozen schema accepted";return 1;end
+  if resolutionlegacybinding(changestr("/7",legacy_input,"/6"),"Synthetic objective","chunk",0,legacy_prompt,legacy_schema)=1 then do;say "PROMPT_FAIL unsupported frozen version accepted";return 1;end
   answer_input='{"schema":"crexx-rag.answer-context/2","passages":[{"citation":"crexx-rag:long-source-one","text":"Literal E1 and crexx-rag:long-source-one","source_metadata":{"citation":"untouched"}}],"accepted_claims":[{"subject":"Philip Miller","object":"Johnson","direction":"outbound","supports":[{"citation":"crexx-rag:long-source-two","stance":"assertion"},{"citation":"crexx-rag:long-source-one"}]}],"analysis_notes":[{"citations":["crexx-rag:long-source-two"],"text":"Philips is a different person"}],"graph_leads":[{"limitation":"unproved"}],"gaps":["unknown"]}'
   answer_refs=.raganswerreferences(answer_input);answer_error=""
   projected=answer_refs.input()
@@ -120,3 +138,34 @@ main: procedure = .int
   if result.exit_code()\=4 then return 1
   say "PROMPT_INSPECTION_OK"
   return 0
+
+/* Check the actual domain-generated schema at every object and array level.
+ * Strict structured output requires an exact required/properties match. */
+strictschema: procedure = .int
+  arg schema=.jsondocument,node=.int,path=.string,expose error=.string
+  kind="";ignored=schema.node_string(schema.member(node,"type"),kind)
+  if kind="object" then do
+    properties=schema.member(node,"properties");required=schema.member(node,"required")
+    if schema.node_type(properties)<>"object" | schema.node_type(required)<>"array" | schema.node_get(schema.member(node,"additionalProperties"))<>"false" then do
+      error=path || " needs properties, required and additionalProperties:false";return 0
+    end
+    members=.int[];ignored=schema.children(properties,members)
+    if schema.node_count(required)<>members.0 then do;error=path || " required/properties count differs";return 0;end
+    do i=1 to members.0
+      name=schema.node_name(members[i]);seen=0
+      do j=1 to schema.node_count(required)
+        candidate="";if schema.node_string(schema.element(required,j),candidate)<>0 then do;error=path || " has a nonstring required entry";return 0;end
+        if candidate=name then seen=seen+1
+      end
+      if seen<>1 then do;error=path || "." || name || " must appear exactly once in required";return 0;end
+      if strictschema(schema,members[i],path || "." || name,error)<>1 then return 0
+    end
+    return 1
+  end
+  if kind="array" then do
+    item=schema.member(node,"items")
+    if schema.node_type(item)<>"object" then do;error=path || " needs one items schema";return 0;end
+    return strictschema(schema,item,path || "[]",error)
+  end
+  if wordpos(kind,"string integer number boolean")=0 then do;error=path || " has unsupported schema type " || kind;return 0;end
+  return 1

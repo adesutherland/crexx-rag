@@ -720,6 +720,20 @@ Completed work takes precedence over older unanswered attempts. An explicit
 retry can redo unfinished work with a missing response within the normal attempt
 and run limits. Attempts, receipts, usage, old items and window deadlines remain intact.
 
+For a retained resolution item frozen under contract `/7`, first inspect the
+task, its job and any exact Codex turn. Reconcile an uncertain turn before
+requesting a new call. A confirmed `invalid_json_schema` or other terminal
+invalid-request receipt is nonretryable automatically. When the original
+selected configuration, active window and unused attempt/call allowance still
+permit work, request **only the affected task** with `maintain retry TASK_ID`
+and continue that job. The worker verifies the exact old frozen prompt/schema
+binding, sends the corrected `/8` schema, and retains the old item, receipt,
+attempt and usage. A newly dispatched item uses `/8` directly. Repeat inspection
+to confirm one validated decision; repeat retry is idempotent. A closed window,
+exhausted allowance, pending review, unknown outcome or changed evidence is an
+operator decision point. Do not treat a new window or increased allowance as
+part of the compatibility repair.
+
 To accept leaving an exact durable question unfinished, first settle active
 workers and pending reviews, then use:
 

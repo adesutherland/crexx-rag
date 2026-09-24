@@ -1,5 +1,34 @@
 # Regression coverage baseline — REG-01
 
+## Advanced resolution schema and terminal error — 24 September 2026
+
+`regression_prompt_inspection` recursively validates the generated strict
+resolution schema for every subject/workflow route, including nested impact
+items, and independently checks authentic `/7` frozen hashes plus tampering.
+`durable_backlog` covers absent/empty/nonempty dispositions, non-lifecycle
+rejection, source quotations, split/merge impact, retirement census and review.
+`codex_protocol_*` uses fake App Server JSONL for strict HTTP-400 rejection,
+auth/rate/service failures, missing detail, interrupted turns, matching
+thread/turn read-back, known usage and source-like upstream-message redaction. The native
+`codex_application_invalid-schema*` cases check durable receipt and no blind
+resubmission. A disposable old-binary/new-binary native journey checks queued
+`/7` compatibility and explicit selective retry to `/8`, with old history,
+attempts and provider usage retained. This is offline product evidence only.
+`advanced_first_pass` exercises the integrated native four-worker initial-only
+window: invalid ordinary quotations, one correction, content-failure
+escalation, a valid advanced `extract` decision, typed follow-on and the one
+accepted extraction receipt needed for first-pass coverage. Restarted workers
+and unchanged replay add no provider response or accepted item. The separate
+`regression_source_maintenance` selector case excludes alias follow-ups and
+already accepted chunks; `observability_providers` keeps original timeout and
+disconnect causes through fresh interrupted-turn read-back. A separate
+old-to-new synthetic run preserves a pending `reviews` row, its review-state
+task, one accepted extraction/chunk, both `/7` items and their original failed
+receipt while adding just one validated `/8` decision. The final local QA
+ledger accounts for 138/138 passing cases. An unrelated local-model load
+timeout under full-suite contention passed unchanged in isolation before the
+final exact-input selection; hosted and real-provider checks remain pending.
+
 ## Combined convergence and evidence-bound candidate — 23 September 2026
 
 The current implementation is still a local candidate. `regression_source_maintenance`

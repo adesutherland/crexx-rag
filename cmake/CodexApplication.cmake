@@ -54,6 +54,7 @@ set(codex_wrapper "${CPRAG_WORK_DIR}/codex-extraction-fixture.sh")
 file(WRITE "${codex_wrapper}"
     "#!/bin/sh\n"
     "export CREXXRAG_CODEX_FIXTURE_MODE=extraction\n"
+    "export CREXXRAG_CODEX_FIXTURE_FAILURE='${CPRAG_TERMINAL_FAILURE}'\n"
     "export CREXXRAG_CODEX_FIXTURE_LOG='${codex_log}'\n"
     "export CREXXRAG_CODEX_FIXTURE_PAUSE_AFTER_TURN=1\n"
     "exec /bin/sh '${CPRAG_CODEX_FIXTURE}' \"\$@\"\n")
@@ -118,6 +119,34 @@ execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
     RESULT_VARIABLE priority_result ERROR_VARIABLE priority_err)
 if(NOT priority_result EQUAL 0)
     message(FATAL_ERROR "could not prioritize Codex extraction: ${priority_err}")
+endif()
+
+if(DEFINED CPRAG_TERMINAL_FAILURE AND NOT CPRAG_TERMINAL_FAILURE STREQUAL "")
+    foreach(pass RANGE 1 2)
+        execute_process(COMMAND ${cli} --library "${library}"
+            --config-file "${CPRAG_WORK_DIR}/crexxrag.conf"
+            --profile it-architecture-profile --access control --format json --progress plain
+            worker run --once --poll-ms 20 --max-polls 2 --job "${job_id}"
+            OUTPUT_VARIABLE failure_out ERROR_VARIABLE failure_err
+            RESULT_VARIABLE failure_result TIMEOUT 30)
+        if(NOT failure_result EQUAL 0)
+            message(FATAL_ERROR "Codex terminal failure worker did not finish: ${failure_out}${failure_err}")
+        endif()
+    endforeach()
+    execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+        "SELECT (SELECT count(*) FROM job_events WHERE event_type='provider-response' AND json_extract(message,'$.error_code')=-101 AND json_extract(message,'$.http_status')=400 AND json_extract(message,'$.retryable')=0 AND json_extract(message,'$.error_message') LIKE '%invalid_json_schema%')||':'||(SELECT count(*) FROM provider_runs WHERE provider_id='codex-extract' AND outcome='failed' AND json_extract(recovery_json,'$.error_code')=-101)||':'||(SELECT count(*) FROM job_items WHERE item_type='claim-extraction' AND state='dead_letter');"
+        OUTPUT_VARIABLE failure_state OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_VARIABLE failure_state_err RESULT_VARIABLE failure_state_result)
+    if(NOT failure_state_result EQUAL 0 OR NOT failure_state STREQUAL "1:1:1")
+        message(FATAL_ERROR "Codex terminal rejection did not settle once with a public receipt: ${failure_state} ${failure_state_err}")
+    endif()
+    file(READ "${codex_log}" codex_methods)
+    string(REGEX MATCHALL "turn/start" turn_starts "${codex_methods}")
+    list(LENGTH turn_starts turn_start_count)
+    if(NOT turn_start_count EQUAL 1)
+        message(FATAL_ERROR "Codex terminal rejection was blindly resubmitted: ${codex_methods}")
+    endif()
+    return()
 endif()
 
 # Simulate a process crash after the external turn and usage are durable but

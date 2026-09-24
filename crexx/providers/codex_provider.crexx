@@ -58,6 +58,7 @@ codexprovider: class implements .provider
   _operation_timeout = .int
   _operation_configured = .int
   _operation_limiter = .string
+  _last_turn_error = .providererror
 
   *: factory
     arg executable = .string, working_directory = .string, observer = .codexrunobserver
@@ -68,7 +69,11 @@ codexprovider: class implements .provider
     _closed = 0
     _next_identity = 1
     _read_buffer = ''x as .binary
+    _last_turn_error = .providererror()
     return
+
+  turn_error: method = .providererror
+    return _last_turn_error
 
   capabilities: method = .providercapabilities
     return .providercapabilities("codex", 1, 1, 0, 0, 0, 0, 0, 0, "text", "text", "codex-app-server-jsonl", 0)
@@ -198,7 +203,7 @@ codexprovider: class implements .provider
   start_thread: method = .int
     arg request = .providerrequest, expose thread_id = .string, expose error = .string
     deadline_started = time("us")
-    thread_id = ""; error = ""
+    thread_id = ""; error = "";_last_turn_error=.providererror()
     validation = validateprovideroperation(request, "generate_structured")
     if validation.code() \= 0 then do; error = validation.message(); return -1; end
     validation = validateproviderrequest(request)
@@ -221,7 +226,7 @@ codexprovider: class implements .provider
   start_structured_turn: method = .int
     arg request = .providerrequest, thread_id = .string, expose turn_id = .string, expose error = .string
     deadline_started = time("us")
-    turn_id = ""; error = ""
+    turn_id = ""; error = "";_last_turn_error=.providererror()
     if thread_id = "" | request.schema() = "" then do; error = "structured turn inputs are incomplete"; return -1; end
     if _ensure_started(request.timeout_ms(), error) \= 0 then return -1
     prompt = _prompt(request); identity = _identity()
@@ -244,7 +249,9 @@ codexprovider: class implements .provider
     elapsed = time("us") - started_us; if elapsed < 0 then elapsed = elapsed + 86400000000
     result = .providerresult()
     if wait_status \= 0 then do
-      call result.set_failure("codex",request.model(),request.request_id(),.providererror("provider",-103,0,1,1,error),.providerusage(input_tokens,output_tokens,1,-1,1,0),elapsed)
+      failure=_last_turn_error
+      if failure.code()=0 then failure=.providererror("transport",-105,0,0,1,error)
+      call result.set_failure("codex",request.model(),request.request_id(),failure,.providerusage(input_tokens,output_tokens,1,-1,1,0),elapsed)
       return result
     end
     validation = validatestructuredresponse(content, request.schema())
@@ -277,8 +284,13 @@ codexprovider: class implements .provider
       return result
     end
     if state = "" then state = "unavailable"
-    retryable = state = "interrupted" | state = "failed"
-    return _failure(request, "reconciliation", -105, retryable, "persisted Codex turn is " || state || "; inspect/reconcile its outcome before retry")
+    failure=_last_turn_error
+    if failure.code()<>0 then do
+      result=.providerresult()
+      call result.set_failure("codex",request.model(),request.request_id(),failure,.providerusage(input_tokens,output_tokens,1,-1,1,0),0)
+      return result
+    end
+    return _failure(request, "reconciliation", -105, 0, "persisted Codex turn is " || state || "; inspect/reconcile its outcome before retry")
 
   /* A broken stream must not be reused to inspect its own lost response. */
   inspect_turn_fresh: method = .int
@@ -286,13 +298,14 @@ codexprovider: class implements .provider
     reader = .codexprovider(_executable,_working_directory,.codexnoopobserver())
     call reader.begin_operation(timeout_ms)
     status = reader.inspect_turn(thread_id,turn_id,timeout_ms,state,content,error)
+    _last_turn_error=reader.turn_error()
     call reader.close()
     return status
 
   /* Observation never resumes, interrupts or deletes external work. */
   inspect_turn: method = .int
     arg thread_id = .string, turn_id = .string, timeout_ms = .int, expose state = .string, expose content = .string, expose error = .string
-    state = "unavailable"; content = ""; error = ""
+    state = "unavailable"; content = ""; error = "";_last_turn_error=.providererror()
     if thread_id = "" | turn_id = "" | timeout_ms < 1 then do; error = "external thread, turn and timeout are required"; return -1; end
     started = time("us")
     if _ensure_started(timeout_ms,error) \= 0 then return -1
@@ -310,6 +323,10 @@ codexprovider: class implements .provider
       turn = document.element(turns,i)
       if _string(document,turn,"id") \= turn_id then iterate
       state = _string(document,turn,"status"); items = document.member(turn,"items")
+      if state<>"completed" then do
+        _last_turn_error=_turnerror(document,turn,state)
+        error=_last_turn_error.message()
+      end
       if document.node_type(items) = "array" then do j = 1 to document.node_count(items)
         item = document.element(items,j); phase = _string(document,item,"phase")
         if _string(document,item,"type") = "agentMessage" & (phase = "" | phase = "final_answer") then content = _string(document,item,"text")
@@ -361,7 +378,12 @@ codexprovider: class implements .provider
     if turn_id = "" then do; ignored = _delete_thread(thread_id, request.timeout_ms()); return _failure(request, "malformed_response", -102, 0, "turn/start did not return a turn id"); end
     if _observer.turn_started(request.request_id(), thread_id, turn_id) \= 0 then do; ignored = _delete_thread(thread_id, request.timeout_ms()); return _failure(request, "durability", -199, 0, "provider run turn identity could not be persisted"); end
     content = ""; input_tokens = 0; output_tokens = 0
-    if _wait_turn(request, thread_id, turn_id, content, input_tokens, output_tokens, error) \= 0 then do; ignored = _delete_thread(thread_id, request.timeout_ms()); return _failure(request, "provider", -103, 1, error); end
+    if _wait_turn(request, thread_id, turn_id, content, input_tokens, output_tokens, error) \= 0 then do
+      failure=_last_turn_error
+      ignored = _delete_thread(thread_id, request.timeout_ms())
+      if failure.code()<>0 then return _failed(request,failure)
+      return _failure(request, "transport", -105, 0, error)
+    end
     if structured = 1 then do
       schema_error = validatestructuredresponse(content, request.schema())
       if schema_error.code() \= 0 then do; ignored = _delete_thread(thread_id, request.timeout_ms()); result=_failed(request,schema_error);call result.set_diagnostic_content(content);return result;end
@@ -377,7 +399,7 @@ codexprovider: class implements .provider
 
   _wait_turn: method = .int
     arg request = .providerrequest, thread_id = .string, turn_id = .string, expose content = .string, expose input_tokens = .int, expose output_tokens = .int, expose error = .string, notify_observer = 1
-    content = ""; input_tokens = 0; output_tokens = 0; error = ""; started = time("us")
+    content = ""; input_tokens = 0; output_tokens = 0; error = ""; started = time("us");_last_turn_error=.providererror()
     do messages = 1 to 8192
       line = ""
       remaining = _remaining_ms(started,request.timeout_ms())
@@ -404,7 +426,11 @@ codexprovider: class implements .provider
         turn = document.member(params, "turn")
         if _string(document, turn, "id") \= turn_id then iterate
         state = _string(document, turn, "status")
-        if state \= "completed" then do; error = "Codex turn ended with state " || state; return -1; end
+        if state \= "completed" then do
+          _last_turn_error=_turnerror(document,turn,state)
+          error=_last_turn_error.message()
+          return -1
+        end
         if content = "" then do; error = "Codex turn completed without a final agent message"; return -1; end
         return 0
       end
@@ -462,7 +488,8 @@ codexprovider: class implements .provider
       if identity \= expected then iterate
       error_node = candidate.member(candidate.root(), "error")
       if candidate.node_type(error_node) = "object" then do
-        error = _string(candidate, error_node, "message"); if error = "" then error = "Codex App Server request failed"
+        _last_turn_error=_turnerror(candidate,candidate.root(),"failed")
+        error=_last_turn_error.message()
         return -1
       end
       document = candidate
@@ -589,6 +616,64 @@ _string: procedure = .string
   value = ""
   if document.node_string(document.member(node, name), value) \= 0 then return ""
   return value
+
+/* Only known error fields leave the protocol adapter. Never serialize a full
+ * turn, request, prompt, or arbitrary additionalDetails payload into a receipt. */
+_turnerror: procedure = .providererror
+  arg document=.jsondocument,turn=.int,state=.string
+  failure=document.member(turn,"error")
+  message=_string(document,failure,"message")
+  code=_string(document,failure,"code");kind=_string(document,failure,"type");parameter=_string(document,failure,"param")
+  status=0
+  ignored=document.node_int(document.member(failure,"httpStatus"),status)
+  if status=0 then ignored=document.node_int(document.member(failure,"httpStatusCode"),status)
+  if status=0 then ignored=document.node_int(document.member(failure,"statusCode"),status)
+  details=document.member(failure,"additionalDetails")
+  detail_text=""
+  if document.node_type(details)="object" then detail_text=document.node_get(details)
+  else ignored=document.node_string(details,detail_text)
+  detail=.jsondocument(detail_text);detail_node=detail.root()
+  if detail.valid()=1 & detail.node_type(detail_node)="object" then do
+    if status=0 then ignored=detail.node_int(detail.member(detail_node,"httpStatus"),status)
+    if status=0 then ignored=detail.node_int(detail.member(detail_node,"httpStatusCode"),status)
+    if status=0 then ignored=detail.node_int(detail.member(detail_node,"statusCode"),status)
+    nested=detail.member(detail_node,"error")
+    if detail.node_type(nested)="object" then detail_node=nested
+    if code="" then code=_string(detail,detail_node,"code")
+    if kind="" then kind=_string(detail,detail_node,"type")
+    if parameter="" then parameter=_string(detail,detail_node,"param")
+    if message="" then message=_string(detail,detail_node,"message")
+    if status=0 then ignored=detail.node_int(detail.member(detail_node,"httpStatus"),status)
+    if status=0 then ignored=detail.node_int(detail.member(detail_node,"httpStatusCode"),status)
+    if status=0 then ignored=detail.node_int(detail.member(detail_node,"statusCode"),status)
+    if status=0 then ignored=detail.node_int(detail.member(detail_node,"status"),status)
+  end
+  info=document.member(failure,"codexErrorInfo")
+  if document.node_type(info)="object" then do
+    if code="" then code=_string(document,info,"code")
+    if kind="" then kind=_string(document,info,"type")
+    if status=0 then ignored=document.node_int(document.member(info,"httpStatus"),status)
+  end
+  if status=0 & (code="invalid_json_schema" | code="invalid_request_error" | kind="invalid_request_error") then status=400
+  if status=0 & pos("HTTP 400",message)>0 then status=400
+  if message="" then message="Codex turn ended with state " || state || " without structured error detail"
+  else do
+    safe=0
+    if code="invalid_json_schema" & left(message,34)="Invalid schema for response_format" then safe=1
+    if message="Authentication required" | message="authentication session expired" then safe=1
+    if status=429 & left(message,10)="Rate limit" then safe=1
+    if status>=500 & status<=599 & left(message,26)="Temporary upstream failure" then safe=1
+    if safe=0 | length(message)>512 | pos("0A"x,message)>0 | pos("0D"x,message)>0 | pos("BEGIN SOURCE",upper(message))>0 | pos("BEARER ",upper(message))>0 | pos("SYSTEM:",upper(message))>0 | pos("USER:",upper(message))>0 then message="Codex turn ended with state " || state || "; upstream message withheld"
+  end
+  if wordpos(code,"invalid_json_schema invalid_request_error invalid_api_key rate_limit_exceeded server_error")>0 then message=message || "; upstream_code=" || code
+  if wordpos(kind,"invalid_request_error authentication_error rate_limit_error server_error")>0 then message=message || "; upstream_type=" || kind
+  if parameter="text.format.schema" then message=message || "; upstream_param=" || parameter
+  if state="interrupted" then return .providererror("interrupted",-105,status,0,1,message)
+  if status=400 | code="invalid_json_schema" | code="invalid_request_error" | kind="invalid_request_error" then return .providererror("invalid_request",-101,status,0,1,message)
+  if status=401 | status=403 then return .providererror("authentication",-104,status,0,1,message)
+  if status=429 then return .providererror("rate_limit",-429,status,1,1,message)
+  if status>=500 & status<=599 then return .providererror("provider",-103,status,1,1,message)
+  return .providererror("provider",-103,status,0,1,message)
 
 _failed: procedure = .providerresult
   arg request = .providerrequest, error = .providererror

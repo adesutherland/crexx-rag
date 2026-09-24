@@ -11,8 +11,27 @@ fi
 rate_limit_reads=0
 controller_case=0
 thread_id=fixture-thread
+turn_state=
+turn_error=
 case "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" in
   controller-*) controller_case=1; thread_id=fixture-thread-$$ ;;
+  invalid-schema)
+    turn_state=failed
+    turn_error='{"message":"Invalid schema for response_format codex_output_schema: Missing dispositions.","additionalDetails":{"httpStatus":400,"error":{"type":"invalid_request_error","code":"invalid_json_schema","param":"text.format.schema"}}}' ;;
+  unsafe-terminal)
+    turn_state=failed
+    turn_error='{"message":"Invalid schema for response_format codex_output_schema: BEGIN SOURCE PRIVATE SOURCE BODY and Bearer private-token","additionalDetails":{"httpStatus":400,"error":{"type":"invalid_request_error","code":"invalid_json_schema","param":"text.format.schema"}}}' ;;
+  auth-terminal)
+    turn_state=failed
+    turn_error='{"message":"Authentication required","additionalDetails":{"httpStatus":401,"error":{"type":"authentication_error","code":"invalid_api_key"}}}' ;;
+  rate-terminal)
+    turn_state=failed
+    turn_error='{"message":"Rate limit exceeded","additionalDetails":{"httpStatus":429,"error":{"type":"rate_limit_error","code":"rate_limit_exceeded"}}}' ;;
+  transient-terminal)
+    turn_state=failed
+    turn_error='{"message":"Temporary upstream failure","additionalDetails":{"httpStatus":503,"error":{"type":"server_error","code":"server_error"}}}' ;;
+  missing-terminal) turn_state=failed ;;
+  interrupted-terminal) turn_state=interrupted ;;
 esac
 cleanup_fault=0
 
@@ -140,6 +159,8 @@ while IFS= read -r line; do
       state=interrupted
       if [ -n "${CREXXRAG_CODEX_FIXTURE_STATE_FILE:-}" ]; then
         IFS= read -r state < "$CREXXRAG_CODEX_FIXTURE_STATE_FILE"
+      elif [ -n "$turn_state" ]; then
+        state=$turn_state
       fi
       case "$state" in
         unavailable)
@@ -154,6 +175,14 @@ while IFS= read -r line; do
         completed)
           printf '{"id":%s,"result":{"thread":{"id":"%s","turns":[{"id":"fixture-turn","status":"completed","items":[{"type":"agentMessage","phase":"final_answer","text":"{\\"mentions\\":[],\\"relationships\\":[],\\"notes\\":[]}"},{"type":"agentMessage","phase":"commentary","text":"This is commentary, not the final JSON."}]}]}}}\n' "$id" "$thread_id"
           ;;
+        failed|interrupted)
+          if [ -n "$turn_state" ]; then
+            if [ -n "$turn_error" ]; then error_field=',"error":'"$turn_error"; else error_field=; fi
+            printf '{"id":%s,"result":{"thread":{"id":"%s","turns":[{"id":"other-turn","status":"completed","items":[]},{"id":"fixture-turn","status":"%s"%s,"items":[]}]}}}\n' "$id" "$thread_id" "$state" "$error_field"
+          else
+            printf '{"id":%s,"result":{"thread":{"id":"%s","turns":[{"id":"fixture-turn","status":"%s","items":[]}]}}}\n' "$id" "$thread_id" "$state"
+          fi
+          ;;
         *)
           printf '{"id":%s,"result":{"thread":{"id":"%s","turns":[{"id":"fixture-turn","status":"%s","items":[]}]}}}\n' "$id" "$thread_id" "$state"
           ;;
@@ -165,6 +194,10 @@ while IFS= read -r line; do
       ;;
     *'"method":"turn/start"'*)
       log_method turn/start
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = invalid-schema-start ]; then
+        printf '{"id":%s,"error":{"message":"Invalid schema for response_format codex_output_schema: Missing dispositions.","additionalDetails":{"httpStatus":400,"error":{"type":"invalid_request_error","code":"invalid_json_schema","param":"text.format.schema"}}}}\n' "$id"
+        continue
+      fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = worker-unknown ]; then hold_worker_loss; fi
       finished_turn=1
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "optional-refresh" ]; then rate_limit_reads=0; fi
@@ -193,6 +226,14 @@ while IFS= read -r line; do
           ;;
       esac
       printf '{"id":%s,"result":{"turn":{"id":"fixture-turn"}}}\n' "$id"
+      if [ -n "$turn_state" ]; then
+        printf '%s\n' '{"method":"turn/completed","params":{"threadId":"other-thread","turn":{"id":"fixture-turn","status":"completed"}}}'
+        printf '%s\n' '{"method":"turn/completed","params":{"threadId":"fixture-thread","turn":{"id":"other-turn","status":"completed"}}}'
+        printf '%s\n' '{"method":"thread/tokenUsage/updated","params":{"threadId":"fixture-thread","turnId":"fixture-turn","tokenUsage":{"last":{"inputTokens":7,"outputTokens":2}}}}'
+        if [ -n "$turn_error" ]; then error_field=',"error":'"$turn_error"; else error_field=; fi
+        printf '{"method":"turn/completed","params":{"threadId":"fixture-thread","turn":{"id":"fixture-turn","status":"%s"%s}}}\n' "$turn_state" "$error_field"
+        continue
+      fi
       if [ "$controller_case" = 1 ]; then
         # All eight first requests must overlap before any response is released.
         sync=${CREXXRAG_CODEX_FIXTURE_SYNC:?}

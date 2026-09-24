@@ -1,6 +1,6 @@
 # Master roadmap and defect register
 
-Current decision and status authority — updated 23 September 2026.
+Current decision and status authority — updated 24 September 2026.
 The [final beta plan](beta-release-plan-20260920.md) is **implemented, locally qualified and installed; beta release held**.
 The candidate passes 133 required local cases, two live Gemini smokes and the
 bounded Scottish-copy run: 200 successful calls, clean closeout and integrity.
@@ -23,6 +23,20 @@ and [fifteen-minute soak](maintenance-budget-soak-20260917.md). The observabilit
 prompt/quotation, checkpoint/restart and advanced-call repairs remain included.
 
 ## Recent defects and delivery status
+
+Advanced resolution strict schema and terminal-error repair (24 September):
+**local product candidate; corpus recovery, installation and hosted validation
+pending**. The actual `/7` resolution schema omitted `dispositions` from root
+`required`; the Codex adapter replaced terminal `invalid_json_schema` detail
+with a retryable generic failure. `/8` requires the field, represents unused
+impact as `[]`, preserves lifecycle checks, and retains exact `/7` frozen
+bindings for queued work. Terminal error classification now reaches durable
+receipts. Synthetic old-to-new queued and explicit-retry journeys, including
+an unrelated pending review, passed. The local gate accounts for 138/138
+required passing cases after an unchanged local-model timeout case passed in
+isolation; the QA ledger has no failed, disabled, interrupted or unrun entry.
+[Ownership and evidence](maintenance-refactoring-delivery.md#advanced-response-schema-and-terminal-error--24-september-2026)
+and [coverage](regression-coverage.md#advanced-resolution-schema-and-terminal-error--24-september-2026).
 
 Combined convergence and evidence-bound candidate (23 September): **local
 implementation in progress; not installed, published or corpus-qualified**.
@@ -99,6 +113,7 @@ repeatability acceptance remains necessary even when the software gate is green.
 | ESC-OPS-04 | Published and installed; local qualification passed | Ordinary and advanced corrections now refresh their displayed remaining-call allowance from the existing ledger and frozen ceiling. Private public-provider regressions reproduce 2,2 before the repair and require 2,1 in both sent system/user context, with frozen task/evidence/reference identity, receipt replay and accounting preserved. The final gate accounts for 132/132 passing cases. This is application-supplied operational context, separate from prompt tuning. [Repair and qualification](esc-ops-04-qa-cleanup-delivery-20260919.md).  [Published baseline and bounded quality run](maintenance-quality-publication-20260919.md). |
 | ESC-OPS-05 | Delivered and locally qualified — shared lifecycle action guidance | The main-corpus review found an active-concept restore and two colliding synonym proposals. Runtime validation correctly refused them; retained action instructions omit the retired-state/collision preconditions. Shared initial/correction guidance now states both rules, with fail-first and positive graph controls. The Scottish operator summary is aligned through public configuration publication; other policy is preserved. Full local gate and bounded copy acceptance passed. This is separate from semantic prompt tuning. [Run evidence](maintenance-final-review-20260920.md), [bounded plan and AC-7](beta-release-plan-20260920.md#3-align-the-operational-action-guidance). |
 | ESC-OPS-06 | Open historical cause; diagnostics and short-lease repair qualified and installed | One Codex response deadline occurred about 13.47 seconds after its request despite a 120-second configured timeout. Exact-turn interruption and worker replacement succeeded; usage remains incomplete. The code also caps the operation by remaining claim lease, which is a lead rather than a diagnosed cause. Current-input local QA passes 133/133. Configured/effective allowance, limiter and phase are retained; a separately reproduced double-subtracted cleanup reserve is repaired. Bounded live acceptance adds 200 successful calls and clean closeout. The historical 13.47-second cause is still unproved and requires diagnosis or an explicit beta exception. [Delivery evidence](beta-delivery-20260920.md). No timeout increase or attribution to SQLite/authentication is justified. [Run evidence](maintenance-final-review-20260920.md), [diagnosis and AC-1/2](beta-release-plan-20260920.md#1-diagnose-the-early-deadline-before-changing-policy). |
+| ESC-OPS-07 | Local product gate 138/138; publication, corpus recovery and hosted qualification pending | Resolution `/7` omitted a required strict-schema field; terminal Codex errors were lost. Offline schema, protocol, receipt, four-worker first-pass and synthetic upgrade evidence is in [the delivery record](maintenance-refactoring-delivery.md#advanced-response-schema-and-terminal-error--24-september-2026). |
 | ISSUE-01 | Locally repaired | Unexpected-worker replacement and exit-write error handling; #701 downstream exclusion removed. [Worker evidence](worker-pool-repair-20260915.md), [runtime retest](crexx-701-retest-20260916.md). |
 | PC-01 | Closed locally and installed | Expired admitted-work continuation, deadline preservation and reset controls; [delivery](job-controls-delivery-20260915.md). |
 | T7-01 | Repaired; caller check passed | Source include filtering; [Test 7](test7-overnight-soak-20260914.md#t7-01--source-include-ignored). |

@@ -574,6 +574,10 @@ responsejson: procedure = .string
   arg action = .string, target = "", successors = "[]", evidence = "[]", object_id = "", question = "", qualifiers = "{}", effective_from = "", effective_to = ""
   return '{"action":' || jsonquote(action) || ',"object_id":' || jsonquote(object_id) || ',"target_concept_id":' || jsonquote(target) || ',"canonical_label":"","concept_type":"","successors":' || successors || ',"reason":"fixture evidence-based decision","evidence":' || evidence || ',"effective_from":' || jsonquote(effective_from) || ',"effective_to":' || jsonquote(effective_to) || ',"qualifiers_json":' || jsonquote(qualifiers) || ',"question":' || jsonquote(question) || '}'
 
+withdispositions: procedure = .string
+  arg response=.string,dispositions=.string
+  return left(response,length(response)-1) || ',"dispositions":' || dispositions || '}'
+
 aliascoalescencechecks: procedure = .int
   arg store=.ragstorehandle,raw=.string
   database=store.database();policy=.jsondocument(raw);errors=0;error="";current=scalarint(database,"SELECT published_generation FROM library_meta")
@@ -804,6 +808,12 @@ escalationroutechecks: procedure = .int
   errors=errors+check(enqueuebacklogtask(database,"explicit-advanced-extraction","chunk","chunk-lifecycle","","",1000000,policy,extract_task,error)=0,"explicit extraction fixture")
   errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning' WHERE task_id='" || extract_task || "'")=0,"advanced extraction handoff")
   errors=errors+check(nextwindow(store,raw,job_id,error)=0,"advanced extraction window")
+  extraction_decision=responsejson("extract")
+  grounds=""
+  errors=errors+check(validatebacklogresponse(database,extract_task,extraction_decision,grounds,error)=0,"legacy extract without dispositions " || error)
+  errors=errors+check(validatebacklogresponse(database,extract_task,withdispositions(extraction_decision,"[]"),grounds,error)=0,"strict extract with empty dispositions " || error)
+  nonempty='[{"object_type":"alias","object_id":"synthetic-alias","action":"retract","target_concept_id":"","confidence_millionths":1000000,"reason":"synthetic impact"}]'
+  errors=errors+check(validatebacklogresponse(database,extract_task,withdispositions(extraction_decision,nonempty),grounds,error)<>0 & pos("nonempty impact dispositions",error)>0,"extract cannot mutate lifecycle impact")
   status=runresolution(store,job_id,extract_task,responsejson("extract"),error)
   errors=errors+check(status=0,"advanced resolver explicitly selects extraction " || error)
   if status=0 then do
@@ -1157,6 +1167,20 @@ main: procedure = .int
   grounds = ""
   errors = errors + check(validatebacklogresponse(database,task_id,responsejson("reuse"),grounds,error) \= 0 & error = "resolution action is not applicable to its subject","reject identity-only answer on a concept task")
   first_task = task_id
+  nonempty='[{"object_type":"alias","object_id":"synthetic-alias","action":"retract","target_concept_id":"","confidence_millionths":1000000,"reason":"synthetic impact"}]'
+  controls=.string[]
+  controls[1]=responsejson("no-change")
+  controls[2]=responsejson("insufficient-evidence","","[]","[]","","A later exact source could settle identity")
+  controls[3]=responsejson("search","","[]","[]","","Synthetic query")
+  controls[4]=responsejson("read","","[]","[]","crexx-rag:synthetic:read")
+  controls[5]=responsejson("unresolved")
+  controls[6]=responsejson("escalate","","[]","[]","","Inspect further synthetic evidence")
+  controls[7]=responsejson("retain","","[]",'[{"evidence_id":"mention-parent","quote":"Platform"}]')
+  do c=1 to controls.0
+    errors=errors+check(validatebacklogresponse(database,first_task,controls[c],grounds,error)=0,"legacy absent dispositions control " || c || " " || error)
+    errors=errors+check(validatebacklogresponse(database,first_task,withdispositions(controls[c],"[]"),grounds,error)=0,"strict empty dispositions control " || c || " " || error)
+    errors=errors+check(validatebacklogresponse(database,first_task,withdispositions(controls[c],nonempty),grounds,error)<>0 & pos("nonempty impact dispositions",error)>0,"non-lifecycle impact rejected " || c)
+  end
   errors = errors + selectedquotationchecks(database,first_task)
   errors = errors + check(pos("unresolved disposition",scalartext(database,"SELECT question FROM maintenance_tasks WHERE task_id=" || _testquote(first_task)))=0,"new task question follows current outcome contract")
   errors = errors + check(enqueuebacklogtask(database,"lifecycle","concept","concept-parent","","",999999,policy,task_id,error) = 0 & task_id = first_task & scalarint(database,"SELECT count(*) FROM maintenance_tasks") = 1, "unchanged task is deduplicated")
@@ -1169,6 +1193,7 @@ main: procedure = .int
   successors = '[{"canonical_label":"Platform Alpha","concept_type":"concept"},{"canonical_label":"Platform Beta","concept_type":"concept"}]'
   split = responsejson("split","",successors,evidence,"concept-parent")
   grounds = ""
+  errors = errors + check(validatebacklogresponse(database,first_task,withdispositions(split,"[]"),grounds,error)=0,"empty lifecycle dispositions preserve split follow-up " || error)
   errors = errors + check(validatebacklogresponse(database,first_task,changestr('"quote":"Platform"',split,'"quote":"Invented"'),grounds,error) \= 0, "invented resolution evidence rejected")
   error = ""
   errors = errors + check(runresolution(store,job_id,first_task,split,error) = 0, "apply split through fenced worker " || error)
