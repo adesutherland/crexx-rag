@@ -10,6 +10,7 @@ import rxfs
 import ragprovenance
 import ragstore
 import ragconfig
+import ragadmission
 import ragglossary
 import ragprofile
 
@@ -1292,6 +1293,7 @@ _queuework: procedure = .int
   time_budget_ms = 0; maximum_call_input = 0; maximum_call_output = 0; maximum_call_cost = 0; maximum_call_time = 0; maximum_inflight = 1; maximum_attempts = 1
   embedding_input_caps = .int[]; embedding_cost_cap = 0; embedding_time_cap = 0; embedding_dimension = 768
   extraction_input_cap = 0; extraction_output_cap = 0; extraction_cost_cap = 0; extraction_time_cap = 0; candidate_limit = 100000
+  zero_unlimited = 0
   if configured = 1 then do
     privacy = _sourceprivacy(config, plan.source_scope())
     extractor_id = _roleproviderid(config, "extractor"); embedding_id = _roleproviderid(config, "embedding")
@@ -1303,29 +1305,29 @@ _queuework: procedure = .int
     if prompt_version = "" then do; error = "configured extraction prompt is unavailable"; return -1; end
     profile_id = profile.profile_id()
     candidate_limit = config.discovery().max_mentions()
-    budget = config.budget(); workers = config.workers()
+    budget = config.budget(); workers = config.workers(); zero_unlimited = budget.zero_unlimited()
     model_call_budget = budget.model_calls(); input_budget = budget.input_tokens(); output_budget = budget.output_tokens(); cost_budget = budget.cost_microunits(); codex_turn_budget = budget.codex_turns()
     time_budget_ms = budget.minutes() * 60000; maximum_inflight = workers.processes() * workers.max_in_flight(); maximum_attempts = _maximumproviderattempts(config)
-    maximum_call_input = _minimum(input_budget, extractor_role.maximum_input_tokens()); maximum_call_output = _minimum(output_budget, extractor_role.maximum_output_tokens()); maximum_call_cost = _minimum(cost_budget, extractor_role.maximum_call_cost_microunits())
-    maximum_call_time = _minimum(_maximumprovidertimeout(config), time_budget_ms)
-    if item_budget > budget.item_limit() then do; error = "planned ingestion work exceeds budget.item_limit"; return -1; end
-    if item_budget > model_call_budget then do; error = "planned ingestion work exceeds budget.model_calls"; return -1; end
-    if _providerkind(config, extractor_id) = "codex" & extraction_items > codex_turn_budget then do; error = "planned extraction work exceeds budget.codex_turns"; return -1; end
+    maximum_call_input = aggregatecap(input_budget,extractor_role.maximum_input_tokens(),1,budget.zero_unlimited()); maximum_call_output = aggregatecap(output_budget,extractor_role.maximum_output_tokens(),1,budget.zero_unlimited()); maximum_call_cost = aggregatecap(cost_budget,extractor_role.maximum_call_cost_microunits(),1,budget.zero_unlimited())
+    maximum_call_time = _maximumprovidertimeout(config); if time_budget_ms>0 then maximum_call_time=_minimum(maximum_call_time,time_budget_ms)
+    if aggregatefits(budget.item_limit(),0,item_budget,budget.zero_unlimited())=0 then do; error = "planned ingestion work exceeds budget.item_limit"; return -1; end
+    if aggregatefits(model_call_budget,0,item_budget,budget.zero_unlimited())=0 then do; error = "planned ingestion work exceeds budget.model_calls"; return -1; end
+    if _providerkind(config, extractor_id) = "codex" & aggregatefits(codex_turn_budget,0,extraction_items,budget.zero_unlimited())=0 then do; error = "planned extraction work exceeds budget.codex_turns"; return -1; end
     if chunk_ids.0 > 0 then do
       if maximum_inflight > item_budget then maximum_inflight = item_budget
-      extraction_input_cap = _minimum(extractor_role.maximum_input_tokens(), input_budget / maximum_inflight)
-      extraction_output_cap = _minimum(extractor_role.maximum_output_tokens(), output_budget / maximum_inflight)
-      extraction_cost_cap = _minimum(extractor_role.maximum_call_cost_microunits(), cost_budget / maximum_inflight)
-      extraction_time_cap = _minimum(_maximumprovidertimeout(config), time_budget_ms / maximum_inflight)
+      extraction_input_cap = aggregatecap(input_budget,extractor_role.maximum_input_tokens(),maximum_inflight,budget.zero_unlimited())
+      extraction_output_cap = aggregatecap(output_budget,extractor_role.maximum_output_tokens(),maximum_inflight,budget.zero_unlimited())
+      extraction_cost_cap = aggregatecap(cost_budget,extractor_role.maximum_call_cost_microunits(),maximum_inflight,budget.zero_unlimited())
+      extraction_time_cap = aggregatecap(time_budget_ms,_maximumprovidertimeout(config),maximum_inflight,budget.zero_unlimited())
       monetary_route = _providerchargingbasis(config, extractor_id) = "monetary-api" | _providerchargingbasis(config, embedding_id) = "monetary-api"
       if extraction_input_cap < 1 | (extraction_items > 0 & extraction_output_cap < 1) | (monetary_route = 1 & extraction_cost_cap < 1) | extraction_time_cap < _maximumprovidertimeout(config) then do
         error = "configured budget cannot safely admit the configured in-flight workers"
         return -1
       end
-      embedding_cost_cap = _minimum(embedding_role.maximum_call_cost_microunits(), cost_budget / maximum_inflight)
+      embedding_cost_cap = aggregatecap(cost_budget,embedding_role.maximum_call_cost_microunits(),maximum_inflight,budget.zero_unlimited())
       embedding_time_cap = extraction_time_cap
       embedding_dimension = embedding_role.embedding_dimensions()
-      embedding_input_ceiling = _minimum(embedding_role.maximum_input_tokens(), input_budget / maximum_inflight)
+      embedding_input_ceiling = aggregatecap(input_budget,embedding_role.maximum_input_tokens(),maximum_inflight,budget.zero_unlimited())
       do i = 1 to chunk_ids.0
         embedding_input_caps[i] = _minimum(embedding_input_ceiling, binlength(texts[i] as .binary) + 32)
       end
@@ -1359,6 +1361,7 @@ _queuework: procedure = .int
 
   if configured = 1 then do
     budget_message = "{" || jsonquote("time_budget_ms") || ":" || time_budget_ms || "," || jsonquote("maximum_call_input_tokens") || ":" || maximum_call_input || "," || jsonquote("maximum_call_output_tokens") || ":" || maximum_call_output || "," || jsonquote("maximum_call_cost") || ":" || maximum_call_cost || "," || jsonquote("maximum_call_time_ms") || ":" || maximum_call_time || "," || jsonquote("maximum_inflight_calls") || ":" || maximum_inflight || "," || jsonquote("maximum_attempts") || ":" || maximum_attempts || "," || jsonquote("codex_turns") || ":" || codex_turn_budget || "}"
+    if zero_unlimited=1 then budget_message=left(budget_message,length(budget_message)-1) || ',"zero_unlimited":1}'
     budget_event = .binary
     sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES(?1,NULL,NULL,'budget-policy',?2,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
     if sqliteprepare(database, sql, budget_event) \= 0 then do; error = "cannot prepare configured job budget"; return -1; end

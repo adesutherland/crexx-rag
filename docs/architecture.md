@@ -454,6 +454,13 @@ Its `callcostallowed` rule distinguishes a funded monetary call from local or
 subscription work. Backlog selection uses it before filling a batch; the worker
 reservation uses the same rule. Zero API budget leaves paid tasks pending while
 independently funded work continues. No extra approval or persisted hold is added.
+Format-4 configurations carry `zero_unlimited` through the typed budget,
+canonical snapshot, plan/window policy and job budget event. `ragadmission`
+owns the shared aggregate fit/cap interpretation. `ragbacklog`, `ragingest`,
+`ragimprove` and `ragquerypolicy` compose it; `ragwork` remains the final
+transactional admission authority. Older snapshots and jobs omit the marker,
+so zero monetary cost retains its original no-spend meaning. Per-call paid
+cost, context/output, timeout, retry and concurrency rules remain separate.
 `job status` reports the latest queued deferral in `waiting_reason`, separately
 from `last_error`; it clears when that item is reclaimed or stops waiting.
 
@@ -1161,6 +1168,12 @@ local overnight window to one immutable UTC deadline before the census. Its
 canonical window policy retains the timing envelope and optional aggregate
 provider-time cap; the existing `deadline_epoch` column is authoritative during
 execution. New policies use `provider_time_budget_ms = 0` for no aggregate cap.
+An explicit format-4 zero-time window stores `deadline_epoch = 0`; checkpoint,
+worker admission and continuation treat that value as no deadline. Discovery
+still uses finite `maintenance.batch_items` passes and closes on no eligible
+work. `ragapplicationprovider` projects current remaining-call context for a
+retained resolution input after verifying its frozen prompt/schema binding;
+the stored evidence and binding remain unchanged.
 Policies without that field retain the historic `window_seconds` aggregate
 interpretation, preserving already reviewed work. No schema migration is needed.
 

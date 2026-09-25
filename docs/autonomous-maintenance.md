@@ -112,6 +112,10 @@ automatic, supervised or manual maintenance windows. A separate optional
 `maintenance.provider_time_minutes` caps accumulated provider-call durations
 and reservations across all workers. Zero (the default) disables that aggregate
 time cap; monetary, token, call, item and subscription limits still apply.
+With the explicit `crexx-rag.config/4` format, zero in those aggregate budget
+fields means unlimited; older formats retain their zero no-spend behavior.
+Provider request caps, timeouts and the external Codex allowance floor still
+apply. Set `maintenance.window_seconds = 0` for an open-ended default window.
 
 For example, two workers may each spend 90 minutes on calls during a two-hour
 window. That is 180 provider minutes, but only two hours of elapsed time. This
@@ -143,6 +147,9 @@ crexxrag maintain --overnight 18:00-06:00 --yes
 
 Choose one control. `--minutes` accepts 1..10080 and starts its elapsed window
 when maintenance planning begins, including the census and approval time.
+Format-4 policy also accepts `--minutes 0` for no deadline. Such a window ends
+on operator stop, a blocking error or no eligible work, and still uses the
+configured `maintenance.batch_items` for each discovery pass.
 `--until` requires a complete date and time with `Z` or a numeric UTC offset;
 it accepts a future deadline within seven days. This makes an exact one-off
 instant unambiguous. An already passed deadline returns success with

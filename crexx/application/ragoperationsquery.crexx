@@ -278,6 +278,9 @@ jobstatuscommand: procedure = .ragcommandresult
     fields[fields.0+1]=.ragresultfield("worker_" || name,"string",text)
   end
   fields[fields.0+1]=.ragresultfield("item_limit","integer",status.item_limit())
+  allowance_document=.jsondocument(allowance); zero_unlimited=0
+  ignored=allowance_document.node_int(allowance_document.member(allowance_document.root(),"zero_unlimited"),zero_unlimited)
+  if zero_unlimited=1 then fields[fields.0+1]=.ragresultfield("zero_unlimited","boolean","true")
   fields[fields.0+1]=.ragresultfield("allowance","string",allowance)
   usage_document=.jsondocument(usage);interval_document=.jsondocument(interval)
   names="recorded_provider_runs recorded_provider_time_ms recorded_input_tokens recorded_output_tokens recorded_cost_microunits unpriced_runs successful_provider_runs failed_provider_runs other_provider_runs interval_provider_runs interval_successful_runs timestamp_unknown_runs uncertain_items active_unsettled_items held_uncertain_items incomplete_usage_observations"

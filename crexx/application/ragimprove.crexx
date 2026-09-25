@@ -22,6 +22,7 @@ ragimproveplan: class
   _output_token_budget = .int
   _cost_budget = .int
   _time_budget_ms = .int
+  _zero_unlimited = .int
   _maximum_call_input_tokens = .int
   _maximum_call_output_tokens = .int
   _maximum_call_cost = .int
@@ -40,12 +41,13 @@ ragimproveplan: class
   _digest = .string
 
   *: factory
-    arg schema = .string, expected_generation = .int, config_snapshot_id = .string, policy_version = .string, prompt_version = .string, triggers = .string[], maximum_items = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, privacy_class = .string, route_id = .string, secret_reference = .string, discovery_context = .string, chunk_ids = .string[], content_ids = .string[], input_hashes = .string[], scores = .int[], canonical = .string, digest = .string
+    arg schema = .string, expected_generation = .int, config_snapshot_id = .string, policy_version = .string, prompt_version = .string, triggers = .string[], maximum_items = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, privacy_class = .string, route_id = .string, secret_reference = .string, discovery_context = .string, chunk_ids = .string[], content_ids = .string[], input_hashes = .string[], scores = .int[], canonical = .string, digest = .string, zero_unlimited = 0
     _schema = schema; _expected_generation = expected_generation
     _config_snapshot_id = config_snapshot_id; _policy_version = policy_version; _prompt_version = prompt_version
     _triggers = triggers; _maximum_items = maximum_items
     _model_call_budget = model_call_budget; _input_token_budget = input_token_budget
     _output_token_budget = output_token_budget; _cost_budget = cost_budget; _time_budget_ms = time_budget_ms
+    _zero_unlimited = zero_unlimited
     _maximum_call_input_tokens = maximum_call_input_tokens; _maximum_call_output_tokens = maximum_call_output_tokens
     _maximum_call_cost = maximum_call_cost; _maximum_call_time_ms = maximum_call_time_ms
     _maximum_inflight_calls = maximum_inflight_calls; _maximum_attempts = maximum_attempts
@@ -77,6 +79,8 @@ ragimproveplan: class
     return _cost_budget
   time_budget_ms: method = .int
     return _time_budget_ms
+  zero_unlimited: method = .int
+    return _zero_unlimited
   maximum_call_input_tokens: method = .int
     return _maximum_call_input_tokens
   maximum_call_output_tokens: method = .int
@@ -173,11 +177,11 @@ ragexternalproposalplan: class
     return _digest
 
 createimproveplan: procedure = .int
-  arg store = .ragstorehandle, config_snapshot_id = .string, policy_version = .string, prompt_version = .string, triggers = .string[], maximum_items = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, privacy_class = .string, route_id = .string, secret_reference = .string, discovery_context = .string, expose plan = .ragimproveplan, expose error = .string
+  arg store = .ragstorehandle, config_snapshot_id = .string, policy_version = .string, prompt_version = .string, triggers = .string[], maximum_items = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, privacy_class = .string, route_id = .string, secret_reference = .string, discovery_context = .string, expose plan = .ragimproveplan, expose error = .string, zero_unlimited = 0
   error = ""; empty_strings = .string[]; empty_ints = .int[]
   plan = .ragimproveplan("", 0, "", "", "", empty_strings, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", "", empty_strings, empty_strings, empty_strings, empty_ints, "", "")
   discovery_document = .jsondocument(discovery_context)
-  if store.open() \= 1 | config_snapshot_id = "" | policy_version = "" | prompt_version = "" | maximum_items < 0 | maximum_items > 100000 | model_call_budget < 0 | model_call_budget > maximum_items * maximum_attempts | input_token_budget < 0 | output_token_budget < 0 | cost_budget < 0 | time_budget_ms < 1 | maximum_call_input_tokens < 0 | maximum_call_output_tokens < 0 | maximum_call_cost < 0 | maximum_call_time_ms < 1 | maximum_call_time_ms > time_budget_ms | maximum_inflight_calls < 1 | maximum_inflight_calls > 64 | maximum_attempts < 1 | maximum_attempts > 100 | route_id = "" | discovery_document.valid() \= 1 | discovery_document.node_type(discovery_document.root()) \= "object" then do
+  if store.open() \= 1 | config_snapshot_id = "" | policy_version = "" | prompt_version = "" | maximum_items < 0 | maximum_items > 100000 | model_call_budget < 0 | model_call_budget > maximum_items * maximum_attempts | input_token_budget < 0 | output_token_budget < 0 | cost_budget < 0 | time_budget_ms < 0 | (time_budget_ms = 0 & zero_unlimited \= 1) | maximum_call_input_tokens < 0 | maximum_call_output_tokens < 0 | maximum_call_cost < 0 | maximum_call_time_ms < 1 | (time_budget_ms>0 & maximum_call_time_ms > time_budget_ms) | maximum_inflight_calls < 1 | maximum_inflight_calls > 64 | maximum_attempts < 1 | maximum_attempts > 100 | route_id = "" | discovery_document.valid() \= 1 | discovery_document.node_type(discovery_document.root()) \= "object" then do
     error = "improvement plan header or budget is invalid"
     return -1
   end
@@ -218,9 +222,9 @@ createimproveplan: procedure = .int
     if error<>"" then return -3
     input_hashes[i]=rxhash..sha256hex(("crexx-rag.improve-input/2" || "00"x || content_ids[i] || "00"x || policy_version || "00"x || prompt_version || "00"x || rank.input_fingerprint() || "00"x || rxhash..sha256hex(maintenance_context as .binary) || "00"x || discovery_hash) as .binary)
   end
-  canonical = _canonicalimprove(generation, config_snapshot_id, policy_version, prompt_version, triggers, maximum_items, model_call_budget, input_token_budget, output_token_budget, cost_budget, time_budget_ms, maximum_call_input_tokens, maximum_call_output_tokens, maximum_call_cost, maximum_call_time_ms, maximum_inflight_calls, maximum_attempts, privacy_class, route_id, secret_reference, discovery_context, chunk_ids, content_ids, input_hashes, scores)
+  canonical = _canonicalimprove(generation, config_snapshot_id, policy_version, prompt_version, triggers, maximum_items, model_call_budget, input_token_budget, output_token_budget, cost_budget, time_budget_ms, maximum_call_input_tokens, maximum_call_output_tokens, maximum_call_cost, maximum_call_time_ms, maximum_inflight_calls, maximum_attempts, privacy_class, route_id, secret_reference, discovery_context, chunk_ids, content_ids, input_hashes, scores, zero_unlimited)
   digest = rxhash..sha256hex(canonical as .binary)
-  plan = .ragimproveplan("crexx-rag.improve-plan/1", generation, config_snapshot_id, policy_version, prompt_version, triggers, maximum_items, model_call_budget, input_token_budget, output_token_budget, cost_budget, time_budget_ms, maximum_call_input_tokens, maximum_call_output_tokens, maximum_call_cost, maximum_call_time_ms, maximum_inflight_calls, maximum_attempts, privacy_class, route_id, secret_reference, discovery_context, chunk_ids, content_ids, input_hashes, scores, canonical, digest)
+  plan = .ragimproveplan("crexx-rag.improve-plan/1", generation, config_snapshot_id, policy_version, prompt_version, triggers, maximum_items, model_call_budget, input_token_budget, output_token_budget, cost_budget, time_budget_ms, maximum_call_input_tokens, maximum_call_output_tokens, maximum_call_cost, maximum_call_time_ms, maximum_inflight_calls, maximum_attempts, privacy_class, route_id, secret_reference, discovery_context, chunk_ids, content_ids, input_hashes, scores, canonical, digest, zero_unlimited)
   return 0
 
 filterimproveplan: procedure = .int
@@ -248,9 +252,9 @@ filterimproveplan: procedure = .int
   maximum_items = source.maximum_items(); model_call_budget = source.model_call_budget()
   maximum_calls = chunk_ids.0 * source.maximum_attempts(); if model_call_budget > maximum_calls then model_call_budget = maximum_calls
   triggers = source.triggers()
-  canonical = _canonicalimprove(source.expected_generation(), source.config_snapshot_id(), source.policy_version(), source.prompt_version(), triggers, maximum_items, model_call_budget, source.input_token_budget(), source.output_token_budget(), source.cost_budget(), source.time_budget_ms(), source.maximum_call_input_tokens(), source.maximum_call_output_tokens(), source.maximum_call_cost(), source.maximum_call_time_ms(), source.maximum_inflight_calls(), source.maximum_attempts(), source.privacy_class(), source.route_id(), source.secret_reference(), source.discovery_context(), chunk_ids, content_ids, input_hashes, scores)
+  canonical = _canonicalimprove(source.expected_generation(), source.config_snapshot_id(), source.policy_version(), source.prompt_version(), triggers, maximum_items, model_call_budget, source.input_token_budget(), source.output_token_budget(), source.cost_budget(), source.time_budget_ms(), source.maximum_call_input_tokens(), source.maximum_call_output_tokens(), source.maximum_call_cost(), source.maximum_call_time_ms(), source.maximum_inflight_calls(), source.maximum_attempts(), source.privacy_class(), source.route_id(), source.secret_reference(), source.discovery_context(), chunk_ids, content_ids, input_hashes, scores, source.zero_unlimited())
   digest = rxhash..sha256hex(canonical as .binary)
-  plan = .ragimproveplan("crexx-rag.improve-plan/1", source.expected_generation(), source.config_snapshot_id(), source.policy_version(), source.prompt_version(), triggers, maximum_items, model_call_budget, source.input_token_budget(), source.output_token_budget(), source.cost_budget(), source.time_budget_ms(), source.maximum_call_input_tokens(), source.maximum_call_output_tokens(), source.maximum_call_cost(), source.maximum_call_time_ms(), source.maximum_inflight_calls(), source.maximum_attempts(), source.privacy_class(), source.route_id(), source.secret_reference(), source.discovery_context(), chunk_ids, content_ids, input_hashes, scores, canonical, digest)
+  plan = .ragimproveplan("crexx-rag.improve-plan/1", source.expected_generation(), source.config_snapshot_id(), source.policy_version(), source.prompt_version(), triggers, maximum_items, model_call_budget, source.input_token_budget(), source.output_token_budget(), source.cost_budget(), source.time_budget_ms(), source.maximum_call_input_tokens(), source.maximum_call_output_tokens(), source.maximum_call_cost(), source.maximum_call_time_ms(), source.maximum_inflight_calls(), source.maximum_attempts(), source.privacy_class(), source.route_id(), source.secret_reference(), source.discovery_context(), chunk_ids, content_ids, input_hashes, scores, canonical, digest, source.zero_unlimited())
   return 0
 
 applyimproveplan: procedure = .int
@@ -271,7 +275,7 @@ _applyimproveplan: procedure = .int
   if store.writable() \= 1 | plan.schema() \= "crexx-rag.improve-plan/1" | length(plan.digest()) \= 64 | rxhash..sha256hex(plan.canonical() as .binary) \= plan.digest() then do; error = "improvement plan shape or digest is invalid"; return -1; end
   configured = profile_id \= "" | provider_model \= "" | charging_basis \= "" | codex_turn_budget \= 0
   if configured = 1 then do
-    if profile_id = "" | provider_model = "" | (charging_basis \= "monetary-api" & charging_basis \= "local-compute" & charging_basis \= "subscription-allowance") | codex_turn_budget < 0 | (charging_basis = "subscription-allowance" & codex_turn_budget < 1) then do
+    if profile_id = "" | provider_model = "" | (charging_basis \= "monetary-api" & charging_basis \= "local-compute" & charging_basis \= "subscription-allowance") | codex_turn_budget < 0 | (charging_basis = "subscription-allowance" & codex_turn_budget < 1 & plan.zero_unlimited()<>1) then do
       error = "configured improvement provider binding is invalid"
       return -1
     end
@@ -284,7 +288,7 @@ _applyimproveplan: procedure = .int
   if existing < 0 then do; error = "cannot inspect improvement job identity"; return -3; end
   fresh = .ragimproveplan
   triggers = plan.triggers()
-  if createimproveplan(store, plan.config_snapshot_id(), plan.policy_version(), plan.prompt_version(), triggers, plan.maximum_items(), plan.model_call_budget(), plan.input_token_budget(), plan.output_token_budget(), plan.cost_budget(), plan.time_budget_ms(), plan.maximum_call_input_tokens(), plan.maximum_call_output_tokens(), plan.maximum_call_cost(), plan.maximum_call_time_ms(), plan.maximum_inflight_calls(), plan.maximum_attempts(), plan.privacy_class(), plan.route_id(), plan.secret_reference(), plan.discovery_context(), fresh, error) \= 0 then return -3
+  if createimproveplan(store, plan.config_snapshot_id(), plan.policy_version(), plan.prompt_version(), triggers, plan.maximum_items(), plan.model_call_budget(), plan.input_token_budget(), plan.output_token_budget(), plan.cost_budget(), plan.time_budget_ms(), plan.maximum_call_input_tokens(), plan.maximum_call_output_tokens(), plan.maximum_call_cost(), plan.maximum_call_time_ms(), plan.maximum_inflight_calls(), plan.maximum_attempts(), plan.privacy_class(), plan.route_id(), plan.secret_reference(), plan.discovery_context(), fresh, error, plan.zero_unlimited()) \= 0 then return -3
   if fresh.canonical() \= plan.canonical() | fresh.digest() \= plan.digest() then do
     reviewed_chunks = plan.chunk_ids(); selected_fresh = .ragimproveplan; filter_error = ""
     if filterimproveplan(fresh, reviewed_chunks, selected_fresh, filter_error) \= 0 | selected_fresh.canonical() \= plan.canonical() | selected_fresh.digest() \= plan.digest() then do
@@ -346,6 +350,7 @@ _applyimproveplan: procedure = .int
   step = sqlitestep(item_statement); call sqlitefinalize item_statement
   if step \= 101 | _scalarint(database, "SELECT changes()") \= new_items then return _rollback(database, "improvement work identity changed during compact apply", error)
   budget_message = "{" || jsonquote("time_budget_ms") || ":" || plan.time_budget_ms() || "," || jsonquote("maximum_call_input_tokens") || ":" || plan.maximum_call_input_tokens() || "," || jsonquote("maximum_call_output_tokens") || ":" || plan.maximum_call_output_tokens() || "," || jsonquote("maximum_call_cost") || ":" || plan.maximum_call_cost() || "," || jsonquote("maximum_call_time_ms") || ":" || plan.maximum_call_time_ms() || "," || jsonquote("maximum_inflight_calls") || ":" || plan.maximum_inflight_calls() || "," || jsonquote("maximum_attempts") || ":" || plan.maximum_attempts() || "," || jsonquote("privacy_class") || ":" || jsonquote(plan.privacy_class()) || "," || jsonquote("route_id") || ":" || jsonquote(plan.route_id()) || "," || jsonquote("secret_reference") || ":" || jsonquote(plan.secret_reference()) || "}"
+  if plan.zero_unlimited()=1 then budget_message=left(budget_message,length(budget_message)-1) || ',"zero_unlimited":1}'
   if _event(database, job_id, "budget-policy", budget_message) \= 0 then return _rollback(database, "cannot record improvement budget policy", error)
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit improvement apply", error)
   after = _scalarint(database, "SELECT total_changes()")
@@ -475,13 +480,14 @@ applyexternalproposalplan: procedure = .int
   return 0
 
 _canonicalimprove: procedure = .string
-  arg generation = .int, config_snapshot_id = .string, policy_version = .string, prompt_version = .string, triggers = .string[], maximum_items = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, privacy_class = .string, route_id = .string, secret_reference = .string, discovery_context = .string, chunk_ids = .string[], content_ids = .string[], input_hashes = .string[], scores = .int[]
+  arg generation = .int, config_snapshot_id = .string, policy_version = .string, prompt_version = .string, triggers = .string[], maximum_items = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, privacy_class = .string, route_id = .string, secret_reference = .string, discovery_context = .string, chunk_ids = .string[], content_ids = .string[], input_hashes = .string[], scores = .int[], zero_unlimited = 0
   output = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.improve-plan/1") || "," || jsonquote("expected_generation") || ":" || generation || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(config_snapshot_id) || "," || jsonquote("policy_version") || ":" || jsonquote(policy_version) || "," || jsonquote("prompt_version") || ":" || jsonquote(prompt_version) || "," || jsonquote("discovery_context") || ":" || discovery_context || "," || jsonquote("triggers") || ":["
   do i = 1 to triggers.0
     if i > 1 then output = output || ","
     output = output || jsonquote(triggers[i])
   end
   output = output || "]," || jsonquote("budgets") || ":{" || jsonquote("maximum_items") || ":" || maximum_items || "," || jsonquote("model_calls") || ":" || model_call_budget || "," || jsonquote("input_tokens") || ":" || input_token_budget || "," || jsonquote("output_tokens") || ":" || output_token_budget || "," || jsonquote("cost") || ":" || cost_budget || "," || jsonquote("time_ms") || ":" || time_budget_ms || "," || jsonquote("maximum_call_input_tokens") || ":" || maximum_call_input_tokens || "," || jsonquote("maximum_call_output_tokens") || ":" || maximum_call_output_tokens || "," || jsonquote("maximum_call_cost") || ":" || maximum_call_cost || "," || jsonquote("maximum_call_time_ms") || ":" || maximum_call_time_ms || "," || jsonquote("maximum_inflight_calls") || ":" || maximum_inflight_calls || "," || jsonquote("maximum_attempts") || ":" || maximum_attempts || "}," || jsonquote("route") || ":{" || jsonquote("privacy_class") || ":" || jsonquote(privacy_class) || "," || jsonquote("route_id") || ":" || jsonquote(route_id) || "," || jsonquote("secret_reference") || ":" || jsonquote(secret_reference) || "}," || jsonquote("items") || ":["
+  if zero_unlimited=1 then output=changestr('},"route":{',',"zero_unlimited":1},"route":{',output)
   do i = 1 to chunk_ids.0
     if i > 1 then output = output || ","
     output = output || "{" || jsonquote("revision_chunk_id") || ":" || jsonquote(chunk_ids[i]) || "," || jsonquote("content_id") || ":" || jsonquote(content_ids[i]) || "," || jsonquote("input_hash") || ":" || jsonquote(input_hashes[i]) || "," || jsonquote("score") || ":" || scores[i] || "}"

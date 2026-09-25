@@ -732,10 +732,17 @@ timingchecks: procedure = .int
   now = scalarint(database,"SELECT unixepoch('2026-09-08T00:00:00Z')")
   errors = errors + check(resolvemaintenancetime(database,"120","","",7200,timing,error,now) = 0 & pos('"deadline_utc":"2026-09-08T02:00:00Z"',timing) > 0,"duration counts elapsed time")
   errors = errors + check(resolvemaintenancetime(database,"","2026-09-08T06:00:00+01:00","",7200,timing,error,now) = 0 & pos('"deadline_utc":"2026-09-08T05:00:00Z"',timing) > 0,"explicit offset deadline")
+  errors = errors + check(resolvemaintenancetime(database,"","2026-09-08T06:00:00+01:00","",0,timing,error,now,1) = 0 & pos('"mode":"until"',timing) > 0 & pos('"deadline_utc":"2026-09-08T05:00:00Z"',timing) > 0,"explicit until overrides unlimited default")
+  errors = errors + check(resolvemaintenancetime(database,"","","18:00-06:00",0,timing,error,now,1) = 0 & pos('"mode":"overnight"',timing) > 0 & pos('"deadline_utc":"2026-09-08T05:00:00Z"',timing) > 0,"explicit overnight overrides unlimited default")
+  errors = errors + check(resolvemaintenancetime(database,"15","","",0,timing,error,now,1) = 0 & pos('"deadline_utc":"2026-09-08T00:15:00Z"',timing) > 0,"explicit finite minutes override unlimited default")
+  errors = errors + check(resolvemaintenancetime(database,"0","","",7200,timing,error,now,1) = 0 & pos('"deadline_epoch":0',timing) > 0,"explicit zero opts into unlimited time")
+  errors = errors + check(resolvemaintenancetime(database,"","","",0,timing,error,now,0) < 0,"legacy zero default remains invalid")
   errors = errors + check(resolvemaintenancetime(database,"","2026-09-07T06:00:00Z","",7200,timing,error,now) = 0 & pos('"skipped":1',timing) > 0,"past exact deadline skips")
   errors = errors + check(resolvemaintenancetime(database,"120","","18:00-06:00",7200,timing,error,now) < 0,"reject competing timing controls")
+  errors = errors + check(resolvemaintenancetime(database,"0","2026-09-08T06:00:00Z","",0,timing,error,now,1) < 0,"reject competing unlimited and finite selectors")
   errors = errors + check(resolvemaintenancetime(database,"0","","",7200,timing,error,now) < 0 & resolvemaintenancetime(database,"999999999999999999999","","",7200,timing,error,now) < 0,"reject invalid duration safely")
   errors = errors + check(resolvemaintenancetime(database,"","2026-02-30T06:00:00Z","",7200,timing,error,now) < 0,"reject impossible date")
+  errors = errors + check(resolvemaintenancetime(database,"","2026-02-30T06:00:00Z","",0,timing,error,now,1) < 0,"reject impossible date under unlimited default")
   errors = errors + check(resolvemaintenancetime(database,"","2026-09-09T06:00:00","",7200,timing,error,now) < 0,"exact deadline requires timezone offset")
   errors = errors + check(resolvemaintenancetime(database,"","","06:00-18:00",7200,timing,error,now) < 0 & resolvemaintenancetime(database,"","","25:00-06:00",7200,timing,error,now) < 0,"reject invalid overnight window")
   return errors
@@ -941,6 +948,12 @@ advancedbudgetchecks: procedure = .int
       if item="" then return errors
       remaining=scalarint(database,"SELECT json_extract(input_json,'$.remaining_calls_including_this') FROM job_items WHERE item_id='" || item || "'")
       errors=errors+check(remaining=ceiling-step+1,"prompt counts every advanced call")
+      if ceiling=3 & step=3 then do
+        old_input=scalartext(database,"SELECT i.input_json FROM job_items i JOIN maintenance_task_items m USING(item_id) WHERE m.task_id='" || task || "' AND json_extract(i.input_json,'$.remaining_calls_including_this')=3 ORDER BY m.attempt_number LIMIT 1")
+        projected=resolutionoperationalinput(database,old_input,error)
+        errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(projected) || ",'$.remaining_calls_including_this')")=1,"retained old advanced packet advertises the actual one remaining call")
+        errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(old_input) || ",'$.remaining_calls_including_this')")=3,"operational allowance projection leaves frozen packet untouched")
+      end
       facts=taskretryfacts(database,task,job_id)
       errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(facts) || ",'$.route_calls')")=step-1,"inspection counts advanced calls without the ordinary escalation")
       proposed=responsejson("search","","[]","[]","",word("Cobalt unused evidence",step))
@@ -1064,6 +1077,68 @@ zerobudgetchecks: procedure = .int
   errors = errors + check(scalarint(database,"SELECT count(*) FROM provider_runs") = original_calls,"cost-route planning makes no provider calls")
   return errors
 
+unlimitedwindowchecks: procedure = .int
+  arg store=.ragstorehandle, base=.string
+  database=store.database(); errors=0; error=""
+  raw=changestr('"knowledge_policy":"fixture-v1"',base,'"knowledge_policy":"fixture-unlimited-window"')
+  raw=changestr('"window_seconds":1000',raw,'"window_seconds":0')
+  raw=changestr('"item_limit":100',raw,'"item_limit":0')
+  raw=changestr('"model_calls":100',raw,'"model_calls":0')
+  raw=changestr('"input_budget":10000000',raw,'"input_budget":0')
+  raw=changestr('"output_budget":1000000',raw,'"output_budget":0')
+  raw=left(raw,length(raw)-1) || ',"zero_unlimited":1}'
+  task=""; job_id=scalartext(database,"SELECT job_id FROM maintenance_windows WHERE state='active' LIMIT 1"); policy=.jsondocument(raw)
+  errors=errors+check(enqueuebacklogtask(database,"unlimited-window-question","chunk","chunk-lifecycle","","",1000000,policy,task,error)=0,"unlimited window task fixture " || error)
+  errors=errors+check(nextwindow(store,raw,job_id,error)=0,"unlimited automatic window starts " || error)
+  errors=errors+check(scalarint(database,"SELECT deadline_epoch FROM maintenance_windows WHERE job_id='" || job_id || "'")=0,"unlimited window has no synthetic deadline")
+  errors=errors+check(scalarint(database,"SELECT model_call_budget+input_token_budget+output_token_budget+cost_budget FROM jobs WHERE job_id='" || job_id || "'")=0,"zero aggregate allowances persist")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM maintenance_task_items WHERE task_id='" || task || "' AND window_id=(SELECT window_id FROM maintenance_windows WHERE job_id='" || job_id || "')")=1,"automatic discovery dispatches work with zero aggregate limits")
+  errors=errors+check(pausejob(store,job_id,error)=0 & tickbacklogwindow(store,job_id,error)>=0,"unlimited window pauses " || error)
+  errors=errors+check(sqliteexec(database,"BEGIN IMMEDIATE")=0,"begin unlimited continuation")
+  errors=errors+check(continuebacklogwindow(database,job_id,0,0,error)=0,"unlimited window resumes without renewing allowance " || error)
+  errors=errors+check(sqliteexec(database,"UPDATE jobs SET state='queued' WHERE job_id='" || job_id || "';COMMIT")=0,"commit unlimited continuation")
+  errors=errors+check(scalarint(database,"SELECT deadline_epoch FROM maintenance_windows WHERE job_id='" || job_id || "'")=0,"resumed unlimited window retains no deadline")
+  errors=errors+check(pausejob(store,job_id,error)=0 & tickbacklogwindow(store,job_id,error)>=0,"unlimited window closes after resume " || error)
+  retry_raw=changestr('"knowledge_policy":"fixture-unlimited-window"',raw,'"knowledge_policy":"fixture-unlimited-retry"')
+  retry_raw=changestr('"retry_seconds":1',retry_raw,'"retry_seconds":30')
+  retry_raw=left(retry_raw,length(retry_raw)-1) || ',"phase":"identity","phase_cohort":["unlimited-retry-concept"]}'
+  retry_policy=.jsondocument(retry_raw); retry_job=""; retry_task=""
+  errors=errors+check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('unlimited-retry-concept','Retry','concept','active',1)")=0,"unlimited retry subject")
+  errors=errors+check(enqueuebacklogtask(database,"identity-review","concept","unlimited-retry-concept","","",1000000,retry_policy,retry_task,error)=0 & nextwindow(store,retry_raw,retry_job,error)=0,"unlimited retry fixture " || error)
+  retry_item=scalartext(database,"SELECT m.item_id FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id='" || retry_task || "' AND i.job_id='" || retry_job || "'")
+  errors=errors+check(retry_item<>"","unlimited retry first dispatch")
+  errors=errors+check(sqliteexec(database,"INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,started_at) SELECT 'unlimited-retry-run',config_snapshot_id,'fixture','fixture','fixture','failed','fixture' FROM jobs WHERE job_id='" || retry_job || "'; INSERT INTO attempts(attempt_id,item_id,worker_id,fence,input_hash,provider_run_id,validation_state,outcome,started_at,completed_at) SELECT 'unlimited-retry-attempt',item_id,'fixture',1,input_hash,'unlimited-retry-run','failed','failed','fixture','fixture' FROM job_items WHERE item_id='" || retry_item || "'; UPDATE job_items SET state='failed' WHERE item_id='" || retry_item || "'")=0,"retain failed provider attempt for unlimited retry")
+  errors=errors+check(tickbacklogwindow(store,retry_job,error)>=0,"reconcile unlimited retry " || error)
+  errors=errors+check(scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || retry_job || "'")="active" & scalarint(database,"SELECT not_before_epoch>unixepoch() FROM maintenance_tasks WHERE task_id='" || retry_task || "'")=1,"unlimited window waits for ordinary retry backoff")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET not_before_epoch=0 WHERE task_id='" || retry_task || "'")=0 & tickbacklogwindow(store,retry_job,error)>=0,"retry becomes due " || error)
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id='" || retry_task || "' AND i.job_id='" || retry_job || "' AND i.state='queued'")=1,"unlimited window dispatches due retry in same job")
+  errors=errors+check(pausejob(store,retry_job,error)=0 & tickbacklogwindow(store,retry_job,error)>=0,"close unlimited retry fixture " || error)
+  hold_raw=changestr('"knowledge_policy":"fixture-unlimited-retry"',retry_raw,'"knowledge_policy":"fixture-unlimited-operator-hold"')
+  hold_raw=changestr('"unlimited-retry-concept"',hold_raw,'"unlimited-hold-concept"')
+  hold_policy=.jsondocument(hold_raw); hold_task=""; hold_job=""; hold_until=0
+  errors=errors+check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('unlimited-hold-concept','Hold','concept','active',1)")=0,"unlimited held subject")
+  errors=errors+check(enqueuebacklogtask(database,"identity-review","concept","unlimited-hold-concept","","",1000000,hold_policy,hold_task,error)=0 & nextwindow(store,hold_raw,hold_job,error)=0,"start unlimited held window " || error)
+  hold_item=scalartext(database,"SELECT m.item_id FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id='" || hold_task || "' AND i.job_id='" || hold_job || "'")
+  errors=errors+check(hold_item<>"","unlimited hold first dispatch")
+  errors=errors+check(sqliteexec(database,"INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,started_at) SELECT 'unlimited-hold-run',config_snapshot_id,'fixture','fixture','fixture','failed','fixture' FROM jobs WHERE job_id='" || hold_job || "'; INSERT INTO attempts(attempt_id,item_id,worker_id,fence,input_hash,provider_run_id,validation_state,outcome,started_at,completed_at) SELECT 'unlimited-hold-attempt',item_id,'fixture',1,input_hash,'unlimited-hold-run','failed','failed','fixture','fixture' FROM job_items WHERE item_id='" || hold_item || "'; UPDATE job_items SET state='failed' WHERE item_id='" || hold_item || "'")=0,"retain held question provider attempt")
+  errors=errors+check(tickbacklogwindow(store,hold_job,error)>=0 & scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || hold_job || "'")="active","held question enters ordinary retry before deferral " || error)
+  errors=errors+check(deferbacklogtask(store,hold_task,"","1","operator holds this question",hold_until,error)=0,"record explicit future operator deferral " || error)
+  do pass=1 to 3
+    if scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || hold_job || "'")<>"active" then leave
+    errors=errors+check(tickbacklogwindow(store,hold_job,error)>=0,"checkpoint unlimited held window " || error)
+  end
+  errors=errors+check(scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || hold_job || "'")="complete","explicit operator deferral does not poll indefinitely")
+  no_work=changestr('"knowledge_policy":"fixture-unlimited-window"',raw,'"knowledge_policy":"fixture-unlimited-no-work"')
+  no_work=left(no_work,length(no_work)-1) || ',"source_id":"synthetic-source-that-does-not-exist"}'
+  job_id=""
+  errors=errors+check(nextwindow(store,no_work,job_id,error)=0,"unlimited empty window starts " || error)
+  do pass=1 to 3
+    if scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'")<>"active" then leave
+    errors=errors+check(tickbacklogwindow(store,job_id,error)>=0,"unlimited empty checkpoint " || error)
+  end
+  errors=errors+check(scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'")="complete","unlimited empty window closes without polling loop")
+  return errors
+
 /* Source selection is operational state retained by the existing continuation
  * owner. Continuing grants no fresh item allowance and makes no provider call. */
 sourcecontinuationchecks: procedure = .int
@@ -1148,6 +1223,7 @@ main: procedure = .int
   end
   if selected_case="budget" then do
     errors=errors+advancedbudgetchecks(store,policy_json)
+    errors=errors+unlimitedwindowchecks(store,policy_json)
     call closeragstore store,error
     if errors>0 then return 1
     say "DURABLE_BACKLOG_OK budget"

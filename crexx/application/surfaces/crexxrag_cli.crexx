@@ -7,6 +7,7 @@ import ragcommand
 import ragcommandcatalog
 import ragconfig
 import ragconfigfile
+import ragadmission
 import ragpolicyfile
 import ragregistry
 import ragproduct
@@ -320,13 +321,13 @@ _guidedprovidertest: procedure = .int
   say "Provider smoke plan"
   say ""
   say "  Data:              Public synthetic text only"
-  say "  Provider calls:    " || planned_calls || " (configured ceiling " || budget.model_calls() || ")"
-  say "  Input token limit: " || budget.input_tokens()
-  say "  Output token limit: " || budget.output_tokens()
-  if monetary = 1 then say "  Maximum API cost:  $" || _money(budget.cost_microunits())
+  say "  Provider calls:    " || planned_calls || " (configured ceiling " || _budgetlimit(budget,budget.model_calls()) || ")"
+  say "  Input token limit: " || _budgetlimit(budget,budget.input_tokens())
+  say "  Output token limit: " || _budgetlimit(budget,budget.output_tokens())
+  if monetary = 1 then say "  Maximum API cost:  " || _budgetcost(budget)
   else say "  Monetary API cost: Not applicable"
-  if budget.codex_turns() > 0 then do
-    say "  Codex turn limit:  " || budget.codex_turns()
+  if budget.codex_turns() > 0 | budget.zero_unlimited()=1 then do
+    say "  Codex turn limit:  " || _budgetlimit(budget,budget.codex_turns())
     say "  Minimum allowance: " || budget.minimum_codex_allowance_percent() || "%"
   end
   do i = 1 to selected.0
@@ -342,7 +343,7 @@ _guidedprovidertest: procedure = .int
   end
   say ""
   say "No library content is read or changed. Hosted providers receive only the text shown by this smoke test."
-  if planned_calls > budget.model_calls() then return _clierror("provider.test", "budget", "planned provider smoke calls exceed the configured per-command ceiling", 6)
+  if aggregatefits(budget.model_calls(),0,planned_calls,budget.zero_unlimited())=0 then return _clierror("provider.test", "budget", "planned provider smoke calls exceed the configured per-command ceiling", 6)
   if auto_confirm = 0 then do
     call charout "stderr", "Continue? [y/N] "
     answer = lower(strip(linein("stdin")))
@@ -365,7 +366,7 @@ _guidedprovidertest: procedure = .int
     actual_input = actual_input + _resultsum(test_result, "input_tokens")
     actual_output = actual_output + _resultsum(test_result, "output_tokens")
     actual_cost = actual_cost + _resultsum(test_result, "estimated_cost_microunits")
-    if actual_calls > budget.model_calls() | actual_input > budget.input_tokens() | actual_output > budget.output_tokens() | actual_cost > budget.cost_microunits() then return _clierror("provider.test", "budget", "combined provider smoke usage exceeded the reviewed configuration ceiling", 6)
+    if aggregatefits(budget.model_calls(),0,actual_calls,budget.zero_unlimited())=0 | aggregatefits(budget.input_tokens(),0,actual_input,budget.zero_unlimited())=0 | aggregatefits(budget.output_tokens(),0,actual_output,budget.zero_unlimited())=0 | aggregatefits(budget.cost_microunits(),0,actual_cost,budget.zero_unlimited())=0 then return _clierror("provider.test", "budget", "combined provider smoke usage exceeded the reviewed configuration ceiling", 6)
   end
   say "Provider smoke complete"
   say "  Calls:              " || actual_calls
@@ -426,9 +427,9 @@ _plansummary: procedure = .string
   output = output || "0A0A"x || "  Source set:       " || source_set_id
   if source_root \= "" then output = output || "0A"x || "  Source folder:    " || source_root
   if privacy \= "" then output = output || "0A"x || "  Source privacy:   " || privacy
-  output = output || "0A"x || "  Maximum calls:    " || budget.model_calls()
-  output = output || "0A"x || "  Input token limit: " || budget.input_tokens()
-  output = output || "0A"x || "  Output token limit: " || budget.output_tokens()
+  output = output || "0A"x || "  Maximum calls:    " || _budgetlimit(budget,budget.model_calls())
+  output = output || "0A"x || "  Input token limit: " || _budgetlimit(budget,budget.input_tokens())
+  output = output || "0A"x || "  Output token limit: " || _budgetlimit(budget,budget.output_tokens())
   output = output || "0A"x || "  Worker processes: " || workers
   if extractor.provider_id() \= "" then do
     if extractor.kind() = "codex" then output = output || "0A"x || "  Extraction:       Codex using your ChatGPT subscription"
@@ -443,14 +444,14 @@ _plansummary: procedure = .string
     diagnostic = .ragproviderdiagnostic; diagnostic_error = ""
     if codexdiagnostic(extractor.timeout_ms(), diagnostic, diagnostic_error) = 0 then output = output || "0A"x || "  Codex allowance:  " || diagnostic.allowance_available() || "% available"
     else output = output || "0A"x || "  Codex allowance:  unavailable (" || diagnostic_error || ")"
-    output = output || "0A"x || "  Codex turn limit: " || budget.codex_turns()
+    output = output || "0A"x || "  Codex turn limit: " || _budgetlimit(budget,budget.codex_turns())
     output = output || "0A"x || "  Charging basis:   Subscription allowance"
   end
   monetary = 0
   do i = 1 to providers.0
     if providers[i].charging_basis() = "monetary-api" then monetary = 1
   end
-  if monetary = 1 then output = output || "0A"x || "  Maximum API cost: $" || cost
+  if monetary = 1 then output = output || "0A"x || "  Maximum API cost: " || _budgetcost(budget)
   else output = output || "0A"x || "  Monetary API cost: Not applicable"
   output = output || "0A"x || "  Plan digest:      " || digest
   return output
@@ -472,13 +473,16 @@ _maintainplansummary: procedure = .string
     clock = .jsondocument(timing); local_finish = ""; utc_finish = ""
     ignored = clock.node_string(clock.member(clock.root(),"deadline_local"),local_finish); ignored = clock.node_string(clock.member(clock.root(),"deadline_utc"),utc_finish)
     timing_mode="";ignored=clock.node_string(clock.member(clock.root(),"mode"),timing_mode)
-    if timing_mode="duration" then output=output || "0A"x || "  Duration:         " || _fieldvalue(plan_result,2,"window_seconds") || " seconds from activation"
-    else output = output || "0A"x || "  Finish by:        " || local_finish || " local (" || utc_finish || ")"
-    output = output || "0A"x || "  Cleanup allowance: 5 seconds; calls must fit before it"
+    if timing_mode="unlimited" then output=output || "0A"x || "  Duration:         Unlimited"
+    else do
+      if timing_mode="duration" then output=output || "0A"x || "  Duration:         " || _fieldvalue(plan_result,2,"window_seconds") || " seconds from activation"
+      else output = output || "0A"x || "  Finish by:        " || local_finish || " local (" || utc_finish || ")"
+      output = output || "0A"x || "  Cleanup allowance: 5 seconds; calls must fit before it"
+    end
   end
   if deferred then do
     output=output || "0A0A"x || "  Selection:        Durable backlog at activation"
-    output=output || "0A"x || "  Item limit:       " || budget.item_limit()
+    output=output || "0A"x || "  Item limit:       " || _budgetlimit(budget,budget.item_limit())
   end
   else do
     output = output || "0A0A"x || "  Items selected:   " || items
@@ -490,19 +494,29 @@ _maintainplansummary: procedure = .string
   if provider.kind() = "codex" then output = output || "0A"x || "  Extraction:       Codex using your ChatGPT subscription"
   else output = output || "0A"x || "  Extraction:       " || provider.kind() || " / " || provider.model()
   if provider.route_class() = "hosted" then output = output || "0A"x || "  Provider route:   Hosted"
-  output = output || "0A"x || "  Maximum calls:    " || budget.model_calls()
-  output = output || "0A"x || "  Input token limit: " || budget.input_tokens()
-  output = output || "0A"x || "  Output token limit: " || budget.output_tokens()
+  output = output || "0A"x || "  Maximum calls:    " || _budgetlimit(budget,budget.model_calls())
+  output = output || "0A"x || "  Input token limit: " || _budgetlimit(budget,budget.input_tokens())
+  output = output || "0A"x || "  Output token limit: " || _budgetlimit(budget,budget.output_tokens())
   if provider.kind() = "codex" then do
     diagnostic = .ragproviderdiagnostic; diagnostic_error = ""
     if codexdiagnostic(provider.timeout_ms(), diagnostic, diagnostic_error) = 0 then output = output || "0A"x || "  Codex allowance:  " || diagnostic.allowance_available() || "% available"
     else output = output || "0A"x || "  Codex allowance:  unavailable (" || diagnostic_error || ")"
-    output = output || "0A"x || "  Codex turn limit: " || budget.codex_turns()
+    output = output || "0A"x || "  Codex turn limit: " || _budgetlimit(budget,budget.codex_turns())
   end
-  if provider.charging_basis() = "monetary-api" then output = output || "0A"x || "  Maximum API cost: $" || _money(budget.cost_microunits())
+  if provider.charging_basis() = "monetary-api" then output = output || "0A"x || "  Maximum API cost: " || _budgetcost(budget)
   else output = output || "0A"x || "  Monetary API cost: Not applicable"
   output = output || "0A"x || "  Plan digest:      " || digest
   return output
+
+_budgetlimit: procedure = .string
+  arg budget=.ragbudget, ceiling=.int
+  if ceiling=0 & budget.zero_unlimited()=1 then return "Unlimited"
+  return ceiling || ""
+
+_budgetcost: procedure = .string
+  arg budget=.ragbudget
+  if budget.cost_microunits()=0 & budget.zero_unlimited()=1 then return "Unlimited"
+  return "$" || _money(budget.cost_microunits())
 
 _money: procedure = .string
   arg microunits = .int

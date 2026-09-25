@@ -1,6 +1,6 @@
 # Master roadmap and defect register
 
-Current decision and status authority — updated 24 September 2026.
+Current decision and status authority — updated 25 September 2026.
 The [final beta plan](beta-release-plan-20260920.md) is **implemented, locally qualified and installed; beta release held**.
 The candidate passes 133 required local cases, two live Gemini smokes and the
 bounded Scottish-copy run: 200 successful calls, clean closeout and integrity.
@@ -23,6 +23,23 @@ and [fifteen-minute soak](maintenance-budget-soak-20260917.md). The observabilit
 prompt/quotation, checkpoint/restart and advanced-call repairs remain included.
 
 ## Recent defects and delivery status
+
+Optional aggregate limits (25 September): **reviewed local checkpoint;
+full qualification, installation and publication remain pending**.
+Configuration format 4 explicitly opts into zero as unlimited for aggregate
+time, items, calls, Codex turns, input/output tokens and cost. Formats 1–3 and
+their saved jobs keep old zero semantics, including no monetary spend.
+Transactional reservations, per-call limits, automatic discovery, query
+preflight, pause/continuation and user-facing plans use the new marker. A
+request-only projection refreshes a retained resolution packet's remaining
+call count without rewriting its frozen evidence or provider binding. Focused
+synthetic config, admission, query and backlog tests pass. Coordinator review
+repairs cover independent reservation fields in public allowance JSON,
+explicit finite timing under a zero default, same-job retry backoff, and MCP
+zero-minute parity; ten current-identity focused cases pass. The coordinator
+accepted this branch for a single local checkpoint commit. The full local and
+hosted gates remain for the separate qualification task. [Coverage](regression-coverage.md#optional-aggregate-limits--25-september-2026)
+and [ownership/evidence](maintenance-refactoring-delivery.md#optional-aggregate-limits--25-september-2026).
 
 Advanced resolution strict schema and terminal-error repair (24 September):
 **source published, per-user product installed, and hosted packaging passed;

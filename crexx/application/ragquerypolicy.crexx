@@ -3,6 +3,7 @@ options levelg
 namespace ragquerypolicy expose queryrouteallowed querypreflight queryansweroutputlimit queryanswercontextlimit queryusagewithin queryprivacy
 
 import ragconfig
+import ragadmission
 import provider_contract
 import provider_catalog
 
@@ -20,21 +21,22 @@ queryrouteallowed: procedure = .int
 querypreflight: procedure = .int
   arg budget = .ragbudget, embedding_provider = .ragproviderconfig, embedding_planned = .int, answer_provider = .ragproviderconfig, answer_planned = .int, expose error = .string, requested_output_tokens = 0, embedding_maximum_input_tokens = 65536, answer_maximum_input_tokens = 65536
   error = ""; planned_calls = embedding_planned + answer_planned
-  if planned_calls > budget.model_calls() then do; error = "query provider calls exceed the configured per-command ceiling"; return -1; end
+  if aggregatefits(budget.model_calls(),0,planned_calls,budget.zero_unlimited())=0 then do; error = "query provider calls exceed the configured per-command ceiling"; return -1; end
   if embedding_planned = 1 & (embedding_provider.timeout_ms() < 1 | embedding_provider.max_attempts() < 1) then do; error = "query embedding timeout or retry policy is invalid"; return -1; end
   if answer_planned = 1 & (answer_provider.timeout_ms() < 1 | answer_provider.max_attempts() < 1) then do; error = "query answer timeout or retry policy is invalid"; return -1; end
-  if answer_planned = 1 & answer_provider.kind() = "codex" & budget.codex_turns() < 1 then do; error = "query answer exceeds the configured Codex turn ceiling"; return -1; end
+  if answer_planned = 1 & answer_provider.kind() = "codex" & aggregatefits(budget.codex_turns(),0,1,budget.zero_unlimited())=0 then do; error = "query answer exceeds the configured Codex turn ceiling"; return -1; end
   monetary_routes = _monetary(embedding_provider, embedding_planned) + _monetary(answer_provider, answer_planned)
-  if monetary_routes > 0 & budget.cost_microunits() < 1 then do; error = "monetary query providers require a positive configured cost ceiling"; return -1; end
-  if planned_calls > 0 & budget.input_tokens() < 1 then do; error = "query providers require a positive configured input-token ceiling"; return -1; end
-  if answer_planned = 1 & budget.output_tokens() < 1 then do; error = "query answer requires a positive configured output-token ceiling"; return -1; end
+  if monetary_routes > 0 & aggregatefits(budget.cost_microunits(),0,1,budget.zero_unlimited())=0 then do; error = "monetary query providers require a positive configured cost ceiling"; return -1; end
+  if planned_calls > 0 & aggregatefits(budget.input_tokens(),0,1,budget.zero_unlimited())=0 then do; error = "query providers require a positive configured input-token ceiling"; return -1; end
+  if answer_planned = 1 & aggregatefits(budget.output_tokens(),0,1,budget.zero_unlimited())=0 then do; error = "query answer requires a positive configured output-token ceiling"; return -1; end
   maximum_input = 0
-  if planned_calls > 0 then maximum_input = budget.input_tokens() / planned_calls
+  input_cap=embedding_maximum_input_tokens; if answer_maximum_input_tokens>input_cap then input_cap=answer_maximum_input_tokens
+  if planned_calls > 0 then maximum_input = aggregatecap(budget.input_tokens(),input_cap,planned_calls,budget.zero_unlimited())
   embedding_input = maximum_input; if embedding_input > embedding_maximum_input_tokens then embedding_input = embedding_maximum_input_tokens
   answer_input = maximum_input; if answer_input > answer_maximum_input_tokens then answer_input = answer_maximum_input_tokens
   maximum_output = queryansweroutputlimit(budget)
   if requested_output_tokens > 0 then maximum_output = requested_output_tokens
-  if maximum_output > budget.output_tokens() then do; error = "requested provider output exceeds the configured output-token ceiling"; return -1; end
+  if aggregatefits(budget.output_tokens(),0,maximum_output,budget.zero_unlimited())=0 then do; error = "requested provider output exceeds the configured output-token ceiling"; return -1; end
   maximum_cost = 0
   if embedding_planned = 1 & embedding_provider.charging_basis() = "monetary-api" then do
     route_cost = _configuredcost(embedding_provider, embedding_input, 0)
@@ -46,19 +48,19 @@ querypreflight: procedure = .int
     if route_cost < 0 then do; error = "query answer monetary pricing is unavailable"; return -1; end
     maximum_cost = maximum_cost + route_cost * answer_provider.max_attempts()
   end
-  if maximum_cost > budget.cost_microunits() then do; error = "worst-case query monetary usage exceeds the configured cost ceiling"; return -1; end
+  if aggregatefits(budget.cost_microunits(),0,maximum_cost,budget.zero_unlimited())=0 then do; error = "worst-case query monetary usage exceeds the configured cost ceiling"; return -1; end
   return 0
 
 queryansweroutputlimit: procedure = .int
   arg budget = .ragbudget, configured_maximum = 1024
-  maximum = budget.output_tokens()
+  maximum = budget.output_tokens(); if maximum=0 & budget.zero_unlimited()=1 then maximum=configured_maximum
   if maximum > configured_maximum then maximum = configured_maximum
   return maximum
 
 queryanswercontextlimit: procedure = .int
   arg budget=.ragbudget, provider=.ragproviderconfig, role_input=.int, output_tokens=.int, embedding_planned=.int, prompt_schema_bytes=.int, evidence_bytes=.int, expose error=.string
   error=""
-  input_limit=budget.input_tokens()/(1+embedding_planned)
+  input_limit=aggregatecap(budget.input_tokens(),role_input,1+embedding_planned,budget.zero_unlimited())
   if input_limit>role_input then input_limit=role_input
   if input_limit>provider.context_tokens()-output_tokens then input_limit=provider.context_tokens()-output_tokens
   /* Same conservative three-byte estimate as maintenance, with prompt/schema
@@ -80,7 +82,7 @@ queryusagewithin: procedure = .int
     if answer_provider.charging_basis() = "monetary-api" & answer_usage.cost_microunits() < 0 then return 0
     input_tokens = input_tokens + answer_usage.input_tokens(); output_tokens = output_tokens + answer_usage.output_tokens(); if answer_usage.cost_microunits() > 0 then cost = cost + answer_usage.cost_microunits()
   end
-  return input_tokens <= budget.input_tokens() & output_tokens <= budget.output_tokens() & cost <= budget.cost_microunits()
+  return aggregatefits(budget.input_tokens(),0,input_tokens,budget.zero_unlimited())=1 & aggregatefits(budget.output_tokens(),0,output_tokens,budget.zero_unlimited())=1 & aggregatefits(budget.cost_microunits(),0,cost,budget.zero_unlimited())=1
 
 _monetary: procedure = .int
   arg provider = .ragproviderconfig, planned = .int

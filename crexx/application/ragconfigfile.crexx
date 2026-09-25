@@ -57,8 +57,9 @@ parseconfigtext: procedure = .int
 
   format = _required(keys, values, "format", error)
   if error \= "" then return -1
-  if format \= "crexx-rag.config/1" & format \= "crexx-rag.config/2" & format \= "crexx-rag.config/3" then return _fail("unsupported configuration format " || format, error)
-  format_three = format = "crexx-rag.config/3"
+  if format \= "crexx-rag.config/1" & format \= "crexx-rag.config/2" & format \= "crexx-rag.config/3" & format \= "crexx-rag.config/4" then return _fail("unsupported configuration format " || format, error)
+  format_three = format = "crexx-rag.config/3" | format = "crexx-rag.config/4"
+  zero_unlimited = format = "crexx-rag.config/4"
   config_id = _required(keys, values, "config.id", error)
   version = _required(keys, values, "config.version", error)
   if error \= "" then return -1
@@ -336,7 +337,7 @@ parseconfigtext: procedure = .int
   mode = defaults.mode()
   setting = _optional(keys, values, "maintenance.mode"); if setting \= "" then mode = setting
   window_seconds = defaults.window_seconds()
-  setting = _optional(keys, values, "maintenance.window_seconds"); if setting \= "" then if _uint(setting, 1, 86400, "maintenance.window_seconds", window_seconds, error) \= 0 then return -1
+  setting = _optional(keys, values, "maintenance.window_seconds"); if setting \= "" then if _uint(setting, 1-zero_unlimited, 86400, "maintenance.window_seconds", window_seconds, error) \= 0 then return -1
   automatic_actions = defaults.automatic_actions()
   setting = _optional(keys, values, "maintenance.automatic_actions"); if setting \= "" then automatic_actions = setting
   maximum_impact = defaults.maximum_impact()
@@ -373,7 +374,7 @@ parseconfigtext: procedure = .int
 
   plan_ttl_seconds = 3600; setting = _optional(keys, values, "plan.ttl_seconds")
   if setting \= "" then if _uint(setting, 1, 604800, "plan.ttl_seconds", plan_ttl_seconds, error) \= 0 then return -1
-  candidate = .ragconfig(config_id, version, source_sets, providers, roles, profile_ids, .ragbudget(minutes, item_limit, model_calls, input_tokens, output_tokens, cost, codex_turns, minimum_codex_allowance), .ragworkerpolicy(processes, max_in_flight, lease_seconds, poll_ms, guided_deadline_seconds, max_restarts, restart_backoff_ms, restart_window_seconds), schedules, discovery, vector, retrieval, maintenance, observation, profile_files, plan_ttl_seconds)
+  candidate = .ragconfig(config_id, version, source_sets, providers, roles, profile_ids, .ragbudget(minutes, item_limit, model_calls, input_tokens, output_tokens, cost, codex_turns, minimum_codex_allowance, zero_unlimited), .ragworkerpolicy(processes, max_in_flight, lease_seconds, poll_ms, guided_deadline_seconds, max_restarts, restart_backoff_ms, restart_window_seconds), schedules, discovery, vector, retrieval, maintenance, observation, profile_files, plan_ttl_seconds)
   validation = validateconfig(candidate)
   if validation.ok() \= 1 then do
     issues = validation.issues()

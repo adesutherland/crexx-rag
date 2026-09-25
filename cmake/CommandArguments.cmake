@@ -38,6 +38,9 @@ function(tool_call tool arguments expected)
 endfunction()
 # Positive control before the advertised boolean regression.
 tool_call(rag_maintain_plan "{}" 0)
+tool_call(rag_maintain_plan "{\"minutes\":1}" 0)
+# The schema accepts zero; the format-3 policy must reject its unlimited meaning.
+tool_call(rag_maintain_plan "{\"minutes\":0}" 2)
 foreach(value true false)
     tool_call(rag_maintain_plan "{\"embeddings_only\":${value},\"enrich_provenance\":false}" 0)
     string(JSON actual GET "${response}" result structuredContent records 1 fields embeddings_only)

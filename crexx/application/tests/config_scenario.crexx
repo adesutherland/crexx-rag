@@ -69,6 +69,20 @@ main: procedure = .int
   errors = errors + check(parseconfigtext(text || "0A"x || "maintenance.provider_time_minutes = 260",time_config,time_error) = 0 & time_config.maintenance().provider_time_minutes() = 260,"explicit provider-time cap parses")
   errors = errors + check(ragsha256(canonicalsemanticconfig(time_baseline)) = "1d1ea6f66d962a6921e4fdfe58c634c1661cf241b0f28ab8b948d928f1b8a5de", "persisted semantic identity bytes remain compatible")
   errors = errors + check(canonicalsemanticconfig(time_config) = canonicalsemanticconfig(time_baseline),"provider-time cap is operational")
+  /* A new format is an explicit opt-in: old zero-cost policies must not
+   * acquire paid-provider authority when their files are reloaded. */
+  unlimited_text = changestr("crexx-rag.config/3",text,"crexx-rag.config/4")
+  unlimited_text = changestr("budget.minutes = 30",unlimited_text,"budget.minutes = 0")
+  unlimited_text = changestr("budget.item_limit = 100",unlimited_text,"budget.item_limit = 0")
+  unlimited_text = changestr("budget.model_calls = 50",unlimited_text,"budget.model_calls = 0")
+  unlimited_text = changestr("budget.input_tokens = 100000",unlimited_text,"budget.input_tokens = 0")
+  unlimited_text = changestr("budget.output_tokens = 50000",unlimited_text,"budget.output_tokens = 0")
+  unlimited_text = changestr("budget.cost_microunits = 2000000",unlimited_text,"budget.cost_microunits = 0")
+  unlimited_text = unlimited_text || "0A"x || "budget.codex_turns = 0"
+  unlimited_config = .ragconfig; legacy_zero_config = .ragconfig; unlimited_error = ""
+  errors = errors + check(parseconfigtext(unlimited_text,unlimited_config,unlimited_error)=0,"format four zero aggregate budgets parse " || unlimited_error)
+  errors = errors + check(parseconfigtext(changestr("crexx-rag.config/4",unlimited_text,"crexx-rag.config/3"),legacy_zero_config,unlimited_error)=0,"old zero-cost format still parses")
+  errors = errors + check(canonicalconfig(unlimited_config) \= canonicalconfig(legacy_zero_config),"opt-in semantics have distinct frozen identity")
   errors = errors + check(rejected(text || "0A"x || "maintenance.provider_time_minutes = 10081","outside its supported range") = 1,"provider-time cap is bounded")
   errors = errors + check(providers[1].reasoning_effort() = "" & pos('"reasoning_effort"', canonicalconfig(config)) = 0, "omitted effort preserves existing canonical identity")
   errors = errors + check(rejected(text || "0A"x || "provider.gemini-generate.reasoning_effort = low", "reasoning_effort") = 1, "non-Codex effort rejected")

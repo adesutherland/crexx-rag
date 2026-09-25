@@ -243,6 +243,12 @@ ragapplicationprovider: class implements .ragworkprovider
       if (frozen_prompt<>"" & frozen_prompt<>rxhash..sha256hex(messages[1].content() as .binary)) | (frozen_schema<>"" & frozen_schema<>rxhash..sha256hex(schema as .binary)) then do
         if resolutionlegacybinding(input_json,objective,subject_type,workflow,frozen_prompt,frozen_schema)<>1 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"frozen resolution binding is unsupported; inspect the task and use an explicit evidence refresh plan",0)
       end
+      if receipt_body = "" then do
+        allowance_error = ""
+        operational_input = resolutionoperationalinput(_store.database(),input_json,allowance_error)
+        if operational_input = "" then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,allowance_error,0)
+        messages = resolutionmessages(_profile,operational_input,objective,subject_type)
+      end
     end
     request_id = "extract-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
     reservation = document.member(root, "reservation"); maximum_output = -1
@@ -254,9 +260,7 @@ ragapplicationprovider: class implements .ragworkprovider
     if correction = 1 then do
       correction_input = input_json
       if resolution_work & receipt_body = "" then do
-        allowance_error = ""
-        correction_input = resolutioncorrectioninput(_store.database(),input_json,allowance_error)
-        if correction_input = "" then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,allowance_error,0)
+        correction_input = operational_input
         /* Verify the frozen prompt above before projecting current operational
          * context. Evidence, reference mapping and request identity stay frozen. */
         messages = resolutionmessages(_profile,correction_input,objective,subject_type)

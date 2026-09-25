@@ -1,5 +1,47 @@
 # Regression coverage baseline — REG-01
 
+## Optional aggregate limits — 25 September 2026
+
+Fail-first: `configuration_contract` rejected explicit format 4;
+`regression_ingest_capacity` could not compile its zero-unlimited admission
+expectation. Both had passing legacy controls on the clean `5f1324447ceb`
+baseline. The repaired cases now pass. `configuration_contract` distinguishes
+format-4 all-zero canonical identity from format-3 zero cost while retaining
+the historical format-3 semantic digest. `regression_ingest_capacity` checks
+two concurrent paid reservations under zero aggregate limits, three settled
+subscription calls with zero aggregate Codex turns, exact settlement,
+finite time-only deferral and admission after unused time is released; old
+zero-cost paid refusal remains. `query_policy` checks priced and Codex queries
+under explicit zero aggregates, bounded output and accounted usage.
+`durable_backlog_budget` checks zero-deadline automatic dispatch, persisted zero
+limits, pause/continuation, empty-window closure and the retained older
+advanced packet's 3-to-1 operational allowance projection with immutable
+stored input. `native_admission` remains a positive control.
+`regression_source_maintenance` adds a public format-4 all-zero plan/apply
+with `--minutes 0`, persisted deadline zero and an explicit job-status marker
+on a disposable empty library. A separate synthetic reviewed repair-only
+case checks the persisted zero-time policy and positive request timeout.
+
+Coordinator review repairs add fail-first controls for format-4 default-zero
+plans with explicit finite `--until` and fixed-time `--overnight` selectors,
+while competing selectors, impossible dates and legacy zero remain rejected.
+The budget scenario retains a same-job failed provider attempt through its
+bounded retry delay, dispatches that retry when due, and closes both an
+operator-deferred question and a genuinely empty unlimited window.
+`regression_source_maintenance` reads public allowance JSON after setting
+distinct nonzero cost and Codex-turn reservations, and calls MCP with
+`minutes: 0`; `regression_command_arguments` confirms MCP forwards zero to
+the format-3 semantic refusal while positive minutes still work. The
+`regression_command_catalogue` contract case remains passing. The exact
+ten-case QA report is retained in the external item-1 coordination directory.
+
+The current ten-case focused selection passes on the local debug build after
+correcting the isolated `query_policy` test module list. The earlier complete
+fast tier passed 11/11 before this review repair; the changed command
+catalogue case was rerun. Full regression, installed, hosted, platform and long-running multi-worker gates
+remain outside this reviewed local checkpoint. No real library or hosted
+provider was used.
+
 ## Advanced resolution schema and terminal error — 24 September 2026
 
 `regression_prompt_inspection` recursively validates the generated strict

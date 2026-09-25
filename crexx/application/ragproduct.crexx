@@ -4,6 +4,7 @@ namespace ragproduct expose dispatchproduct
 
 import provider_contract
 import ragapplicationprovider
+import ragadmission
 import ragbacklog
 import ragcanonical
 import ragclaimrules
@@ -1392,12 +1393,13 @@ _maintainapply: procedure = .ragcommandresult
       if timing_mode = "duration" then time_minutes = timing_request
       else if timing_mode = "until" then time_until = timing_request
       else if timing_mode = "overnight" then time_overnight = timing_request
+      else if timing_mode = "unlimited" then time_minutes = timing_request
       else do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,3,"reviewed maintenance timing mode is invalid"); end
       if timing_start < 1 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,3,"reviewed maintenance start time is invalid"); end
-      timing_status = resolvemaintenancetime(store.database(),time_minutes,time_until,time_overnight,config.maintenance().window_seconds(),expected_timing,error,timing_start)
+      timing_status = resolvemaintenancetime(store.database(),time_minutes,time_until,time_overnight,config.maintenance().window_seconds(),expected_timing,error,timing_start,config.budget().zero_unlimited())
       if timing_status \= 0 | expected_timing \= timing_json then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,3,"reviewed maintenance timing is invalid or its local timezone changed"); end
       deadline = sqlreadint(store.database(),"SELECT json_extract(" || sqlquote(timing_json) || ",'$.deadline_epoch')")
-      if timing_mode<>"duration" & deadline <= sqlreadint(store.database(),"SELECT unixepoch()") then do; ignored = ""; call closeragstore store,ignored; return _maintenanceskip(operation,timing_json); end
+      if timing_mode<>"duration" & timing_mode<>"unlimited" & deadline <= sqlreadint(store.database(),"SELECT unixepoch()") then do; ignored = ""; call closeragstore store,ignored; return _maintenanceskip(operation,timing_json); end
     end
   end
   snapshot_id = currentconfigsnapshotid(store.database(), error)
@@ -1450,14 +1452,24 @@ _maintainapply: procedure = .ragcommandresult
   if plan_status = 0 then plan_status = persistmaintenance(store, census, plan, apply_result, "reviewed", maintenance_result, error)
   repair_items = 0
   repair_planned = _maintenanceitemcount(census, "stale-embedding")
-  work_call_ceiling = plan.model_call_budget() + repair_planned * embedding_provider.max_attempts(); if work_call_ceiling > budget.model_calls() then work_call_ceiling = budget.model_calls()
+  work_call_ceiling = plan.model_call_budget() + repair_planned * embedding_provider.max_attempts()
+  if budget.zero_unlimited()=1 & budget.model_calls()=0 then work_call_ceiling=plan.item_count()*provider.max_attempts()+repair_planned*embedding_provider.max_attempts()
+  if budget.model_calls()>0 & work_call_ceiling > budget.model_calls() then work_call_ceiling = budget.model_calls()
   job_id = ""; if plan_status = 0 then job_id = apply_result.job_id()
-  if plan_status = 0 & job_id = "" & repair_planned > 0 then plan_status = ensuremaintenancejob(store, maintenance_result.run_id(), snapshot_id, work_call_ceiling, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), job_id, error)
   embedding_inflight = workers.processes() * workers.max_in_flight(); if embedding_inflight < 1 then embedding_inflight = 1
   embedding_role = rolebinding(config, "embedding")
-  embedding_input = budget.input_tokens() / embedding_inflight; if embedding_input > embedding_role.maximum_input_tokens() then embedding_input = embedding_role.maximum_input_tokens()
-  embedding_cost = budget.cost_microunits() / embedding_inflight; if embedding_cost > embedding_role.maximum_call_cost_microunits() then embedding_cost = embedding_role.maximum_call_cost_microunits()
-  if plan_status = 0 & job_id \= "" then plan_status = recordmaintenanceembeddingitems(store, maintenance_result.run_id(), job_id, request.profile_id(), embedding_provider.provider_id(), embedding_provider.model(), embedding_provider.charging_basis(), privacy, embedding_role.embedding_dimensions(), work_call_ceiling, embedding_input, embedding_cost, embedding_provider.timeout_ms(), repair_items, error)
+  embedding_input = aggregatecap(budget.input_tokens(),embedding_role.maximum_input_tokens(),embedding_inflight,budget.zero_unlimited())
+  embedding_cost = aggregatecap(budget.cost_microunits(),embedding_role.maximum_call_cost_microunits(),embedding_inflight,budget.zero_unlimited())
+  embedding_time=embedding_provider.timeout_ms(); if budget.minutes()>0 & embedding_time>budget.minutes()*60000 then embedding_time=budget.minutes()*60000
+  if plan_status = 0 & job_id = "" & repair_planned > 0 then do
+    plan_status = ensuremaintenancejob(store, maintenance_result.run_id(), snapshot_id, work_call_ceiling, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), job_id, error)
+    if plan_status=0 & job_id<>"" then do
+      has_policy=sqlreadint(store.database(),"SELECT count(*) FROM job_events WHERE job_id=" || sqlquote(job_id) || " AND event_type='budget-policy'")
+      if has_policy<0 then do; error="cannot inspect reviewed maintenance job budget"; plan_status=-3; end
+      if has_policy=0 then plan_status=configurejobbudget(store,job_id,budget.minutes()*60000,embedding_input,0,embedding_cost,embedding_time,embedding_inflight,embedding_provider.max_attempts(),error,budget.zero_unlimited())
+    end
+  end
+  if plan_status = 0 & job_id \= "" then plan_status = recordmaintenanceembeddingitems(store, maintenance_result.run_id(), job_id, request.profile_id(), embedding_provider.provider_id(), embedding_provider.model(), embedding_provider.charging_basis(), privacy, embedding_role.embedding_dimensions(), work_call_ceiling, embedding_input, embedding_cost, embedding_time, repair_items, error)
   vector_generations = 0; vector_state = "not-applicable"
   if plan_status = 0 & job_id = "" then plan_status = _publishconfiguredvector(store, config, vector_generations, vector_state, error)
   close_error = ""; close_status = closeragstore(store, close_error)
@@ -1545,7 +1557,7 @@ _maintainplan: procedure = .ragcommandresult
   end
   timing_json = ""
   if maintenance.mode() \= "reviewed" then do
-    timing_status = resolvemaintenancetime(store.database(),minutes,until_text,overnight,maintenance.window_seconds(),timing_json,error)
+    timing_status = resolvemaintenancetime(store.database(),minutes,until_text,overnight,maintenance.window_seconds(),timing_json,error,-1,budget.zero_unlimited())
     if timing_status \= 0 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,2,error); end
     timing = .jsondocument(timing_json)
     if sqlreadint(store.database(),"SELECT json_extract(" || sqlquote(timing_json) || ",'$.skipped')") = 1 then do; ignored = ""; call closeragstore store,ignored; return _maintenanceskip(operation,timing_json); end
@@ -1590,14 +1602,17 @@ _maintainplan: procedure = .ragcommandresult
   fields[18] = .ragresultfield("embedding_profile_id", "string", census.embedding_profile_id())
   fields[19] = .ragresultfield("work_provider_calls", "integer", _maintenancecallcount(census))
   repair_count = _maintenanceitemcount(census, "stale-embedding")
-  maximum_work_calls = plan.model_call_budget() + repair_count * embedding_provider.max_attempts(); if maximum_work_calls > budget.model_calls() then maximum_work_calls = budget.model_calls()
+  maximum_work_calls = plan.model_call_budget() + repair_count * embedding_provider.max_attempts()
+  if budget.zero_unlimited()=1 & budget.model_calls()=0 then maximum_work_calls=plan.item_count()*provider.max_attempts()+repair_count*embedding_provider.max_attempts()
+  if budget.model_calls()>0 & maximum_work_calls > budget.model_calls() then maximum_work_calls = budget.model_calls()
   fields[20] = .ragresultfield("maximum_work_provider_calls", "integer", maximum_work_calls)
   if maintenance.mode() \= "reviewed" then do
     fields[20] = .ragresultfield("maximum_work_provider_calls","integer",budget.model_calls())
     fields[21] = .ragresultfield("execution_mode","string",maintenance.mode())
     timing = .jsondocument(timing_json); resolved_start = 0; resolved_deadline = 0
     decoded = timing.node_int(timing.member(timing.root(),"started_epoch"),resolved_start); decoded = timing.node_int(timing.member(timing.root(),"deadline_epoch"),resolved_deadline)
-    fields[22] = .ragresultfield("window_seconds","integer",resolved_deadline-resolved_start)
+    window_seconds=0; if resolved_deadline>0 then window_seconds=resolved_deadline-resolved_start
+    fields[22] = .ragresultfield("window_seconds","integer",window_seconds)
     fields[24] = .ragresultfield("timing","string",timing_json)
     provider_minutes = maintenance.provider_time_minutes()
     fields[25] = .ragresultfield("provider_time_minutes","integer",provider_minutes || "")
@@ -1605,6 +1620,7 @@ _maintainplan: procedure = .ragcommandresult
     fields[fields.0+1] = .ragresultfield("selection_deferred","boolean","true")
   end
   fields[fields.0+1] = .ragresultfield("embeddings_only","boolean",changestr("0",changestr("1",embedding_only || "","true"),"false"))
+  if budget.zero_unlimited()=1 then fields[fields.0+1]=.ragresultfield("zero_unlimited","boolean","true")
   fields[fields.0+1] = .ragresultfield("initial_extraction_only","boolean",changestr("0",changestr("1",initial_only || "","true"),"false"))
   if source_id<>"" then fields[fields.0+1]=.ragresultfield("source_id","string",source_id)
   if phase<>"" then do
@@ -1623,31 +1639,32 @@ _preparemaintenance: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, snapshot_id = .string, expose plan = .ragimproveplan, expose census = .ragmaintenancecensus, expose error = .string, embedding_only = 0, source_id = "", initial_only = 0, phase = "", phase_cohort = "[]", phase_next_cursor = ""
   error = ""; budget = config.budget(); workers = config.workers(); maintenance_policy = config.maintenance()
   extractor = roleproviderconfig(config, "extractor"); embedder = roleproviderconfig(config, "embedding"); extractor_role = rolebinding(config, "extractor"); embedding_role = rolebinding(config, "embedding")
-  if snapshot_id = "" | budget.item_limit() < 1 | budget.item_limit() > 100000 | budget.model_calls() < 1 | (maintenance_policy.mode() = "reviewed" & budget.minutes() < 1) | extractor.provider_id() = "" | embedder.provider_id() = "" | embedder.kind() = "codex" then do; error = "maintenance requires positive item, provider-call and time budgets plus extractor and embedding providers"; return -1; end
+  if snapshot_id = "" | (budget.item_limit() < 1 & budget.zero_unlimited()<>1) | budget.item_limit() > 100000 | (budget.model_calls() < 1 & budget.zero_unlimited()<>1) | (maintenance_policy.mode() = "reviewed" & budget.minutes() < 1 & budget.zero_unlimited()<>1) | extractor.provider_id() = "" | embedder.provider_id() = "" | embedder.kind() = "codex" then do; error = "maintenance requires usable item, provider-call and time policy plus extractor and embedding providers"; return -1; end
   embedding_profile_id = _embeddingprofileid(embedder, embedding_role.embedding_dimensions())
   missing = 0
   if maintenance_policy.mode()="reviewed" then missing = _missingembeddingcount(store.database(), embedding_profile_id)
   if missing < 0 then do; error = "cannot calculate configured embedding coverage"; return -3; end
-  batch_items = maintenance_policy.batch_items(); if batch_items > budget.item_limit() then batch_items = budget.item_limit()
+  batch_items = maintenance_policy.batch_items(); if budget.item_limit()>0 & batch_items > budget.item_limit() then batch_items = budget.item_limit()
   repair_reservation = missing; if repair_reservation > batch_items then repair_reservation = batch_items
   repair_call_budget = repair_reservation * embedder.max_attempts()
-  if repair_call_budget > budget.model_calls() then do
+  if budget.model_calls()>0 & repair_call_budget > budget.model_calls() then do
     repair_reservation = (budget.model_calls() / embedder.max_attempts()) as .int; if repair_reservation < 1 & missing > 0 then repair_reservation = 1
     repair_call_budget = repair_reservation * embedder.max_attempts(); if repair_call_budget > budget.model_calls() then repair_call_budget = budget.model_calls()
   end
   available_cognitive_calls = budget.model_calls() - repair_call_budget
+  if budget.model_calls()=0 & budget.zero_unlimited()=1 then available_cognitive_calls = batch_items * extractor.max_attempts()
   if embedding_only = 1 | maintenance_policy.mode()<>"reviewed" then available_cognitive_calls = 0
   cognitive_limit = available_cognitive_calls
   remaining_items = batch_items - repair_reservation; if cognitive_limit > remaining_items then cognitive_limit = remaining_items
   cognitive_call_budget = cognitive_limit * extractor.max_attempts(); if cognitive_call_budget > available_cognitive_calls then cognitive_call_budget = available_cognitive_calls
+  if budget.model_calls()=0 & budget.zero_unlimited()=1 then cognitive_call_budget=0
   maximum_inflight = workers.processes() * workers.max_in_flight(); if maximum_inflight < 1 then maximum_inflight = 1
-  maximum_call_input = budget.input_tokens() / maximum_inflight
-  if maximum_call_input > extractor_role.maximum_input_tokens() then maximum_call_input = extractor_role.maximum_input_tokens()
-  maximum_call_output = budget.output_tokens() / maximum_inflight; if maximum_call_output > extractor_role.maximum_output_tokens() then maximum_call_output = extractor_role.maximum_output_tokens()
-  maximum_call_cost = budget.cost_microunits() / maximum_inflight; if maximum_call_cost > extractor_role.maximum_call_cost_microunits() then maximum_call_cost = extractor_role.maximum_call_cost_microunits()
+  maximum_call_input = aggregatecap(budget.input_tokens(),extractor_role.maximum_input_tokens(),maximum_inflight,budget.zero_unlimited())
+  maximum_call_output = aggregatecap(budget.output_tokens(),extractor_role.maximum_output_tokens(),maximum_inflight,budget.zero_unlimited())
+  maximum_call_cost = aggregatecap(budget.cost_microunits(),extractor_role.maximum_call_cost_microunits(),maximum_inflight,budget.zero_unlimited())
   maximum_call_time = extractor.timeout_ms(); total_time = budget.minutes() * 60000
   if maintenance_policy.mode() \= "reviewed" then total_time = maintenance_policy.window_seconds() * 1000
-  if maximum_call_time > total_time then maximum_call_time = total_time
+  if total_time>0 & maximum_call_time > total_time then maximum_call_time = total_time
   if cognitive_limit > 0 & (maximum_call_input < 1 | maximum_call_output < 1 | (extractor.charging_basis() = "monetary-api" & maximum_call_cost < 1) | maximum_call_time < 1) then do; error = "configured budget cannot safely admit maintenance extraction"; return -1; end
   privacy = queryprivacy(config)
   discovery = config.discovery(); glossary_loader = .ragglossaryloader(); glossary = glossary_loader.empty()
@@ -1658,7 +1675,7 @@ _preparemaintenance: procedure = .int
   discovery_context = ""
   if creatediscoverycontext(glossary, "maintenance", discovery.ranked_limit(), discovery.max_mentions(), discovery.max_relationships(), discovery.max_notes(), discovery_context, error) \= 0 then return -1
   triggers = .string[]; triggers[1] = "bridge"; triggers[2] = "conflict"; triggers[3] = "maintenance-priority"; triggers[4] = "operator-review"; triggers[5] = "unprocessed-extraction"; triggers[6] = "unresolved"; triggers[7] = "weak-support"
-  if createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, cognitive_limit, cognitive_call_budget, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), total_time, maximum_call_input, maximum_call_output, maximum_call_cost, maximum_call_time, maximum_inflight, extractor.max_attempts(), privacy, extractor.provider_id(), extractor.credential().ref_string(), discovery_context, plan, error) \= 0 then return -3
+  if createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, cognitive_limit, cognitive_call_budget, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), total_time, maximum_call_input, maximum_call_output, maximum_call_cost, maximum_call_time, maximum_inflight, extractor.max_attempts(), privacy, extractor.provider_id(), extractor.credential().ref_string(), discovery_context, plan, error, budget.zero_unlimited()) \= 0 then return -3
   if maintenance_policy.mode()<>"reviewed" then do
     return previewbacklogwindow(store.database(),embedding_profile_id,batch_items,embedding_only,census,error,source_id,initial_only,phase,phase_cohort,phase_next_cursor)
   end
@@ -1675,7 +1692,7 @@ _preparemaintenance: procedure = .int
   selected = _censuscognitivechunks(census); plan_chunks = plan.chunk_ids()
   if _samechunkset(plan_chunks, selected) \= 1 then do; error = "maintenance worklist did not converge to its exact cognitive subset"; return -3; end
   calls = _maintenancecallcount(census)
-  if calls > budget.model_calls() then do; error = "maintenance worklist exceeds the configured provider-call budget"; return -2; end
+  if budget.model_calls()>0 & calls > budget.model_calls() then do; error = "maintenance worklist exceeds the configured provider-call budget"; return -2; end
   return 0
 
 _censuscognitivechunks: procedure = .string[]
@@ -2127,9 +2144,11 @@ _replaybudget: procedure = .string
     maximum_time = max(maximum_time, providers[i].timeout_ms())
     maximum_attempts = max(maximum_attempts, providers[i].max_attempts())
   end
-  maximum_input = min(maximum_input, budget.input_tokens()); maximum_output = min(maximum_output, budget.output_tokens()); maximum_cost = min(maximum_cost, budget.cost_microunits())
-  time_budget = budget.minutes() * 60000; maximum_time = min(maximum_time, time_budget)
-  return '{"time_budget_ms":' || time_budget || ',"maximum_call_input_tokens":' || maximum_input || ',"maximum_call_output_tokens":' || maximum_output || ',"maximum_call_cost":' || maximum_cost || ',"maximum_call_time_ms":' || maximum_time || ',"maximum_inflight_calls":' || config.workers().max_in_flight() || ',"maximum_attempts":' || maximum_attempts || '}'
+  maximum_input = aggregatecap(budget.input_tokens(),maximum_input,1,budget.zero_unlimited()); maximum_output = aggregatecap(budget.output_tokens(),maximum_output,1,budget.zero_unlimited()); maximum_cost = aggregatecap(budget.cost_microunits(),maximum_cost,1,budget.zero_unlimited())
+  time_budget = budget.minutes() * 60000; if time_budget>0 then maximum_time = min(maximum_time, time_budget)
+  result = '{"time_budget_ms":' || time_budget || ',"maximum_call_input_tokens":' || maximum_input || ',"maximum_call_output_tokens":' || maximum_output || ',"maximum_call_cost":' || maximum_cost || ',"maximum_call_time_ms":' || maximum_time || ',"maximum_inflight_calls":' || config.workers().max_in_flight() || ',"maximum_attempts":' || maximum_attempts || '}'
+  if budget.zero_unlimited()=1 then result=left(result,length(result)-1) || ',"zero_unlimited":1}'
+  return result
 
 _enrichmentplan: procedure = .ragcommandresult
   arg request=.ragcommandrequest, registry=.ragregistry, store=.ragstorehandle, config=.ragconfig, profile=.ragprofile, timing=.string, path=.string

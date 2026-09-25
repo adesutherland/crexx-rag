@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose backlogselection deferbacklogtask resetbacklogtasks setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy freezephasecohort startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary firstreviewmissing planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh resolutioncorrectioninput
+namespace ragbacklog expose backlogselection deferbacklogtask resetbacklogtasks setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy freezephasecohort startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary firstreviewmissing planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh resolutionoperationalinput
 
 import rxfnsb
 import rxjson
@@ -36,7 +36,7 @@ embeddingcallcount: procedure = .int
 /* Resolve once, before the census. SQLite uses the host timezone rules for
  * civil overnight dates; UTC epochs remain fixed across worker restarts. */
 resolvemaintenancetime: procedure = .int
-  arg database = .binary, minutes = .string, until_text = .string, overnight = .string, default_seconds = .int, expose timing_json = .string, expose error = .string, now_epoch = -1
+  arg database = .binary, minutes = .string, until_text = .string, overnight = .string, default_seconds = .int, expose timing_json = .string, expose error = .string, now_epoch = -1, zero_unlimited = 0
   timing_json = ""; error = ""
   selectors = 0
   if minutes \= "" then selectors = selectors + 1
@@ -49,8 +49,13 @@ resolvemaintenancetime: procedure = .int
   if minutes \= "" then do
     if length(minutes) > 5 | verify(minutes,"0123456789") \= 0 then do; error = "--minutes must be an integer in 1..10080"; return -1; end
     count = minutes as .int
-    if count < 1 | count > 10080 then do; error = "--minutes must be in 1..10080"; return -1; end
+    if count < 1-zero_unlimited | count > 10080 then do; error = "--minutes is outside its supported range"; return -1; end
     seconds = count * 60
+  end
+  if seconds = 0 & until_text = "" & overnight = "" then do
+    if zero_unlimited \= 1 then do; error = "unlimited maintenance time requires the versioned zero-unlimited policy"; return -1; end
+    timing_json = '{"mode":"unlimited","requested":' || jsonquote(requested) || ',"started_epoch":' || now_epoch || ',"deadline_epoch":0,"deadline_utc":"","deadline_local":"","local_utc_offset_seconds":0,"timezone":' || jsonquote("host-local:" || getenv("TZ")) || ',"cleanup_seconds":5,"skipped":0}'
+    return 0
   end
   deadline = now_epoch + seconds
   if until_text \= "" then do
@@ -129,13 +134,16 @@ backlogpolicy: procedure = .string
     if providers[i].provider_id() = role.provider_id() then provider = providers[i]
   end
   inflight = workers.processes() * workers.max_in_flight(); if inflight < 1 then inflight = 1
-  input_cap = role.maximum_input_tokens(); if input_cap > budget.input_tokens() / inflight then input_cap = budget.input_tokens() / inflight
-  output_cap = role.maximum_output_tokens(); if output_cap > budget.output_tokens() / inflight then output_cap = budget.output_tokens() / inflight
-  cost_cap = role.maximum_call_cost_microunits(); if cost_cap > budget.cost_microunits() / inflight then cost_cap = budget.cost_microunits() / inflight
+  input_cap = aggregatecap(budget.input_tokens(),role.maximum_input_tokens(),inflight,budget.zero_unlimited())
+  output_cap = aggregatecap(budget.output_tokens(),role.maximum_output_tokens(),inflight,budget.zero_unlimited())
+  cost_cap = aggregatecap(budget.cost_microunits(),role.maximum_call_cost_microunits(),inflight,budget.zero_unlimited())
   seconds = policy.window_seconds()
   timing = .jsondocument(timing_json)
-  if timing.valid() = 1 then seconds = _n(timing,"deadline_epoch") - _n(timing,"started_epoch")
-  time_cap = provider.timeout_ms(); if time_cap > seconds * 1000 then time_cap = seconds * 1000
+  if timing.valid() = 1 then do
+    if _s(timing,"mode") = "unlimited" then seconds = 0
+    else seconds = _n(timing,"deadline_epoch") - _n(timing,"started_epoch")
+  end
+  time_cap = provider.timeout_ms(); if seconds > 0 & time_cap > seconds * 1000 then time_cap = seconds * 1000
   privacy = "public"; sources = config.source_sets()
   do i = 1 to sources.0
     if sources[i].privacy() = "restricted" | sources[i].privacy() = "internal" then privacy = "restricted"
@@ -149,8 +157,8 @@ backlogpolicy: procedure = .string
   do i = 1 to providers.0
     if providers[i].provider_id() = embedding_role.provider_id() then embedding_provider = providers[i]
   end
-  embedding_input = embedding_role.maximum_input_tokens(); if embedding_input > budget.input_tokens() / inflight then embedding_input = budget.input_tokens() / inflight
-  embedding_cost = embedding_role.maximum_call_cost_microunits(); if embedding_cost > budget.cost_microunits() / inflight then embedding_cost = budget.cost_microunits() / inflight
+  embedding_input = aggregatecap(budget.input_tokens(),embedding_role.maximum_input_tokens(),inflight,budget.zero_unlimited())
+  embedding_cost = aggregatecap(budget.cost_microunits(),embedding_role.maximum_call_cost_microunits(),inflight,budget.zero_unlimited())
   if embedding_provider.charging_basis() \= "monetary-api" then embedding_cost = 0
   embedding_envelope = embeddingenvelope(embedding_provider,embedding_role.embedding_dimensions())
   embedding_profile = "embedding-" || embedding_role.embedding_dimensions() || "-" || substr(_hash(embedding_envelope),1,12)
@@ -161,6 +169,7 @@ backlogpolicy: procedure = .string
   if embedding_only = 1 then embedding_json = embedding_json || '"embeddings_only":1,"embedding_attempts":' || embedding_provider.max_attempts() || ','
   if source_id <> "" then embedding_json = embedding_json || '"source_id":' || jsonquote(source_id) || ','
   if initial_only = 1 then embedding_json = embedding_json || '"initial_extraction_only":1,'
+  if budget.zero_unlimited() = 1 then embedding_json = embedding_json || '"zero_unlimited":1,'
   if phase<>"" then embedding_json=embedding_json || '"phase":' || jsonquote(phase) || ',"phase_cohort":' || phase_cohort || ',"phase_denominator":' || _jsonarraycount(phase_cohort) || ',"phase_next_cursor":' || jsonquote(phase_next_cursor) || ','
   identity = _hash(canonicalprofile(profile) || "00"x || role.system_prompt() || "00"x || policy.resolution_prompt() || "00"x || "durable-resolution-v1")
   embedding_json = embedding_json || '"resolution_route":' || _resolutionroute(config,"resolver",seconds,inflight) || ',"advanced_route":' || _resolutionroute(config,"advanced-resolver",seconds,inflight) || ',"advanced_attempts":' || policy.advanced_attempts() || ',"search_reads":' || policy.search_reads() || ',"evidence_expected":' || policy.evidence_expected() || ',"advanced_first":' || policy.advanced_first() || ',"identity_prompt":' || jsonquote(policy.identity_prompt()) || ',"connection_prompt":' || jsonquote(policy.connection_prompt()) || ','
@@ -207,11 +216,12 @@ _resolutionroute: procedure = .string
   role = rolebinding(config,name)
   if role.provider_id() = "" then return "{}"
   provider = roleproviderconfig(config,name); budget = config.budget()
-  input_cap = min(role.maximum_input_tokens(),budget.input_tokens()/inflight)
-  output_cap = min(role.maximum_output_tokens(),budget.output_tokens()/inflight)
-  cost_cap = min(role.maximum_call_cost_microunits(),budget.cost_microunits()/inflight)
+  input_cap = aggregatecap(budget.input_tokens(),role.maximum_input_tokens(),inflight,budget.zero_unlimited())
+  output_cap = aggregatecap(budget.output_tokens(),role.maximum_output_tokens(),inflight,budget.zero_unlimited())
+  cost_cap = aggregatecap(budget.cost_microunits(),role.maximum_call_cost_microunits(),inflight,budget.zero_unlimited())
   if provider.charging_basis() <> "monetary-api" then cost_cap = 0
-  return '{"allowed":' || queryrouteallowed(provider,queryprivacy(config)) || ',"role":' || jsonquote(name) || ',"provider_id":' || jsonquote(provider.provider_id()) || ',"model":' || jsonquote(provider.model()) || ',"charging_basis":' || jsonquote(provider.charging_basis()) || ',"resolution_prompt":' || jsonquote(role.system_prompt()) || ',"input_tokens":' || input_cap || ',"output_tokens":' || output_cap || ',"cost_microunits":' || cost_cap || ',"time_ms":' || min(provider.timeout_ms(),seconds*1000) || '}'
+  time_cap = provider.timeout_ms(); if seconds > 0 then time_cap = min(time_cap,seconds*1000)
+  return '{"allowed":' || queryrouteallowed(provider,queryprivacy(config)) || ',"role":' || jsonquote(name) || ',"provider_id":' || jsonquote(provider.provider_id()) || ',"model":' || jsonquote(provider.model()) || ',"charging_basis":' || jsonquote(provider.charging_basis()) || ',"resolution_prompt":' || jsonquote(role.system_prompt()) || ',"input_tokens":' || input_cap || ',"output_tokens":' || output_cap || ',"cost_microunits":' || cost_cap || ',"time_ms":' || time_cap || '}'
 
 /* Automatic plans approve the durable selection policy. Discovery and task
  * packets belong to activation/checkpoints, not a discarded cognitive census. */
@@ -247,6 +257,7 @@ startbacklogwindow: procedure = .int
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot create shared maintenance job budget", error)
   window_id = "window:" || plan_digest
   deadline = _number(database,"SELECT unixepoch()") + _n(policy,"window_seconds")
+  if _n(policy,"zero_unlimited")=1 & _n(policy,"window_seconds")=0 then deadline=0
   timing = .jsondocument(_s(policy,"timing"))
   if timing.valid() = 1 then do
     if _s(timing,"mode")="duration" then deadline=_number(database,"SELECT unixepoch()")+_n(timing,"deadline_epoch")-_n(timing,"started_epoch")
@@ -264,6 +275,7 @@ startbacklogwindow: procedure = .int
     cost_cap = max(cost_cap,_n(route,"cost_microunits")); time_cap = max(time_cap,_n(route,"time_ms"))
   end
   budget_json = '{"time_budget_ms":' || _providertimebudget(policy) || ',"maximum_call_input_tokens":' || input_cap || ',"maximum_call_output_tokens":' || output_cap || ',"maximum_call_cost":' || cost_cap || ',"maximum_call_time_ms":' || time_cap || ',"maximum_inflight_calls":' || _n(policy,"inflight") || ',"maximum_attempts":' || _attemptlimit(policy) || '}'
+  if _n(policy,"zero_unlimited") = 1 then budget_json = left(budget_json,length(budget_json)-1) || ',"zero_unlimited":1}'
   if sqliteexec(database, "INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _q(job_id) || ",'budget-policy'," || _q(budget_json) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))") \= 0 then return _rollback(database, "cannot persist maintenance budget policy", error)
   selection = .jsondocument(_s(policy,"enrichment"))
   if selection.valid() = 1 then do
@@ -366,7 +378,7 @@ taskretryfacts: procedure = .string
   recoverable = _number(database,"SELECT " || _recoverablecount(_q(task_id)))
   if recoverable > 0 & uncertain = 0 then spent = 0
   hold = "closed-window"
-  window_sql = "SELECT w.policy_json FROM maintenance_windows w JOIN jobs j ON j.job_id=w.job_id WHERE w.state='active' AND w.deadline_epoch>unixepoch() AND j.state IN('queued','running')"
+  window_sql = "SELECT w.policy_json FROM maintenance_windows w JOIN jobs j ON j.job_id=w.job_id WHERE w.state='active' AND (w.deadline_epoch=0 OR w.deadline_epoch>unixepoch()) AND j.state IN('queued','running')"
   if job_id \= "" then window_sql = window_sql || " AND w.job_id=" || _q(job_id)
   active_policy = .jsondocument(_text(database,window_sql || " ORDER BY w.created_epoch DESC LIMIT 1"))
   if active_policy.valid() = 1 then do
@@ -1134,10 +1146,10 @@ tickbacklogwindow: procedure = .int
    * worker poll. Actual claim/admission rechecks all bounds transactionally.
    * Drain, deadline, exhausted budgets and stopped jobs still take the normal
    * checkpoint path, including reconciliation of the final settled call. */
-  if _number(database,"SELECT count(*) FROM maintenance_windows w JOIN jobs j ON j.job_id=w.job_id WHERE w.job_id=" || _q(job_id) || " AND w.state='active' AND j.state IN('queued','running') AND (w.deadline_epoch-unixepoch()-" || _cleanupseconds(policy) || ")*1000>=" || max(_n(policy,"time_ms"),_n(policy,"embedding_time")) || " AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=w.job_id AND i.state IN('queued','running','cancel_requested'))") = 1 then do
+  if _number(database,"SELECT count(*) FROM maintenance_windows w JOIN jobs j ON j.job_id=w.job_id WHERE w.job_id=" || _q(job_id) || " AND w.state='active' AND j.state IN('queued','running') AND (w.deadline_epoch=0 OR (w.deadline_epoch-unixepoch()-" || _cleanupseconds(policy) || ")*1000>=" || max(_n(policy,"time_ms"),_n(policy,"embedding_time")) || ") AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=w.job_id AND i.state IN('queued','running','cancel_requested'))") = 1 then do
     usage=.int[]
     if jobusagevalues(database,job_id,usage)<>0 then do;error="cannot read maintenance usage";return -1;end
-    if usage[1]<_n(policy,"model_calls") & _windowroutefits(policy,usage)<>0 then return 0
+    if aggregatefits(_n(policy,"model_calls"),usage[1],1,_n(policy,"zero_unlimited"))=1 & _windowroutefits(database,job_id,policy,usage)<>0 then return 0
   end
   waiting=time("us")
   if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do
@@ -1175,13 +1187,13 @@ tickbacklogwindow: procedure = .int
   running = _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id) || " AND state IN('running','cancel_requested')")
   close_reason = ""
   cleanup = _cleanupseconds(policy)
-  if (_number(database,"SELECT deadline_epoch-unixepoch() FROM maintenance_windows WHERE job_id=" || _q(job_id)) - cleanup) * 1000 < max(_n(policy,"time_ms"),_n(policy,"embedding_time")) then close_reason = "deadline"
+  if _number(database,"SELECT deadline_epoch FROM maintenance_windows WHERE job_id=" || _q(job_id))>0 then if (_number(database,"SELECT deadline_epoch-unixepoch() FROM maintenance_windows WHERE job_id=" || _q(job_id)) - cleanup) * 1000 < max(_n(policy,"time_ms"),_n(policy,"embedding_time")) then close_reason = "deadline"
   total = _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id))
   usage=.int[]
   if jobusagevalues(database,job_id,usage)<>0 then return _rollback(database,"cannot read maintenance usage",error)
   calls=usage[1]
-  if calls>=_n(policy,"model_calls") then close_reason="budget-exhausted"
-  if running=0 & _windowroutefits(policy,usage)=0 then close_reason="budget-exhausted"
+  if aggregatefits(_n(policy,"model_calls"),calls,1,_n(policy,"zero_unlimited"))=0 then close_reason="budget-exhausted"
+  if running=0 & _windowroutefits(database,job_id,policy,usage)=0 then close_reason="budget-exhausted"
   if close_reason \= "" then do
     if _closewindow(database,job_id,close_reason,error) \= 0 then return _rollback(database,error,error)
     call _recordtiming database,job_id,"","",worker_id,"maintenance-checkpoint",wait_ms,begun,0
@@ -1191,17 +1203,21 @@ tickbacklogwindow: procedure = .int
   queued = _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id) || " AND state='queued'")
   generation = 0
   if queued = 0 & running = 0 then do
-    if total >= _n(policy,"item_limit") then do
+    if aggregatefits(_n(policy,"item_limit"),total,1,_n(policy,"zero_unlimited"))=0 then do
       if _closewindow(database,job_id,"budget-exhausted",error) \= 0 then return _rollback(database,error,error)
     end
     else do
       scan_token = window_id || ":" || _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1") || ":" || _number(database,"SELECT count(*) FROM provider_runs")
-      scan_status = _scan(database,policy,error,scan_token,_n(policy,"item_limit")-total)
+      scan_limit = _n(policy,"batch_items")
+      if _n(policy,"item_limit")>0 | _n(policy,"zero_unlimited")<>1 then scan_limit=min(scan_limit,_n(policy,"item_limit")-total)
+      scan_status = _scan(database,policy,error,scan_token,scan_limit)
       if scan_status < 0 then return _rollback(database,error,error)
       if _reconsidertaskretries(database,job_id,error) \= 0 then return _rollback(database,error,error)
       if _dispatch(store,job_id,window_id,policy,generation,error) \= 0 then return _rollback(database,error,error)
       queued = _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id) || " AND state='queued'")
-      waiting_retry = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskdispatchscope(policy) || _taskdispatchsafe() || " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND not_before_epoch>unixepoch() AND not_before_epoch<(SELECT deadline_epoch FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")")
+      retry_scope = ""
+      if _n(policy,"window_seconds")=0 then retry_scope = " AND EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id JOIN attempts a ON a.item_id=i.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.job_id=" || _q(job_id) || " AND a.provider_run_id IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM maintenance_agent_actions action WHERE action.task_id=maintenance_tasks.task_id AND json_extract(action.canonical_plan,'$.operation')='maintain.defer' AND json_extract(action.canonical_plan,'$.not_before_epoch')=maintenance_tasks.not_before_epoch)"
+      waiting_retry = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskdispatchscope(policy) || _taskdispatchsafe() || " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND not_before_epoch>unixepoch() AND ((SELECT deadline_epoch FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")=0 OR not_before_epoch<(SELECT deadline_epoch FROM maintenance_windows WHERE job_id=" || _q(job_id) || "))" || retry_scope)
       eligible = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE " || _eligiblebacklog(policy))
       if queued = 0 & scan_status = 0 & waiting_retry = 0 & eligible = 0 then if _closewindow(database,job_id,"complete",error) \= 0 then return _rollback(database,error,error)
     end
@@ -1217,7 +1233,7 @@ tickbacklogwindow: procedure = .int
 /* Early closure must not apply the ordinary reservation to every route.
  * Actual item admission still owns reservations and all shared hard limits. */
 _windowroutefits: procedure = .int
-  arg policy=.jsondocument,usage=.int[]
+  arg database=.binary,job_id=.string,policy=.jsondocument,usage=.int[]
   funded=0
   do i=1 to 4
     if _n(policy,"initial_extraction_only")=1 & i>1 then iterate
@@ -1235,9 +1251,12 @@ _windowroutefits: procedure = .int
     end
     if callcostallowed(charging,cost)=0 then iterate
     funded=funded+1
-    if usage[2]+input>_n(policy,"input_budget") | usage[3]+output>_n(policy,"output_budget") | usage[4]+cost>_n(policy,"cost_budget") then iterate
-    if _providertimebudget(policy)>0 & usage[5]+milliseconds>_providertimebudget(policy) then iterate
-    if charging="subscription-allowance" & usage[1]>=_n(policy,"codex_turns") then iterate
+    if aggregatefits(_n(policy,"input_budget"),usage[2],input,_n(policy,"zero_unlimited"))=0 | aggregatefits(_n(policy,"output_budget"),usage[3],output,_n(policy,"zero_unlimited"))=0 | aggregatefits(_n(policy,"cost_budget"),usage[4],cost,_n(policy,"zero_unlimited"))=0 then iterate
+    if _providertimebudget(policy)>0 then if aggregatefits(_providertimebudget(policy),usage[5],milliseconds,_n(policy,"zero_unlimited"))=0 then iterate
+    if charging="subscription-allowance" then do
+      codex_used=_number(database,"SELECT count(*) FROM provider_runs p WHERE p.charging_basis='subscription-allowance' AND p.provider_run_id IN(SELECT a.provider_run_id FROM attempts a JOIN job_items j ON j.item_id=a.item_id WHERE j.job_id=" || _q(job_id) || ")")
+      if aggregatefits(_n(policy,"codex_turns"),codex_used,1,_n(policy,"zero_unlimited"))=0 then iterate
+    end
     return 1
   end
   if funded=0 then return -1
@@ -1366,17 +1385,17 @@ _routeattemptlimit: procedure = .string
   advanced_limit = _n(policy,"advanced_attempts"); if advanced_limit < 1 then advanced_limit = _attemptlimit(policy)
   return "CASE WHEN required_capability='advanced-reasoning' THEN " || advanced_limit || " ELSE " || _attemptlimit(policy) || " END"
 
-/* Request-only view for an already admitted correction. Keep the original
+/* Request-only view for an admitted initial or correction call. Keep the original
  * ceiling and shared paid-call/reset accounting; never rewrite durable input.
  * The ordinary one-correction exception still includes its admitted call. */
-resolutioncorrectioninput: procedure = .string
+resolutionoperationalinput: procedure = .string
   arg database = .binary, input_json = .string, expose error = .string
   error = ""; input = .jsondocument(input_json)
-  if input.valid() <> 1 then do; error = "invalid correction input"; return ""; end
+  if input.valid() <> 1 then do; error = "invalid resolution input"; return ""; end
   if input.member(input.root(),"remaining_calls_including_this") < 1 then return input_json
   task_id = _s(input,"task_id")
   result = _text(database,"SELECT json_set(" || _q(input_json) || ",'$.remaining_calls_including_this',max(1," || _routeattemptlimit(input) || "-" || _routecallcount(_q(task_id)) || ")) FROM maintenance_tasks WHERE task_id=" || _q(task_id))
-  if result = "" then error = "correction task allowance is unavailable"
+  if result = "" then error = "resolution task allowance is unavailable"
   return result
 
 backlogselection: procedure = .string
@@ -1427,7 +1446,8 @@ _dispatch: procedure = .int
   arg store = .ragstorehandle, job_id = .string, window_id = .string, policy = .jsondocument, expose generation = .int, expose error = .string
   database = store.database()
   snapshot_id = _text(database,"SELECT config_snapshot_id FROM jobs WHERE job_id=" || _q(job_id))
-  remaining = _n(policy,"item_limit") - _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id))
+  remaining = _n(policy,"batch_items")
+  if _n(policy,"item_limit")>0 | _n(policy,"zero_unlimited")<>1 then remaining = _n(policy,"item_limit") - _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id))
   if remaining > _n(policy,"batch_items") then remaining = _n(policy,"batch_items")
   if remaining < 1 then return 0
   prepared = .binary; ids = .string[]
@@ -2553,19 +2573,20 @@ continuebacklogwindow: procedure = .int
     policy=.jsondocument(raw);seconds=_n(policy,"window_seconds")
     if minutes>0 then seconds=minutes*60
     timing=""
-    if resolvemaintenancetime(database,"","","",seconds,timing,error)<>0 then return -1
+    if resolvemaintenancetime(database,"","","",seconds,timing,error,-1,_n(policy,"zero_unlimited"))<>0 then return -1
     deadline=_number(database,"SELECT json_extract(message,'$.deadline_epoch') FROM job_events WHERE job_id=" || _q(job_id) || " AND event_type='allowance-period' ORDER BY event_id DESC LIMIT 1")
-    timing=_text(database,"SELECT json_set(" || _q(timing) || ",'$.deadline_epoch'," || deadline || ",'$.deadline_utc',strftime('%Y-%m-%dT%H:%M:%SZ'," || deadline || ",'unixepoch'),'$.deadline_local',datetime(" || deadline || ",'unixepoch','localtime'))")
+    if deadline=0 then timing=_text(database,"SELECT json_set(" || _q(timing) || ",'$.deadline_epoch',0,'$.deadline_utc','','$.deadline_local','')")
+    else timing=_text(database,"SELECT json_set(" || _q(timing) || ",'$.deadline_epoch'," || deadline || ",'$.deadline_utc',strftime('%Y-%m-%dT%H:%M:%SZ'," || deadline || ",'unixepoch'),'$.deadline_local',datetime(" || deadline || ",'unixepoch','localtime'))")
     allowance=joballowancejson(database,job_id)
     raw=_text(database,"SELECT json_set(" || _q(raw) || ",'$.window_seconds'," || seconds || ",'$.timing'," || _q(timing) || ", '$.item_limit',json_extract(" || _q(allowance) || ",'$.item_limit'),'$.model_calls',json_extract(" || _q(allowance) || ",'$.model_calls'),'$.input_budget',json_extract(" || _q(allowance) || ",'$.input_tokens'),'$.output_budget',json_extract(" || _q(allowance) || ",'$.output_tokens'),'$.cost_budget',json_extract(" || _q(allowance) || ",'$.cost_microunits'),'$.codex_turns',json_extract(" || _q(allowance) || ",'$.codex_turns'),'$.provider_time_budget_ms',json_extract(" || _q(allowance) || ",'$.provider_policy.time_budget_ms'))")
     if raw="" then do;error="cannot project renewed maintenance policy";return -1;end
   end
-  if deadline<=_number(database,"SELECT unixepoch()") then do
+  if deadline>0 & deadline<=_number(database,"SELECT unixepoch()") then do
     if finish_admitted<>1 then do;error="renewal period has expired; use job deadline or ordinary job continue for admitted work";return -1;end
     /* Finish the existing queue with the remaining allowance. Freezing its
      * materialized size prevents another discovery wave in this completion. */
     policy=.jsondocument(raw);timing=""
-    if resolvemaintenancetime(database,"","","",_n(policy,"window_seconds"),timing,error)<>0 then return -1
+    if resolvemaintenancetime(database,"","","",_n(policy,"window_seconds"),timing,error,-1,_n(policy,"zero_unlimited"))<>0 then return -1
     deadline=_number(database,"SELECT json_extract(" || _q(timing) || ",'$.deadline_epoch')")
     raw=_text(database,"SELECT json_set(" || _q(raw) || ",'$.timing'," || _q(timing) || ",'$.item_limit',(SELECT count(*) FROM job_items" || selector || "))")
     if sqliteexec(database,"INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _q(job_id) || ",'completion-period'," || _q(timing) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))")<>0 then do;error="cannot record admitted-work continuation";return -1;end

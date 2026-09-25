@@ -1099,6 +1099,57 @@ the validator. `codex_provider` records operation clock/phase facts and
 time. There is no new schema, task kind, provider route or reporting service.
 Regression and qualification evidence: [beta delivery](beta-delivery-20260920.md).
 
+## Optional aggregate limits — 25 September 2026
+
+This local implementation starts from clean `5f1324447cebbca6edaed773f828092d0ca9d837`
+in an isolated worktree. Baseline configuration, backlog-budget,
+policy-file, backlog, ingestion-capacity and native continuation controls
+passed before implementation. The fail-first format-4 case rejected the new
+format; the admission case could not compile the proposed zero-unlimited
+argument. Both were repaired with their legacy positive controls retained.
+
+`ragconfigfile` and `ragconfig` own explicit format-4 opt-in;
+`ragcanonical`/`ragconfiguration` preserve exact older semantic bytes.
+`ragadmission` owns aggregate fit/cap, and `ragwork` persists the marker in
+the job policy and checks measured, reserved and uncertain usage within its
+writer transaction. `ragbacklog` owns the zero-deadline window, discovery
+batch, route affordability and no-work close; `ragingest`, `ragimprove` and
+`ragquerypolicy` consume the shared rule. `ragallowance` retains zero-time
+continuation and reports the marker through public job status.
+`ragapplicationprovider` refreshes only
+operational remaining-call context on a retained resolution packet after
+frozen binding validation. The CLI displays opted-in zero limits as
+`Unlimited` and uses the same fit rule for its synthetic smoke command. No
+schema, provider or external account policy changes were introduced.
+
+The local debug build and fast tier pass. Focused `configuration_contract`,
+`durable_backlog_budget`, `query_policy`, `regression_ingest_capacity`,
+`regression_source_maintenance` and `native_admission` pass after the
+query-policy harness included the shared admission module. Synthetic
+assertions cover paid no-spend compatibility,
+concurrent reservations, zero-turn subscription accounting, finite time-only
+deferral, release/settlement, automatic discovery, pause/continuation,
+no-work closure, public plan/apply/status and the retained
+3-to-1 advanced allowance packet. Full local regression, installed/hosted
+and long-running multi-worker qualification are deferred to the agreed
+separate gate. No real corpus, hosted provider or installed executable was
+used; this is a reviewed local checkpoint, with formal qualification pending.
+
+Coordinator review found four item-1 gaps. Fail-first native calls reproduced
+the explicit-`--until` rejection under a zero default and the MCP
+`minutes: 0` schema rejection; VM checks reproduced same-job retry closure
+before backoff elapsed. `ragallowance` now reports independent cost and
+Codex-turn reservations, verified through public status with synthetic
+values 123 and 7. `ragbacklog` lets explicit finite timing override the
+unlimited default and retains an unlimited window for an ordinary provider
+retry with a receipt in that same job. An operator deferral with a future
+date does not keep the window polling; empty work still closes. The MCP
+`rag_maintain_plan` schema now permits zero, while the format-3 product
+guard still refuses unlimited time. `rag_job_continue.minutes` remains a
+positive renewal period and retains its minimum of one. The ten affected
+cases pass at the current build identity, including exact-input reused
+receipts; the external handoff has the report and reproduction details.
+
 ## 23 September worker compatibility and first-pass source maintenance
 
 No module ownership moves. `ragconfiguration` now checks the semantic bindings

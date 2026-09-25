@@ -258,9 +258,10 @@ ragbudget: class
   _cost_microunits = .int
   _codex_turns = .int
   _minimum_codex_allowance_percent = .int
+  _zero_unlimited = .int
 
   *: factory
-    arg minutes = .int, item_limit = .int, model_calls = .int, input_tokens = .int, output_tokens = .int, cost_microunits = .int, codex_turns = 0, minimum_codex_allowance_percent = 0
+    arg minutes = .int, item_limit = .int, model_calls = .int, input_tokens = .int, output_tokens = .int, cost_microunits = .int, codex_turns = 0, minimum_codex_allowance_percent = 0, zero_unlimited = 0
     _minutes = minutes
     _item_limit = item_limit
     _model_calls = model_calls
@@ -269,6 +270,7 @@ ragbudget: class
     _cost_microunits = cost_microunits
     _codex_turns = codex_turns
     _minimum_codex_allowance_percent = minimum_codex_allowance_percent
+    _zero_unlimited = zero_unlimited
     return
 
   minutes: method = .int
@@ -287,6 +289,8 @@ ragbudget: class
     return _codex_turns
   minimum_codex_allowance_percent: method = .int
     return _minimum_codex_allowance_percent
+  zero_unlimited: method = .int
+    return _zero_unlimited
 
 ragworkerpolicy: class
   _processes = .int
@@ -842,7 +846,7 @@ validateconfig: procedure = .ragvalidationresult
   end
 
   budget = config.budget()
-  if budget.minutes() < 0 | budget.item_limit() < 0 | budget.model_calls() < 0 | budget.input_tokens() < 0 | budget.output_tokens() < 0 | budget.cost_microunits() < 0 | budget.codex_turns() < 0 | budget.minimum_codex_allowance_percent() < 0 | budget.minimum_codex_allowance_percent() > 100 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_budget", "budget", "budget ceilings and Codex allowance threshold are invalid")
+  if budget.minutes() < 0 | budget.item_limit() < 0 | budget.model_calls() < 0 | budget.input_tokens() < 0 | budget.output_tokens() < 0 | budget.cost_microunits() < 0 | budget.codex_turns() < 0 | budget.minimum_codex_allowance_percent() < 0 | budget.minimum_codex_allowance_percent() > 100 | (budget.zero_unlimited() \= 0 & budget.zero_unlimited() \= 1) then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_budget", "budget", "budget ceilings and Codex allowance threshold are invalid")
   workers = config.workers()
   if workers.processes() < 1 | workers.processes() > 32 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_processes", "workers.processes", "worker processes must be from 1 through 32")
   if workers.max_in_flight() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_in_flight", "workers.max_in_flight", "each worker process currently owns one in-flight item")
@@ -874,7 +878,7 @@ validateconfig: procedure = .ragvalidationresult
 
   maintenance = config.maintenance()
   if maintenance.provider_time_minutes() < 0 | maintenance.provider_time_minutes() > 10080 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_time", "maintenance", "maintenance provider time must be 0..10080 minutes")
-  if wordpos(maintenance.mode(), "automatic supervised reviewed manual") = 0 | maintenance.window_seconds() < 1 | maintenance.window_seconds() > 86400 | maintenance.maximum_impact() < 1 | maintenance.maximum_impact() > 100000 | maintenance.maximum_attempts() < 1 | maintenance.maximum_attempts() > 10 | maintenance.retry_seconds() < 1 | maintenance.retry_seconds() > 604800 | maintenance.maximum_evidence_bytes() < 1024 | maintenance.maximum_evidence_bytes() > 1048576 | maintenance.resolution_prompt() = "" | length(maintenance.resolution_prompt()) > 16384 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_resolution_policy", "maintenance", "maintenance resolution limits or mode are invalid")
+  if wordpos(maintenance.mode(), "automatic supervised reviewed manual") = 0 | maintenance.window_seconds() < 1-budget.zero_unlimited() | maintenance.window_seconds() > 86400 | maintenance.maximum_impact() < 1 | maintenance.maximum_impact() > 100000 | maintenance.maximum_attempts() < 1 | maintenance.maximum_attempts() > 10 | maintenance.retry_seconds() < 1 | maintenance.retry_seconds() > 604800 | maintenance.maximum_evidence_bytes() < 1024 | maintenance.maximum_evidence_bytes() > 1048576 | maintenance.resolution_prompt() = "" | length(maintenance.resolution_prompt()) > 16384 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_resolution_policy", "maintenance", "maintenance resolution limits or mode are invalid")
   if maintenance.advanced_attempts()<1 | maintenance.advanced_attempts()>32 | maintenance.search_reads()<0 | maintenance.search_reads()>16 | maintenance.evidence_expected()<0 | maintenance.evidence_expected()>1 | maintenance.advanced_first()<0 | maintenance.advanced_first()>1 | length(maintenance.identity_prompt())>16384 | length(maintenance.connection_prompt())>16384 then issues[issues.0+1]=.ragvalidationissue("config","invalid_resolution_policy","maintenance","resolution route, read or evidence-arrival policy is invalid")
   do a = 1 to words(maintenance.automatic_actions())
     if wordpos(word(maintenance.automatic_actions(), a), "reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate no-change defer") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_automatic_action", "maintenance.automatic_actions", "unknown automatic resolution action")

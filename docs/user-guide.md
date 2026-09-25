@@ -15,6 +15,27 @@ Run `crexxrag` in a folder containing:
 `CREXXRAG_CONFIG` or global `--config-file PATH` overrides the local config.
 Global `--library PATH` overrides `./library`.
 
+### Optional aggregate limits
+
+Configuration format `crexx-rag.config/4` explicitly makes a zero
+`budget.minutes`, `budget.item_limit`, `budget.model_calls`,
+`budget.codex_turns`, `budget.input_tokens`, `budget.output_tokens` or
+`budget.cost_microunits` an unlimited aggregate allowance. Positive values
+remain finite. Set `maintenance.window_seconds = 0` for an automatic window
+without a deadline, or pass `--minutes 0` when selecting the finish time. A
+window with no eligible work closes; an operator can still pause or stop it.
+
+Formats 1–3 and their existing jobs keep their original zero semantics. In
+particular, a zero monetary budget in those formats does not authorize paid
+calls. Opt in through the normal reviewed configuration workflow by changing
+the `format` line; no existing file or job is rewritten automatically. Plans
+and job allowance status identify the new semantics, and human plans show
+`Unlimited` for opted-in zero ceilings. Each provider call still needs a
+positive role cost cap if it is paid, plus its normal context, output, timeout,
+concurrency, retry and external account controls. `maintenance.batch_items`
+continues to bound each discovery pass when the total item allowance is
+unlimited.
+
 Human output and terminal progress are the default. Use `--format json` or
 `--format ndjson` for automation. `NO_COLOR=1` selects plain progress; explicit
 `--progress off|plain|ansi` takes precedence.
@@ -1279,8 +1300,13 @@ duration. Parallel provider-call durations do not consume it. The optional
 `maintenance.provider_time_minutes` separately caps aggregate provider time;
 zero disables that cap. `budget.minutes` continues to apply to ingestion,
 replay and compatibility reviewed maintenance. Call/token/cost/allowance limits
-still cover the entire run. See [finish-time rules](autonomous-maintenance.md#choosing-a-finish-time)
+still cover the entire run when positive; format 4 gives zero the explicit
+unlimited meaning described above. See [finish-time rules](autonomous-maintenance.md#choosing-a-finish-time)
 for midnight, timezone, daylight-saving and graceful-stop behavior.
+An explicit `--until`, `--overnight` or positive `--minutes` selects a finite
+finish time even when the format-4 default is unlimited. MCP
+`rag_maintain_plan` accepts `"minutes": 0` under format 4; older formats
+reject that request through the same product policy guard.
 
 The [durable maintenance guide](autonomous-maintenance.md) describes the full
 runtime configuration, five-hour windows, shared budgets, split/merge follow-up

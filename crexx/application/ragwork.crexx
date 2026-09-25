@@ -141,9 +141,9 @@ heartbeat: procedure = .int
   return 0
 
 configurejobbudget: procedure = .int
-  arg store = .ragstorehandle, job_id = .string, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, expose error = .string
+  arg store = .ragstorehandle, job_id = .string, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, expose error = .string, zero_unlimited = 0
   error = ""
-  if store.writable() \= 1 | job_id = "" | time_budget_ms < 1 | maximum_call_input_tokens < 0 | maximum_call_output_tokens < 0 | maximum_call_cost < 0 | maximum_call_time_ms < 1 | maximum_call_time_ms > time_budget_ms | maximum_inflight_calls < 1 | maximum_inflight_calls > 64 | maximum_attempts < 1 | maximum_attempts > 100 then do; error = "job budget policy is invalid"; return -1; end
+  if store.writable() \= 1 | job_id = "" | time_budget_ms < 0 | (time_budget_ms = 0 & zero_unlimited \= 1) | maximum_call_input_tokens < 0 | maximum_call_output_tokens < 0 | maximum_call_cost < 0 | maximum_call_time_ms < 1 | (time_budget_ms > 0 & maximum_call_time_ms > time_budget_ms) | maximum_inflight_calls < 1 | maximum_inflight_calls > 64 | maximum_attempts < 1 | maximum_attempts > 100 | (zero_unlimited \= 0 & zero_unlimited \= 1) then do; error = "job budget policy is invalid"; return -1; end
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin budget configuration"; return -3; end
   if _boundcount(database, "SELECT count(*) FROM jobs WHERE job_id=?1", job_id) \= 1 then return _rollback(database, "job is unavailable", error)
@@ -153,6 +153,7 @@ configurejobbudget: procedure = .int
     return -2
   end
   message = "{" || jsonquote("time_budget_ms") || ":" || time_budget_ms || "," || jsonquote("maximum_call_input_tokens") || ":" || maximum_call_input_tokens || "," || jsonquote("maximum_call_output_tokens") || ":" || maximum_call_output_tokens || "," || jsonquote("maximum_call_cost") || ":" || maximum_call_cost || "," || jsonquote("maximum_call_time_ms") || ":" || maximum_call_time_ms || "," || jsonquote("maximum_inflight_calls") || ":" || maximum_inflight_calls || "," || jsonquote("maximum_attempts") || ":" || maximum_attempts || "}"
+  if zero_unlimited = 1 then message = left(message,length(message)-1) || ',"zero_unlimited":1}'
   if _event(database, job_id, "", "", "budget-policy", message) \= 0 then return _rollback(database, "cannot record budget policy", error)
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit budget policy", error)
   return 0
@@ -168,7 +169,7 @@ reservecall: procedure = .int
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
   reservation_id = claim.attempt_id() || "#call-1"
   if _boundeventcount(database, claim.job_id(), "reservation-open:" || reservation_id) > 0 then return _rollback(database, "provider call is already reserved", error)
-  if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch()-coalesce(json_extract(nullif(json_extract(policy_json,'$.timing'),''),'$.cleanup_seconds'),0))*1000<" || maximum_time_ms || ")",claim.job_id()) > 0 then return _deferuncalledclaim(database,claim,"maintenance window no longer admits provider calls",error)
+  if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch>0 AND (deadline_epoch-unixepoch()-coalesce(json_extract(nullif(json_extract(policy_json,'$.timing'),''),'$.cleanup_seconds'),0))*1000<" || maximum_time_ms || "))",claim.job_id()) > 0 then return _deferuncalledclaim(database,claim,"maintenance window no longer admits provider calls",error)
   if _scalarint(database,"SELECT " || retryblockeditem(_q(claim.item_id()))) > 0 then return _rollback(database,"unfinished provider request needs an explicit retry",error)
   policy_json = _boundevent(database, claim.job_id(), "budget-policy")
   if policy_json = "" then return _rollback(database, "job has no immutable provider budget policy", error)
@@ -177,6 +178,8 @@ reservecall: procedure = .int
   root = policy.root()
   max_call_input = -1; max_call_output = -1; max_call_cost = -1; max_call_time = -1; inflight_ceiling = -1; time_budget = -1
   if policy.node_int(policy.member(root, "maximum_call_input_tokens"), max_call_input) \= 0 | policy.node_int(policy.member(root, "maximum_call_output_tokens"), max_call_output) \= 0 | policy.node_int(policy.member(root, "maximum_call_cost"), max_call_cost) \= 0 | policy.node_int(policy.member(root, "maximum_call_time_ms"), max_call_time) \= 0 | policy.node_int(policy.member(root, "maximum_inflight_calls"), inflight_ceiling) \= 0 | policy.node_int(policy.member(root, "time_budget_ms"), time_budget) \= 0 then return _rollback(database, "job budget policy fields are malformed", error)
+  zero_unlimited = 0; if policy.member(root,"zero_unlimited") > 0 then ignored = policy.node_int(policy.member(root,"zero_unlimited"),zero_unlimited)
+  if zero_unlimited \= 0 & zero_unlimited \= 1 then return _rollback(database,"job budget semantics are invalid",error)
   if maximum_input_tokens > max_call_input | maximum_output_tokens > max_call_output | maximum_cost > max_call_cost | maximum_time_ms > max_call_time then return _rollback(database, "provider call exceeds the per-call cap", error)
   values = .int[]
   if _jobbudgets(database, claim.job_id(), values) \= 8 then return _rollback(database, "job budgets are unavailable or invalid", error)
@@ -211,7 +214,7 @@ reservecall: procedure = .int
     codex_budget = _boundscalarint(database, "SELECT codex_turn_budget FROM jobs WHERE job_id=?1", claim.job_id())
     actual_codex = _boundcount(database, "SELECT count(DISTINCT p.provider_run_id) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND p.charging_basis='subscription-allowance'", claim.job_id())
     reserved_codex = _boundscalarint(database,"SELECT coalesce(sum(CAST(json_extract(e.message,'$.codex_turn') AS INTEGER)),0) FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id WHERE e.job_id=?1 AND e.event_type LIKE 'reservation-open:%' AND a.provider_run_id IS NULL AND NOT EXISTS(SELECT 1 FROM job_events c WHERE c.job_id=e.job_id AND c.event_type='reservation-close:'||json_extract(e.message,'$.reservation_id'))",claim.job_id())
-    call decision.consider("Codex turn budget",codex_budget,actual_codex,reserved_codex,0,1)
+    call decision.consider("Codex turn budget",codex_budget,actual_codex,reserved_codex,0,1,zero_unlimited)
   end
   admitted_input = maximum_input_tokens; admitted_output = maximum_output_tokens
   admitted_cost = maximum_cost; admitted_time = maximum_time_ms
@@ -221,11 +224,11 @@ reservecall: procedure = .int
   call decision.consider("provider in-flight ceiling",inflight_ceiling,0,values[6],0,1)
   call_increment = 1; if recovery_call = 1 then call_increment = 0
   pending_calls = _boundcount(database,"SELECT count(*) FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id WHERE e.job_id=?1 AND e.event_type LIKE 'reservation-open:%' AND a.provider_run_id IS NULL AND NOT EXISTS(SELECT 1 FROM job_events c WHERE c.job_id=e.job_id AND c.event_type='reservation-close:'||json_extract(e.message,'$.reservation_id'))",claim.job_id())
-  call decision.consider("provider call budget",values[1],values[5],pending_calls,unknown_calls,call_increment)
-  call decision.consider("provider input-token budget",values[2],actual_input,reserved_input,unknown_input,admitted_input)
-  call decision.consider("provider output-token budget",values[3],actual_output,reserved_output,unknown_output,admitted_output)
-  call decision.consider("provider cost budget",values[4],actual_cost,reserved_cost,unknown_cost,admitted_cost)
-  if time_budget > 0 then call decision.consider("provider time budget",time_budget,actual_time,reserved_time,unknown_time,admitted_time)
+  call decision.consider("provider call budget",values[1],values[5],pending_calls,unknown_calls,call_increment,zero_unlimited)
+  call decision.consider("provider input-token budget",values[2],actual_input,reserved_input,unknown_input,admitted_input,zero_unlimited)
+  call decision.consider("provider output-token budget",values[3],actual_output,reserved_output,unknown_output,admitted_output,zero_unlimited)
+  call decision.consider("provider cost budget",values[4],actual_cost,reserved_cost,unknown_cost,admitted_cost,zero_unlimited)
+  if time_budget > 0 then call decision.consider("provider time budget",time_budget,actual_time,reserved_time,unknown_time,admitted_time,zero_unlimited)
   if decision.state() = "invalid" then return _rollback(database,decision.reason(),error)
   if decision.state() \= "admitted" then do
     /* Maintenance checkpoints retain their existing exhausted-window policy.
@@ -520,7 +523,9 @@ _reconsideritemretries: procedure = .int
 replaydeadletters: procedure = .int
   arg store = .ragstorehandle, source_job_id = .string, source_item_id = .string, target_config_snapshot_id = .string, reason = .string, item_budget = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, codex_turn_budget = .int, budget_policy = .string, expose replay_job_id = .string, expose replayed = .int, expose error = .string
   replay_job_id = ""; replayed = 0; error = ""
-  if store.writable() \= 1 | source_job_id = "" | target_config_snapshot_id = "" | reason = "" | length(reason) > 256 | item_budget < 1 | model_call_budget < 1 | input_token_budget < 0 | output_token_budget < 0 | cost_budget < 0 | codex_turn_budget < 0 then do; error = "dead-letter replay inputs are invalid"; return -1; end
+  policy = .jsondocument(budget_policy); policy_root = policy.root(); zero_unlimited=0
+  if policy.valid()=1 then if policy.member(policy_root,"zero_unlimited")>0 then ignored=policy.node_int(policy.member(policy_root,"zero_unlimited"),zero_unlimited)
+  if store.writable() \= 1 | source_job_id = "" | target_config_snapshot_id = "" | reason = "" | length(reason) > 256 | item_budget < 0 | model_call_budget < 0 | (item_budget=0 & zero_unlimited<>1) | (model_call_budget=0 & zero_unlimited<>1) | input_token_budget < 0 | output_token_budget < 0 | cost_budget < 0 | codex_turn_budget < 0 | (zero_unlimited<>0 & zero_unlimited<>1) then do; error = "dead-letter replay inputs are invalid"; return -1; end
   database = store.database()
   if terminaljob(_boundscalartext(database,"SELECT state FROM jobs WHERE job_id=?1",source_job_id)) \= 1 then do; error = "source job must be terminal with explicit dead letters"; return -2; end
   source_snapshot = _boundscalartext(database, "SELECT config_snapshot_id FROM jobs WHERE job_id=?1", source_job_id)
@@ -529,12 +534,11 @@ replaydeadletters: procedure = .int
   if source_item_id \= "" then selector = " AND item_id=" || _q(source_item_id)
   selected = _scalarint(database, "SELECT count(*) FROM job_items WHERE job_id=" || _q(source_job_id) || " AND state='dead_letter'" || selector)
   if selected < 1 then do; error = "no matching dead-letter items are available"; return -2; end
-  if selected > item_budget | selected > model_call_budget then do; error = "replay selection exceeds the current reviewed item or model-call budget"; return -2; end
+  if aggregatefits(item_budget,0,selected,zero_unlimited)=0 | aggregatefits(model_call_budget,0,selected,zero_unlimited)=0 then do; error = "replay selection exceeds the current reviewed item or model-call budget"; return -2; end
   if replaysnapshotmatches(store,source_snapshot,target_config_snapshot_id,source_job_id,source_item_id) \= 1 then do; error = "replay target changes the source, provider or interpretation of selected work"; return -2; end
-  policy = .jsondocument(budget_policy); policy_root = policy.root()
   time_budget_ms = -1; maximum_call_input = -1; maximum_call_output = -1; maximum_call_cost = -1; maximum_call_time = -1; maximum_inflight = -1; maximum_attempts = -1
   if policy.valid() \= 1 | policy.node_type(policy_root) \= "object" | policy.node_int(policy.member(policy_root, "time_budget_ms"), time_budget_ms) \= 0 | policy.node_int(policy.member(policy_root, "maximum_call_input_tokens"), maximum_call_input) \= 0 | policy.node_int(policy.member(policy_root, "maximum_call_output_tokens"), maximum_call_output) \= 0 | policy.node_int(policy.member(policy_root, "maximum_call_cost"), maximum_call_cost) \= 0 | policy.node_int(policy.member(policy_root, "maximum_call_time_ms"), maximum_call_time) \= 0 | policy.node_int(policy.member(policy_root, "maximum_inflight_calls"), maximum_inflight) \= 0 | policy.node_int(policy.member(policy_root, "maximum_attempts"), maximum_attempts) \= 0 then do; error = "replay budget policy is malformed"; return -2; end
-  if time_budget_ms < 1 | maximum_call_input < 0 | maximum_call_input > input_token_budget | maximum_call_output < 0 | maximum_call_output > output_token_budget | maximum_call_cost < 0 | maximum_call_cost > cost_budget | maximum_call_time < 1 | maximum_call_time > time_budget_ms | maximum_inflight < 1 | maximum_inflight > 64 | maximum_attempts < 1 | maximum_attempts > 100 then do; error = "replay budget policy exceeds the reviewed envelope"; return -2; end
+  if time_budget_ms < 0 | (time_budget_ms=0 & zero_unlimited<>1) | maximum_call_input < 0 | (input_token_budget>0 | zero_unlimited<>1) & maximum_call_input > input_token_budget | maximum_call_output < 0 | (output_token_budget>0 | zero_unlimited<>1) & maximum_call_output > output_token_budget | maximum_call_cost < 0 | (cost_budget>0 | zero_unlimited<>1) & maximum_call_cost > cost_budget | maximum_call_time < 1 | (time_budget_ms>0 & maximum_call_time > time_budget_ms) | maximum_inflight < 1 | maximum_inflight > 64 | maximum_attempts < 1 | maximum_attempts > 100 then do; error = "replay budget policy exceeds the reviewed envelope"; return -2; end
   created_identity = time("us")
   canonical = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.job-replay/1") || "," || jsonquote("source_job_id") || ":" || jsonquote(source_job_id) || "," || jsonquote("source_item_id") || ":" || jsonquote(source_item_id) || "," || jsonquote("source_config_snapshot_id") || ":" || jsonquote(source_snapshot) || "," || jsonquote("target_config_snapshot_id") || ":" || jsonquote(target_config_snapshot_id) || "," || jsonquote("reason") || ":" || jsonquote(reason) || "," || jsonquote("item_count") || ":" || selected || "," || jsonquote("created_identity") || ":" || created_identity || "}"
   digest = rxhash..sha256hex(canonical as .binary); replay_job_id = "job-replay-sha256:" || digest
@@ -1060,7 +1064,7 @@ _jobstate: procedure = .int
   database = store.database()
   if beginwritetransaction(database,"begin job control",error) \= 0 then return -3
   if target = "queued" then do
-    if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR deadline_epoch<=unixepoch())",job_id) > 0 then return _rollback(database,"maintenance window is closed; use maintain plan for a new bounded window",error)
+    if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch>0 AND deadline_epoch<=unixepoch()))",job_id) > 0 then return _rollback(database,"maintenance window is closed; use maintain plan for a new bounded window",error)
   end
   if target = "paused" then predicate = "state IN('queued','running')"
   else predicate = "state='paused'"

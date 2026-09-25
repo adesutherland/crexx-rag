@@ -24,6 +24,11 @@ classifications: procedure = .int
   errors = errors + check(decision.state() = "exhausted","another available dimension cannot erase the stop")
   call decision.consider("invalid budget",100,-1,0,0,1)
   errors = errors + check(decision.state() = "invalid","invalid accounting cannot grant admission")
+  unlimited = .ragadmissiondecision()
+  call unlimited.consider("unlimited calls",0,200,10,1,1,1)
+  call unlimited.consider("unlimited tokens",0,500000,40000,0,8000,1)
+  errors = errors + check(unlimited.state() = "admitted","explicit zero aggregate ceilings admit measured and reserved usage")
+  errors = errors + check(callcostallowed("monetary-api",0) = 0 & callcostallowed("monetary-api",1) = 1,"per-request paid cap remains independent of aggregate semantics")
   return errors
 
 check: procedure = .int
@@ -73,6 +78,54 @@ costroutes: procedure = .int
       errors = errors + check(scalar(db,"SELECT count(*) FROM job_events WHERE job_id='" || job || "' AND event_type LIKE 'reservation-open:%'") = 0,"paid zero-cost route creates no reservation")
     end
     else errors = errors + check(status = 0,"positive paid and zero-cost local/subscription controls: " || cell || " " || error)
+  end
+  return errors
+
+unlimitedroutes: procedure = .int
+  arg store = .ragstorehandle
+  db=store.database(); error=""; errors=0
+  do cell=1 to 3
+    job="unlimited-route-" || cell
+    time_budget=0; if cell=2 then time_budget=10000
+    charging="monetary-api"; call_cost=100; actual_cost=10
+    if cell=3 then do; charging="subscription-allowance"; call_cost=0; actual_cost=0; end
+    errors=errors+check(sqliteexec(db,"INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,codex_turn_budget,created_at,updated_at) VALUES('" || job || "','" || job || "','{}','snapshot','queued',3,0,0,0,0,0,'fixture','fixture')")=0,"unlimited job setup")
+    do item=1 to 3
+      id=job || "-" || item
+      input='{"charging_basis":"' || charging || '"}'
+      errors=errors+check(sqliteexec(db,"INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('" || id || "','" || job || "','embedding','queued',1,'" || id || "','fixture-hash','" || input || "','fixture','fixture')")=0,"unlimited item setup")
+    end
+    errors=errors+check(configurejobbudget(store,job,time_budget,128,64,call_cost,5000,3,1,error,1)=0,"unlimited policy " || error)
+    active_claims=.ragworkclaim[]; active_reservations=.ragcallreservation[]
+    do item=1 to 3
+      claim=.ragworkclaim; reservation=.ragcallreservation
+      errors=errors+check(claimnext(store,job,"unlimited-worker-" || item,60,1,claim,error)=0,"unlimited claim " || error)
+      status=reservecall(store,claim,128,64,call_cost,5000,reservation,error)
+      if cell=2 & item=3 then do
+        errors=errors+check(status=1 & error="","finite time alone defers third concurrent reservation")
+      end
+      else do
+        errors=errors+check(status=0,"zero aggregate limits admit bounded paid or subscription request: " || error)
+        if status=0 then do; active_claims[active_claims.0+1]=claim; active_reservations[active_reservations.0+1]=reservation; end
+      end
+    end
+    do item=1 to active_reservations.0
+      run=""
+      errors=errors+check(settlecall(store,active_reservations[item],"fixture","fixture",job || "-" || item,"succeeded",16,16,actual_cost,10,run,error,"",charging)=0,"unlimited settlement " || error)
+      errors=errors+check(skipitem(store,active_claims[item],"fixture complete",error)=0,"unlimited item complete " || error)
+    end
+    if cell=2 then do
+      errors=errors+check(sqliteexec(db,"UPDATE job_items SET retry_at=0 WHERE item_id='" || job || "-3'")=0,"time-only deferred item ready")
+      claim=.ragworkclaim; reservation=.ragcallreservation
+      errors=errors+check(claimnext(store,job,"unlimited-retry",60,1,claim,error)=0,"time-only retry claim " || error)
+      errors=errors+check(reservecall(store,claim,128,64,100,5000,reservation,error)=0,"released time budget admits retry " || error)
+      run=""
+      errors=errors+check(settlecall(store,reservation,"fixture","fixture",job || "-3","succeeded",16,16,10,10,run,error,"","monetary-api")=0 & skipitem(store,claim,"fixture complete",error)=0,"time-only retry settles")
+    end
+    expected=3
+    errors=errors+check(scalar(db,"SELECT count(*) FROM provider_runs p JOIN attempts a USING(provider_run_id) JOIN job_items i USING(item_id) WHERE i.job_id='" || job || "'")=expected,"unlimited calls settle and persist")
+    if cell=3 then errors=errors+check(scalar(db,"SELECT count(*) FROM provider_runs p JOIN attempts a USING(provider_run_id) JOIN job_items i USING(item_id) WHERE i.job_id='" || job || "' AND p.charging_basis='subscription-allowance'")=3,"zero aggregate Codex turns record three subscription calls")
+    errors=errors+check(scalar(db,"SELECT reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns FROM jobs WHERE job_id='" || job || "'")=0,"unlimited reservations reconcile")
   end
   return errors
 
@@ -159,6 +212,7 @@ main: procedure = .int
     errors = errors + check(scalar(db,"SELECT count(*) FROM provider_runs p JOIN attempts a USING(provider_run_id) JOIN job_items i USING(item_id) WHERE i.job_id='" || job || "'") = 2,"exactly two actual calls: " || dimension)
   end
   errors = errors + costroutes(store)
+  errors = errors + unlimitedroutes(store)
   errors = errors + check(scalar(db,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"foreign keys")
   if closeragstore(store,error) \= 0 then return 2
   if errors > 0 then return 1

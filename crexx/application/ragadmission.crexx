@@ -1,12 +1,29 @@
 options levelg
 
-namespace ragadmission expose ragadmissiondecision callcostallowed
+namespace ragadmission expose ragadmissiondecision callcostallowed aggregatefits aggregatecap
 
 /* Zero monetary allowance leaves paid work for a later funded run. It does
  * not disable local compute or the separately budgeted Codex subscription. */
 callcostallowed: procedure = .boolean
   arg charging_basis = .string, cost = .int
   return charging_basis \= "monetary-api" | cost > 0
+
+/* The opt-in marker is frozen with each job. A zero ceiling in older jobs
+ * retains its original meaning, especially for paid provider calls. */
+aggregatefits: procedure = .boolean
+  arg ceiling = .int, consumed = .int, requested = .int, zero_unlimited = 0
+  if ceiling < 0 | consumed < 0 | requested < 0 then return 0
+  if zero_unlimited = 1 & ceiling = 0 then return 1
+  if consumed > ceiling then return 0
+  return requested <= ceiling-consumed
+
+aggregatecap: procedure = .int
+  arg ceiling = .int, per_request = .int, concurrent = .int, zero_unlimited = 0
+  if per_request < 0 | concurrent < 1 | ceiling < 0 then return 0
+  if zero_unlimited = 1 & ceiling = 0 then return per_request
+  share = ceiling/concurrent
+  if share < per_request then return share
+  return per_request
 
 /* One decision across all job allowance dimensions. The caller reads the
  * ledger and reserves inside the SAME writer transaction; this module neither
@@ -20,9 +37,10 @@ ragadmissiondecision: class
     _rank = 0; _dimension = ""
     return
   consider: method = .int
-    arg dimension = .string, allowance = .int, consumed = .int, held = .int, uncertain = .int, requested = .int
+    arg dimension = .string, allowance = .int, consumed = .int, held = .int, uncertain = .int, requested = .int, zero_unlimited = 0
     rank = 0
     if allowance < 0 | consumed < 0 | held < 0 | uncertain < 0 | requested < 0 then rank = 4
+    else if zero_unlimited = 1 & allowance = 0 then rank = 0
     /* Subtract from the allowance to avoid overflow in accumulated sums. */
     else if consumed > allowance | requested > allowance-consumed then rank = 3
     else if uncertain > allowance-consumed-requested then rank = 2
