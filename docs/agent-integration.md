@@ -416,6 +416,17 @@ The external resolution sequence is:
    composes the existing lifecycle engine in one transaction. A stale proposal
    must be rejected and replanned. Exact submission replay is a no-op.
 
+For a standalone `sparse-node` concept task, the `/9` response schema permits
+one `propose-relationship` action. Use the task concept as `object_id`, one
+source-scoped catalogue target, a profile relationship type and one exact
+quotation containing resolved mentions of both endpoints. Carry source scope
+in `qualifiers_json` and supported dates in the effective fields. The impact
+preview names the proposed outbound claim and support IDs; apply queues review only. The
+reviewer checks meaning, direction and qualification against the passage before
+acceptance. Acceptance uses the existing claim validator and atomic publisher;
+an identical support replay does not create another generation. A genuine
+isolate may instead resolve with `no-change`.
+
 Actor and model labels are self-reported external attribution. No worker item,
 provider run, usage or zero-cost model call is invented for the external agent.
 Split and merge start migration workflows; connection disposition and eventual

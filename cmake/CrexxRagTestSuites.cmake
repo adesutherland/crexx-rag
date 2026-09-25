@@ -5,7 +5,7 @@ set(fast_tests vector_provider regression_command_metadata regression_command_ca
 set(component_tests native_vector regression_policy_file_vm regression_rule_simplification
     configuration_contract regression_supervision provider_durability codex_protocol
     ann_methodology lifecycle_methodology evidence_methodology maintenance_methodology
-    quotation_grounding temporal_provenance durable_backlog durable_backlog_escalation durable_backlog_budget durable_backlog_recording durable_backlog_reconsideration regression_lifecycle
+    quotation_grounding temporal_provenance durable_backlog durable_backlog_escalation durable_backlog_budget durable_backlog_recording durable_backlog_reconsideration durable_backlog_sparse_edge regression_lifecycle
     regression_sql_performance task_reset)
 get_property(tests DIRECTORY PROPERTY TESTS)
 foreach(test IN LISTS tests)

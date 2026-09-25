@@ -1,6 +1,15 @@
 # Master roadmap and defect register
 
 Current decision and status authority — updated 25 September 2026.
+The six-item maintenance enhancement programme is proceeding by reviewed local
+checkpoints. Item 3, sparse-node graph development, is a coordinator-reviewed
+local checkpoint on `temp/enhancement-3-sparse-edge`. A source-backed relationship
+can pass from graph census through mandatory review to atomic claim publication.
+The [change record](maintenance-refactoring-delivery.md#sparse-node-graph-development--25-september-2026)
+and [coverage matrix](regression-coverage.md#sparse-node-graph-development--25-september-2026)
+record focused evidence. Full regression, hosted/platform, integrated long-run,
+installation and publication belong to the separate final programme gate;
+this checkpoint is not yet release-qualified or installed.
 The [final beta plan](beta-release-plan-20260920.md) is **implemented, locally qualified and installed; beta release held**.
 The candidate passes 133 required local cases, two live Gemini smokes and the
 bounded Scottish-copy run: 200 successful calls, clean closeout and integrity.

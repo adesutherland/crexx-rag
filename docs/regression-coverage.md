@@ -1,5 +1,38 @@
 # Regression coverage baseline — REG-01
 
+## Sparse-node graph development — 25 September 2026
+
+Coordinator review R1/R2 extends `durable_backlog_sparse_edge` with an actual
+pending worker review whose cited endpoint mention moves after the provider
+decision. The fail-first receipt `20260925T202158-3333f085` proves reject and
+dismiss were blocked alongside correctly refused acceptance. The repaired test
+checks that acceptance remains refused and pending, while separate reject and
+dismiss reviews close without graph writes and retain attempts, decisions,
+events and usage. The unchanged grounded worker acceptance remains passing.
+A distinct changed-context task then reviews an identical active exact support:
+the decision settles with the original claim/support IDs, no applied generation,
+and no new provider call. This reaches the active-support branch rather than
+merely replaying an already decided review.
+
+`durable_backlog_sparse_edge` first failed on the exact `3625ecc336c3` baseline
+because the action was absent. Its synthetic source and resolved mentions now
+exercise real graph-phase sparse discovery, a source-backed outbound edge,
+mandatory worker review, exact source support and qualified claim read-back on
+both VMs. It rejects wrong subject/target, nonpacket citation, misquotation and
+profile-invalid type. A genuine isolate resolves with `no-change`; external
+proposals using a permitted but source-unsupported direction or omitting source
+scope are separately rejected by review. MCP plan/apply/review prove that
+submission alone does not publish, acceptance publishes one distinct edge,
+and exact replay leaves claim/support counts, generation and provider history
+unchanged. `regression_prompt_inspection` checks `/9` strict schema and action
+scope plus authentic frozen `/7` and independent clean-baseline `/8` hash
+compatibility; ordinary provider/claim/public
+surface cases remain required. The loopback correction case now also detects a
+literal `operational_input` on the second request and checks refreshed allowance
+text plus the fixed reference map. The provider-contract fixture records only
+the changed resolution prompt/schema pairs. Full regression, hosted/platform and integrated
+long-run qualification remain for the final programme gate.
+
 ## Optional aggregate limits — 25 September 2026
 
 Fail-first: `configuration_contract` rejected explicit format 4;

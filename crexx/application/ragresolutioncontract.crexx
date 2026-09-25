@@ -12,12 +12,12 @@ import provider_contract
 /* Resolution prompt, schema and allowed actions share one subject/workflow
  * vocabulary. ragbacklog owns evidence validation and transactional decisions. */
 resolutioncontractversion: procedure = .string
-  return "crexx-rag.resolution-contract/8"
+  return "crexx-rag.resolution-contract/9"
 
 resolutionprompt: procedure = .string
   arg objective=.string,subject_type=""
   if subject_type="provenance-chunk" then return enrichmentprompt() || "0A"x || quotationcontract()
-  return objective || "0A"x || quotationcontract() || " Return exactly the requested fields. Cite evidence_id values and contiguous quotations from the packet. Use empty strings and arrays for unused fields; qualifiers_json is a JSON object string. Always return dispositions: [] when no lifecycle impact is proposed. Only split, merge and retire may supply nonempty dispositions, and each must cover every current owned alias, mention, claim and note with an explicit reviewed outcome. For split, introduce successors; for merge, first establish source-supported equivalence and distinguish homonyms, editions and narrower roles, then select an active target_concept_id from the supplied catalogue and leave successors empty. Explain the survivor choice in reason; internal IDs never establish real-world identity. Retire an invalid source artefact by retracting its owned impact; never invent a survivor. The engine rechecks impact at publication. Retain connections for a split/merge follow-up workflow; do not guess their assignment. For move/retract/qualify, cite every affected support. A retirement may cite no passages only when the impact census is empty. For distinct, provide both a nonempty canonical_label and a permitted concept_type. For reuse, choose an active supplied candidate; migration parents are evidence, not eligible identities; for move, choose a supplied successor." || " " || _splitinstructions() || " " || _lifecycleinstructions() || " " || _fieldinstructions()
+  return objective || "0A"x || quotationcontract() || " Return exactly the requested fields. Cite evidence_id values and contiguous quotations from the packet. Use empty strings and arrays for unused fields; qualifiers_json is a JSON object string. Always return dispositions: [] when no lifecycle impact is proposed. Only split, merge and retire may supply nonempty dispositions, and each must cover every current owned alias, mention, claim and note with an explicit reviewed outcome. For split, introduce successors; for merge, first establish source-supported equivalence and distinguish homonyms, editions and narrower roles, then select an active target_concept_id from the supplied catalogue and leave successors empty. Explain the survivor choice in reason; internal IDs never establish real-world identity. Retire an invalid source artefact by retracting its owned impact; never invent a survivor. The engine rechecks impact at publication. Retain connections for a split/merge follow-up workflow; do not guess their assignment. For move/retract/qualify, cite every affected support. A retirement may cite no passages only when the impact census is empty. For distinct, provide both a nonempty canonical_label and a permitted concept_type. For reuse, choose an active supplied candidate; migration parents are evidence, not eligible identities; for move, choose a supplied successor." || " " || _splitinstructions() || " " || _lifecycleinstructions() || " " || _fieldinstructions() || " " || _relationshipinstructions()
 
 resolutionmessages: procedure = .providermessage[]
   arg profile=.ragprofile,input_json=.string,objective=.string,subject_type=""
@@ -37,32 +37,42 @@ resolutionresponseschema: procedure = .string
     encoded = encoded || jsonquote(word(actions,i))
   end
   encoded = encoded || "]"
-  return '{"type":"object","additionalProperties":false,"required":["action","object_id","target_concept_id","canonical_label","concept_type","successors","reason","evidence","effective_from","effective_to","qualifiers_json","question","dispositions"],"properties":{"action":{"type":"string","enum":' || encoded || '},"object_id":{"type":"string"},"target_concept_id":{"type":"string"},"canonical_label":{"type":"string"},"concept_type":{"type":"string"},"successors":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["canonical_label","concept_type"],"properties":{"canonical_label":{"type":"string"},"concept_type":{"type":"string"}}}},"reason":{"type":"string"},"evidence":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["evidence_id","quote"],"properties":{"evidence_id":{"type":"string"},"quote":{"type":"string"}}}},"effective_from":{"type":"string"},"effective_to":{"type":"string"},"qualifiers_json":{"type":"string"},"question":{"type":"string"},"dispositions":{"type":"array","maxItems":10000,"items":{"type":"object","additionalProperties":false,"required":["object_type","object_id","action","target_concept_id","confidence_millionths","reason"],"properties":{"object_type":{"type":"string","enum":["alias","mention","claim","note"]},"object_id":{"type":"string"},"action":{"type":"string","enum":["keep-parent","move-child","copy-child","retract","review","unchanged"]},"target_concept_id":{"type":"string"},"confidence_millionths":{"type":"integer","minimum":0,"maximum":1000000},"reason":{"type":"string"}}}}}}'
+  schema = '{"type":"object","additionalProperties":false,"required":["action","object_id","target_concept_id","canonical_label","concept_type","successors","reason","evidence","effective_from","effective_to","qualifiers_json","question","dispositions"],"properties":{"action":{"type":"string","enum":' || encoded || '},"object_id":{"type":"string"},"target_concept_id":{"type":"string"},"canonical_label":{"type":"string"},"concept_type":{"type":"string"},"successors":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["canonical_label","concept_type"],"properties":{"canonical_label":{"type":"string"},"concept_type":{"type":"string"}}}},"reason":{"type":"string"},"evidence":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["evidence_id","quote"],"properties":{"evidence_id":{"type":"string"},"quote":{"type":"string"}}}},"effective_from":{"type":"string"},"effective_to":{"type":"string"},"qualifiers_json":{"type":"string"},"question":{"type":"string"},"dispositions":{"type":"array","maxItems":10000,"items":{"type":"object","additionalProperties":false,"required":["object_type","object_id","action","target_concept_id","confidence_millionths","reason"],"properties":{"object_type":{"type":"string","enum":["alias","mention","claim","note"]},"object_id":{"type":"string"},"action":{"type":"string","enum":["keep-parent","move-child","copy-child","retract","review","unchanged"]},"target_concept_id":{"type":"string"},"confidence_millionths":{"type":"integer","minimum":0,"maximum":1000000},"reason":{"type":"string"}}}}}}'
+  schema=changestr('"question","dispositions"]',schema,'"question","dispositions","relationship_type"]')
+  return changestr('"properties":{"action"',schema,'"properties":{"relationship_type":{"type":"string"},"action"')
 
-/* Exact v7 frozen bindings may run a new attempt through the repaired contract.
- * This reconstructs only the known v7 bytes for verification; the invalid v7
- * schema is never submitted. The durable item, digest, history and usage stay
- * unchanged, and normal explicit retry/admission still owns any new call. */
+/* Exact v7/v8 frozen bindings may run a new attempt through the current
+ * contract. Reconstruct known prior bytes for verification; no old schema is
+ * submitted. The durable item, digest, history and usage stay unchanged, and
+ * normal explicit retry/admission still owns any new call. */
 resolutionlegacybinding: procedure = .int
   arg input_json=.string,objective=.string,subject_type=.string,workflow=.int,frozen_prompt=.string,frozen_schema=.string
   document=.jsondocument(input_json)
-  if document.valid()<>1 | _jsonstring(document,document.root(),"resolution_contract")<>"crexx-rag.resolution-contract/7" | frozen_prompt="" | frozen_schema="" then return 0
+  version=_jsonstring(document,document.root(),"resolution_contract")
+  if document.valid()<>1 | wordpos(version,"crexx-rag.resolution-contract/7 crexx-rag.resolution-contract/8")=0 | frozen_prompt="" | frozen_schema="" then return 0
   prior=resolutioninputprompt(input_json,objective,subject_type)
+  prior=changestr(" " || _relationshipinstructions(),prior,"")
+  schema=resolutionresponseschema(subject_type,workflow)
+  schema=changestr('"question","dispositions","relationship_type"]',schema,'"question","dispositions"]')
+  schema=changestr('"properties":{"relationship_type":{"type":"string"},"action"',schema,'"properties":{"action"')
+  schema=changestr(',"propose-relationship"',schema,'')
+  if version="crexx-rag.resolution-contract/8" then return frozen_prompt=rxhash..sha256hex(prior as .binary) & frozen_schema=rxhash..sha256hex(schema as .binary)
   prior=changestr("Always return dispositions: [] when no lifecycle impact is proposed. Only split, merge and retire may supply nonempty dispositions, and each must cover every current owned alias, mention, claim and note with an explicit reviewed outcome. ",prior,"")
   prior=changestr("internal IDs never establish real-world identity. Retire",prior,"internal IDs never establish real-world identity. Lifecycle actions may include dispositions only when every current owned alias, mention, claim and note has an explicit reviewed outcome. Retire")
   prior=changestr("including supporting evidence and dispositions: [].",prior,"including supporting evidence.")
   prior=changestr("successors and dispositions must be []",prior,"successors must be []")
   prior=changestr('"question":"","dispositions":[]',prior,'"question":""')
-  schema=changestr('"question","dispositions"],"properties"',resolutionresponseschema(subject_type,workflow),'"question"],"properties"')
+  schema=changestr('"question","dispositions"],"properties"',schema,'"question"],"properties"')
   return frozen_prompt=rxhash..sha256hex(prior as .binary) & frozen_schema=rxhash..sha256hex(schema as .binary)
 
 resolutionactions: procedure = .string
   arg subject_type = .string, workflow = .int
-  if subject_type = "" then return "no-change insufficient-evidence defer search read extract unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate escalate"
+  if subject_type = "" then return "no-change insufficient-evidence defer search read extract unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate escalate propose-relationship"
   actions = "no-change insufficient-evidence defer search read unresolved retain investigate escalate"
   if subject_type = "chunk" then actions = actions || " extract"
   if subject_type = "alias-issue" then actions = actions || " reuse distinct"
   if subject_type = "concept" | (subject_type = "note" & workflow = 0) then actions = actions || " split merge synonym type-correction retire restore"
+  if subject_type = "concept" & workflow = 0 then actions = actions || " propose-relationship"
   if subject_type = "claim" | subject_type = "conflict" then actions = actions || " retract qualify"
   if workflow = 1 & wordpos(subject_type,"alias mention support claim note ambiguity") > 0 then actions = actions || " move"
   if workflow = 1 & wordpos(subject_type,"alias mention support note ambiguity") > 0 then actions = actions || " retract"
@@ -157,3 +167,6 @@ _splitinstructions: procedure = .string
 
 _lifecycleinstructions: procedure = .string
   return "Lifecycle preconditions: restore requires a retired concept; synonym must not collide with another active concept. Choose a supported alternative or final no-change when the permitted action cannot apply; never invent an alias to evade a collision."
+
+_relationshipinstructions: procedure = .string
+  return "For a sparse-node concept, propose-relationship may name one missing directed edge. Set object_id to the subject concept, target_concept_id to a concept in the supplied source-scoped catalogue, relationship_type to a permitted type, and cite one exact continuous source quotation containing resolved mentions of both endpoints. The edge is outbound from object_id to target_concept_id. Preserve source-supported scope in qualifiers_json and dates in effective_from/effective_to; do not infer a relation from labels or co-occurrence. This action always awaits human semantic review before publication. For every other action return relationship_type as an empty string."

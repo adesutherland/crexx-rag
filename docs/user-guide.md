@@ -1682,6 +1682,18 @@ up to 99 effect rows with explicit counts/truncation, while JSON/NDJSON/MCP
 retain the complete `impact_json` list. This also works for older pending
 external reviews whose saved plan had an empty impact list, without rewriting
 that saved plan. See [the tested boundaries](connection-effect-previews.md).
+For a sparse-node concept task, the current response schema also offers
+`propose-relationship`. Inspect the task's source-scoped catalogue and evidence;
+set `object_id` to the task concept, `target_concept_id` to the supported target,
+`relationship_type` to a type in the selected profile, and cite one exact
+continuous quotation containing resolved mentions of both endpoints. The edge
+points from `object_id` to `target_concept_id`. Preserve any source-supported
+scope in `qualifiers_json` and applicable dates in `effective_from` and
+`effective_to`. An edge plan and `resolve-apply` submission do not add a claim.
+The plan's impact identifies the prospective claim and support IDs for review.
+The reviewer must check the relationship's meaning, direction and qualification
+against the source; reject an unsupported or unqualified proposal. A genuine
+isolate can resolve as `no-change` without adding an edge.
 Submission creates a mandatory review; acceptance revalidates the source evidence and current
 generation before applying the existing lifecycle rules. Split/merge starts
 connection migration work, so an accepted proposal does not imply that every

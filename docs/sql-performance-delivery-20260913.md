@@ -1,5 +1,19 @@
 # SQL performance repair delivery — 13 September 2026
 
+## Sparse-node review closure and exact support — 25 September 2026, coordinator-reviewed local checkpoint
+
+The R1 review repair removes the current-evidence validation query from reject
+and dismiss. Acceptance retains that validation after its existing fresh-packet
+check inside the pending-review transaction. Review and decision rows remain
+keyed by their existing primary keys; the pending-state update and task/decision
+history use the existing transaction. R2's duplicate-support check uses the
+`claim_support(support_id)` primary key and settles without staging or publishing
+a generation. The endpoint-mention lookup uses the existing
+`mentions_concept_visibility` index and one cited chunk. No schema, index,
+per-item scan or new transaction owner was added. `durable_backlog_sparse_edge`
+checks one accepted publication, stale review closure and a second exact-support
+review; broader SQL scale and full regression remain in the programme gate.
+
 ## Logical debt and finish status — 25 September 2026, coordinator-reviewed local checkpoint
 
 `ragreportservice` reads terminal decision existence through the existing

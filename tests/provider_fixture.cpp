@@ -255,32 +255,32 @@ int main(int argc, char** argv)
                         + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":240,\"candidatesTokenCount\":48}}";
                 }
             } else if (request.find("Durable resolution input:") != std::string::npos) {
+                const bool correcting = request.find("Citation correction (one attempt)") != std::string::npos;
                 if (scenario == "product-backlog-upgrade" && request.find("\"question\",\"dispositions\"") == std::string::npos) {
                     http_status = 400;
                     body = R"({"error":{"message":"Invalid schema for response_format codex_output_schema: Missing dispositions.","type":"invalid_request_error","code":"invalid_json_schema","param":"text.format.schema"}})";
-                } else if (!valid_auth || !valid_structured || request.find("maintenance-resolution") == std::string::npos
+                } else if (!valid_auth || !valid_structured || (!correcting && request.find("maintenance-resolution") == std::string::npos)
                     || (scenario != "product-backlog-advanced" && scenario != "product-backlog-correction-advanced" && scenario != "product-backlog-upgrade" && scenario != "product-first-pass" && request.find("fixture-resolution-prompt") == std::string::npos)
-                    || request.find("Reference contract:") == std::string::npos) {
+                    || (!correcting && request.find("Reference contract:") == std::string::npos)) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini resolution request shape mismatch"}})";
                 } else {
                     std::string resolution = scenario == "product-backlog-malformed"
                         ? R"({"action":"synthetic-product-gemini-key"})"
                         : scenario == "product-backlog-rejected"
-                        ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[]})"
-                        : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[]})";
+                        ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":""})"
+                        : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":""})";
                     if (scenario == "product-backlog-advanced" || scenario == "product-backlog-upgrade"
                         || scenario == "product-first-pass") {
                         if (request.find("Resolve the maintenance question using validated source evidence") == std::string::npos
                             || request.find("advanced-resolver") == std::string::npos
                             || request.find("final reasoning route") == std::string::npos
                             || request.find("prompt_sha256") == std::string::npos) return 6;
-                        resolution = R"({"action":"no-change","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The retained evidence does not justify an additional change.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[]})";
+                        resolution = R"({"action":"no-change","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The retained evidence does not justify an additional change.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":""})";
                         if (scenario == "product-first-pass")
-                            resolution = R"({"action":"extract","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"A corrected typed extraction can assess the source passage.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[]})";
+                            resolution = R"({"action":"extract","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"A corrected typed extraction can assess the source passage.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":""})";
                     }
                     if (scenario.rfind("product-backlog-correction", 0) == 0) {
-                        const bool correcting = request.find("Citation correction (one attempt)") != std::string::npos;
                         if (request.find("Never insert ellipses") == std::string::npos
                             || request.find("Selected source spans") == std::string::npos
                             || (correcting && (request.find("selected connection") == std::string::npos
@@ -292,7 +292,7 @@ int main(int argc, char** argv)
                                 correcting ? "Unsupported correction quotation." : "Unsupported original quotation.");
                         }
                     }
-                    if (request.find("Reference contract:") != std::string::npos) {
+                    if (request.find("Reference contract:") != std::string::npos || correcting) {
                         auto position = resolution.find("fixture-note-link");
                         if (position != std::string::npos) resolution.replace(position, std::string("fixture-note-link").size(), "E1");
                         position = resolution.find("fixture-note");

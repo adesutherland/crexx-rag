@@ -1,5 +1,79 @@
 # Maintenance refactoring delivery
 
+## Sparse-node graph development — 25 September 2026
+
+Coordinator review R1/R2 added two bounded controls. An actual pending worker
+relationship review with a moved cited mention refused acceptance, then failed
+both reject and dismiss before the repair (`durable_backlog_sparse_edge` red
+receipt `20260925T202158-3333f085`). `reviewbacklogdecision` now applies its
+current-evidence validation only on acceptance, within the existing fenced
+transaction and after freshness checking. Reject and dismiss still require the
+pending review identity and matching retained profile, then close the review
+without a graph generation; the synthetic controls preserve decision, attempt,
+event and provider-usage history. The prior unchanged worker acceptance remains
+the positive control. A separate changed-source-context task proposes the exact
+already active support with a distinct review. Acceptance records a resolved
+decision with no applied generation, second claim/support, or provider call;
+the original hashed identities remain active. No schema, index or recovery
+protocol changed. The SQL checklist is in
+`docs/sql-performance-delivery-20260913.md`.
+
+This coordinator-reviewed local item-3 checkpoint starts from item-2 commit
+`3625ecc336c3ee7cda763ca5055a3f6687e8f20a`. The clean baseline passed
+`regression_prompt_inspection`, `regression_claim_policy`, `durable_backlog`,
+`durable_backlog_reconsideration`, `regression_source_maintenance` and
+`native_surfaces` (6/6). A new `durable_backlog_sparse_edge` synthetic control
+then failed first: the sparse-node response contract had no relationship action.
+
+`ragresolutioncontract` now owns `/9` prompt, strict `relationship_type` field
+and action vocabulary, with exact `/7` and `/8` frozen binding reconstruction;
+`ragresolutionreferences` projects the current contract's aliases. `ragbacklog`
+owns the shared worker/external task validation and review transition. It binds
+one quotation to resolved endpoint mentions in the selected source packet,
+then composes `ragclaims` profile/claim validation and transaction publication.
+`ragclaims` remains the sole owner of stable claim/support identities and graph
+insertion. Worker and public external paths require review, which can reject
+semantic overreach or omitted source scope. The claim writer receives the
+existing staged generation; exact support replay produces no new generation.
+The public CLI/MCP operation names and permissions are unchanged.
+An independent `/8` concept prompt/schema hash pair was obtained by linking a
+scratch probe against the retained clean-baseline QA executable, then frozen
+in `regression_prompt_inspection`. The current binding accepts those exact
+hashes and rejects a modified schema. The existing authentic `/7` hash case
+also remains passing.
+The external impact preview carries the prospective hashed claim and support
+IDs, and the MCP acceptance fixture verifies that those exact identities are
+the ones published after review.
+The `/9` loopback provider responses now include the required empty field for
+other actions. The existing citation-correction regression also exposed a
+cREXX method-scope error in `ragapplicationprovider`: the second request sent
+the literal `operational_input` instead of the refreshed operational packet.
+The method now retains that variable across branches; the focused correction
+case verifies system and presented allowances 2 then 1, one reference mapping,
+the corrected quote, receipt count and unchanged durable input. The captured
+provider contract fixture changes only for resolution prompt/schema pairs.
+
+The focused fixture reads back two distinct accepted directional, typed and
+qualified edges and exact support spans, including one through MCP plan/apply/
+review; it also checks a real isolate, wrong endpoints, misquotation, invalid
+type, separate review rejection of unsupported direction and omitted scope,
+pending-review nonpublication and replay. Source text
+and all libraries are synthetic. At linked image SHA-256
+`f71dae8f776b915cf5ac3d9982d9fc4758a71a88b9d0bdd2119c99a009f5fbda`
+and native executable SHA-256
+`f754c7f9acb4dac111da42c2c073674224d9bfaedfa09868084ac934b3f4e1eb`,
+the final 24-case affected selection and 11-case fast preset pass. All 15
+zero-outbound maintenance provider variants pass, as do the captured prompt
+contract, malformed-output and invalid-schema controls. The QA report records
+33 current-input passes and 106 not-run cases; reused exact-input CTest skips
+are not counted as new executions. A transient combined run failed
+`durable_backlog` after printing its success marker; an isolated rerun and the
+final serial selection passed. Earlier intentional fail-first, fixture-shape
+and allowance-correction failures remain in QA history. `git diff --check`
+passes. Full local regression, hosted/platform and
+integrated long-run qualification remain the final programme gate, so no
+installation or publication is claimed here.
+
 ## Mechanical debt and termination reporting — 25 September 2026
 
 This coordinator-reviewed local item-2 checkpoint starts from reviewed item-1 commit

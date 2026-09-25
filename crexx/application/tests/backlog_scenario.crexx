@@ -21,6 +21,7 @@ import ragcommand
 import ragcommandutil
 import ragproduct
 import ragmcp
+import ragconfiguration
 import operator_registry
 
 check: procedure = .int
@@ -577,6 +578,156 @@ responsejson: procedure = .string
 withdispositions: procedure = .string
   arg response=.string,dispositions=.string
   return left(response,length(response)-1) || ',"dispositions":' || dispositions || '}'
+
+staleworkerrelationshipchecks: procedure = .int
+  arg store=.ragstorehandle,policy_json=.string,decision=.string
+  db=store.database();errors=0;error="";task="";job="";review=""
+  suffix="stale-" || decision; source_label="Eris";target_label="Flora";zone="C"
+  if decision="dismiss" then do;source_label="Dion";target_label="Helia";zone="D";end
+  quote=source_label || " mentions " || target_label || " in Zone " || zone || "."
+  current=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  sql="INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('" || suffix || "-artifact','" || suffix || "-raw','text/plain','utf-8',NULL,'fixture://" || suffix || "','fixture');"
+  sql=sql || "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('" || suffix || "-text','" || suffix || "-digest'," || _testquote(quote) || ",'fixture','utf8-v1','fixture');"
+  sql=sql || "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('" || suffix || "-source','fixture','" || suffix || "','" || suffix || "-revision','active','fixture://" || suffix || "','Stale review source'," || current || ");"
+  sql=sql || "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('" || suffix || "-revision','" || suffix || "-source','" || suffix || "-envelope','" || suffix || "-artifact','" || suffix || "-text','" || suffix || "-meta','fixture'," || current || ");"
+  sql=sql || "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('" || suffix || "-content','" || suffix || "-content-digest'," || _testquote(quote) || ",'" || suffix || "-input');"
+  sql=sql || "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('" || suffix || "-chunk','" || suffix || "-revision',1,0," || length(quote) || ",'" || suffix || "-content','" || suffix || "-continuity','fixture','direct'," || current || ");"
+  sql=sql || "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('" || suffix || "-source-concept'," || _testquote(source_label) || ",'concept','active'," || current || "),('" || suffix || "-target-concept'," || _testquote(target_label) || ",'concept','active'," || current || ");"
+  sql=sql || "INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('" || suffix || "-source-mention','" || suffix || "-source-concept','" || suffix || "-chunk',0,4," || current || "),('" || suffix || "-target-mention','" || suffix || "-target-concept','" || suffix || "-chunk',14,19," || current || ")"
+  errors=errors+check(sqliteexec(db,sql)=0,"seed synthetic " || decision || " review source")
+  errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept",suffix || "-source-concept","","",700000,.jsondocument(policy_json),task,error)=0 & task<>"","enqueue independent " || decision || " relationship question " || error)
+  job=scalartext(db,"SELECT job_id FROM maintenance_windows WHERE state='active' ORDER BY window_id DESC LIMIT 1")
+  errors=errors+check(nextwindow(store,policy_json,job,error)=0 & job<>"","dispatch independent " || decision || " relationship question " || error)
+  response=withdispositions(responsejson("propose-relationship",suffix || "-target-concept","[]",'[{"evidence_id":"' || suffix || '-source-mention","quote":' || jsonquote(quote) || '}]',suffix || "-source-concept","",'{"scope":"Zone ' || zone || '"}'),"[]")
+  response=left(response,length(response)-1) || ',"relationship_type":"mentions"}'
+  errors=errors+check(runresolution(store,job,task,response,error)=0,"worker queues " || decision || " relationship review " || error)
+  review=scalartext(db,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(task) || " AND review_type='maintenance-resolution' AND state='pending'")
+  errors=errors+check(review<>"" & scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(task))="review","worker proposal has pending review identity")
+  if review="" then return errors
+  prior_generation=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  prior_runs=scalarint(db,"SELECT count(*) FROM provider_runs")
+  prior_usage=scalartext(db,"SELECT json_array(coalesce(sum(input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(cost_microunits),0),coalesce(sum(duration_ms),0)) FROM provider_runs")
+  prior_attempts=scalarint(db,"SELECT count(*) FROM attempts a JOIN maintenance_task_items m ON m.item_id=a.item_id WHERE m.task_id=" || _testquote(task))
+  prior_decisions=scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(task))
+  prior_events=scalarint(db,"SELECT count(*) FROM job_events")
+  errors=errors+check(sqliteexec(db,"UPDATE mentions SET concept_id='" || suffix || "-target-concept' WHERE mention_id='" || suffix || "-source-mention'")=0,"move cited source mention after review was queued")
+  errors=errors+check(reviewbacklogdecision(store,review,"accept",genericprofile(),error)<>0 & scalartext(db,"SELECT state FROM reviews WHERE review_id=" || _testquote(review))="pending" & scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(task))="review","stale cited endpoint refuses acceptance but retains pending review " || error)
+  errors=errors+check(reviewbacklogdecision(store,review,decision,genericprofile(),error)=0,"stale proposal can be " || decision || "ed " || error)
+  expected_state=decision || "ed"
+  errors=errors+check(scalartext(db,"SELECT state FROM reviews WHERE review_id=" || _testquote(review))=expected_state & scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(task))="unresolved" & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(task) || " AND disposition LIKE '%:review:" || decision || "'")=1,"pending review closes with its original decision identity")
+  errors=errors+check(scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=prior_generation & scalarint(db,"SELECT count(*) FROM provider_runs")=prior_runs & scalartext(db,"SELECT json_array(coalesce(sum(input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(cost_microunits),0),coalesce(sum(duration_ms),0)) FROM provider_runs")=prior_usage & scalarint(db,"SELECT count(*) FROM attempts a JOIN maintenance_task_items m ON m.item_id=a.item_id WHERE m.task_id=" || _testquote(task))=prior_attempts & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(task))=prior_decisions & scalarint(db,"SELECT count(*) FROM job_events")>=prior_events & scalarint(db,"SELECT count(*) FROM claims WHERE source_concept_id='" || suffix || "-source-concept'")=0,"stale review closure preserves graph, provider usage, attempt and decision history")
+  errors=errors+check(reviewbacklogdecision(store,review,decision,genericprofile(),error)<>0 & scalartext(db,"SELECT state FROM reviews WHERE review_id=" || _testquote(review))=expected_state,"decided review cannot be closed a second time")
+  return errors
+
+sparseedgechecks: procedure = .int
+  arg store=.ragstorehandle,raw=.string
+  db=store.database();errors=0;error="";task="";job="";grounds=""
+  current=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  text="Atlas mentions Beacon in Zone A."
+  errors=errors+check(sqliteexec(db,"INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('graph-artifact','graph-raw','text/plain','utf-8',NULL,'fixture://graph','fixture'); INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('graph-text','graph-text-digest','Atlas mentions Beacon in Zone A.','fixture','utf8-v1','fixture'); INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('graph-source-doc','fixture','graph','graph-revision','active','fixture://graph','Graph source'," || current || "); INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('graph-revision','graph-source-doc','graph-envelope','graph-artifact','graph-text','graph-meta','fixture'," || current || "); INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('graph-content','graph-content-digest','Atlas mentions Beacon in Zone A.','graph-input'); INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('graph-chunk','graph-revision',1,0,32,'graph-content','graph-continuity','fixture','direct'," || current || "); INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('graph-atlas','Atlas','concept','active'," || current || "),('graph-beacon','Beacon','concept','active'," || current || "),('graph-isolate','Isolate','concept','active'," || current || "); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('graph-atlas-mention','graph-atlas','graph-chunk',0,5," || current || "),('graph-beacon-mention','graph-beacon','graph-chunk',15,21," || current || ")")=0,"seed synthetic missing relationship and genuine isolate")
+  policy=scalartext(db,"SELECT json_set(" || _testquote(changestr("retain investigate",raw,"retain investigate no-change")) || ",'$.sparse_max_degree',0)")
+  errors=errors+check(nextwindow(store,policy,job,error)=0,"discover synthetic sparse concepts " || error)
+  task=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE kind='sparse-node' AND subject_id='graph-atlas' AND state='dispatched' ORDER BY task_id LIMIT 1")
+  isolate=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE kind='sparse-node' AND subject_id='graph-isolate' AND state='dispatched' ORDER BY task_id LIMIT 1")
+  errors=errors+check(task<>"" & isolate<>"","actual sparse-node census selects both missing edge and genuine isolate")
+  if task="" | isolate="" then return errors
+  errors=errors+check(runresolution(store,job,isolate,responsejson("no-change"),error)=0 & scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(isolate))="resolved","isolate remains a supported no-change " || error)
+  response=withdispositions(responsejson("propose-relationship","graph-beacon","[]",'[{"evidence_id":"graph-atlas-mention","quote":"Atlas mentions Beacon in Zone A."}]',"graph-atlas","",'{"scope":"Zone A"}'),"[]")
+  response=left(response,length(response)-1) || ',"relationship_type":"mentions"}'
+  errors=errors+check(pos('"propose-relationship"',backlogschema("concept",0))>0,"sparse-node schema offers a grounded relationship action")
+  errors=errors+check(validatebacklogresponse(db,task,response,grounds,error)=0,"known missing relationship passes shared validation " || error)
+  errors=errors+check(validatebacklogresponse(db,task,changestr('"graph-beacon"',response,'"graph-isolate"'),grounds,error)<>0,"wrong endpoint cannot be inferred from catalogue labels")
+  errors=errors+check(validatebacklogresponse(db,task,changestr('"graph-atlas"',response,'"graph-beacon"'),grounds,error)<>0,"reversed subject cannot claim this sparse task")
+  errors=errors+check(validatebacklogresponse(db,task,changestr('Atlas mentions Beacon in Zone A.',response,'Atlas mentions Iris in Zone A.'),grounds,error)<>0,"misquoted relationship is rejected")
+  errors=errors+check(validatebacklogresponse(db,task,changestr('graph-atlas-mention',response,'wrong-source-span'),grounds,error)<>0,"evidence outside frozen source packet is rejected")
+  before=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  errors=errors+check(runresolution(store,job,task,response,error)=0,"worker records grounded relationship proposal " || error)
+  review=scalartext(db,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(task) || " AND review_type='maintenance-resolution' AND state='pending'")
+  errors=errors+check(review<>"" & scalarint(db,"SELECT count(*) FROM claims WHERE source_concept_id='graph-atlas' AND target_concept_id='graph-beacon' AND visible_to_generation IS NULL")=0 & scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(task))="review","proposal and pending review do not publish an edge")
+  if review="" then return errors
+  errors=errors+check(reviewbacklogdecision(store,review,"accept",genericprofile(),error)=0,"review accepts current grounded proposal " || error)
+  graph=scalartext(db,"SELECT c.claim_id || ':' || c.relationship_type || ':' || c.direction || ':' || c.qualifiers_json || ':' || s.revision_chunk_id || ':' || s.span_start || ':' || s.span_end || ':' || CAST(substr(CAST(t.text AS BLOB),s.span_start+1,s.span_end-s.span_start) AS TEXT) FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id JOIN revision_chunks r ON r.revision_chunk_id=s.revision_chunk_id JOIN chunk_contents t ON t.content_id=r.content_id WHERE c.source_concept_id='graph-atlas' AND c.target_concept_id='graph-beacon' AND c.visible_to_generation IS NULL AND s.visible_to_generation IS NULL")
+  errors=errors+check(pos('claim-sha256:',graph)=1 & pos(':mentions:outbound:{"scope":"Zone A"}:graph-chunk:0:32:Atlas mentions Beacon in Zone A.',graph)>0 & pos('support-sha256:',scalartext(db,"SELECT support_id FROM claim_support WHERE revision_chunk_id='graph-chunk' AND visible_to_generation IS NULL"))=1,"read back hashed identity, directional typed qualified edge and exact source support " || graph)
+  after=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  errors=errors+check(after=before+1 & scalarint(db,"SELECT count(*) FROM claim_support WHERE claim_id=(SELECT claim_id FROM claims WHERE source_concept_id='graph-atlas' AND target_concept_id='graph-beacon' AND visible_to_generation IS NULL)")=1 & scalartext(db,"SELECT state FROM reviews WHERE review_id=" || _testquote(review))="accepted","one atomic graph publication and accepted review")
+  calls=scalarint(db,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(reviewbacklogdecision(store,review,"accept",genericprofile(),error)<>0 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=after & scalarint(db,"SELECT count(*) FROM provider_runs")=calls,"review replay has no duplicate publication or provider call")
+  external="INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('external-artifact','external-raw','text/plain','utf-8',NULL,'fixture://external','fixture');"
+  external=external || "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('external-text','external-text-digest','Circe mentions Daphne in Zone B.','fixture','utf8-v1','fixture');"
+  external=external || "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('external-source-doc','fixture','external','external-revision','active','fixture://external','External source'," || after || ");"
+  external=external || "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('external-revision','external-source-doc','external-envelope','external-artifact','external-text','external-meta','fixture'," || after || ");"
+  external=external || "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('external-content','external-content-digest','Circe mentions Daphne in Zone B.','external-input');"
+  external=external || "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('external-chunk','external-revision',1,0,32,'external-content','external-continuity','fixture','direct'," || after || ");"
+  external=external || "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('external-atlas','Circe','concept','active'," || after || "),('external-beacon','Daphne','concept','active'," || after || ");"
+  external=external || "INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('external-atlas-mention','external-atlas','external-chunk',0,5," || after || "),('external-beacon-mention','external-beacon','external-chunk',15,21," || after || ")"
+  errors=errors+check(sqliteexec(db,external)=0,"seed independent source-backed public proposal")
+  successor="";config=architecturelocalconfig();profile=genericprofile()
+  identity=.ragconfigidentity
+  errors=errors+check(identifyconfig(config,profile,identity,error)=0,"calculate synthetic public configuration identity " || error)
+  errors=errors+check(sqliteexec(db,"UPDATE config_snapshots SET config_hash=" || _testquote(identity.config_hash()) || ",profile_hash=" || _testquote(identity.profile_hash()) || " WHERE config_snapshot_id='snapshot-lifecycle'")=0,"bind synthetic fixture to public configuration")
+  errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept","external-atlas","","",500000,.jsondocument(policy),successor,error)=0 & successor<>"","public sparse task has independent frozen evidence " || error)
+  if successor="" then return errors
+  external_response=changestr("graph",response,"external")
+  external_response=changestr("Atlas",external_response,"Circe")
+  external_response=changestr("Beacon",external_response,"Daphne")
+  external_response=changestr("Zone A",external_response,"Zone B")
+  canonical="";review=""
+  errors=errors+check(planagentaction(store,config,profile,successor,"resolution",changestr('"relationship_type":"mentions"',external_response,'"relationship_type":"invented"'),"unsupported type","external-agent","unspecified",canonical,error)<>0,"external proposal rejects a relationship outside profile")
+  reversed_type=changestr('"relationship_type":"mentions"',external_response,'"relationship_type":"mentioned-in"')
+  errors=errors+check(planagentaction(store,config,profile,successor,"resolution",reversed_type,"review unsupported direction","external-agent","unspecified",canonical,error)=0,"profile-permitted but source-unsupported direction remains reviewable " || error)
+  errors=errors+check(applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review,error)=0 & review<>"","directionally unsupported proposal waits for semantic review " || error)
+  if review<>"" then errors=errors+check(reviewagentaction(store,review,"reject",config,profile,error)=0 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=after & scalarint(db,"SELECT count(*) FROM claims WHERE source_concept_id='external-atlas'")=0,"review refuses a relationship with unsupported direction without graph mutation " || error)
+  canonical="";review=""
+  unqualified=withdispositions(responsejson("propose-relationship","external-beacon","[]",'[{"evidence_id":"external-atlas-mention","quote":"Circe mentions Daphne in Zone B."}]',"external-atlas"),"[]")
+  unqualified=left(unqualified,length(unqualified)-1) || ',"relationship_type":"mentions"}'
+  errors=errors+check(planagentaction(store,config,profile,successor,"resolution",unqualified,"review source scope","external-agent","unspecified",canonical,error)=0,"unqualified proposal remains reviewable rather than self-publishing " || error)
+  errors=errors+check(applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review,error)=0 & review<>"","unqualified proposal waits for semantic review " || error)
+  if review<>"" then errors=errors+check(reviewagentaction(store,review,"reject",config,profile,error)=0 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=after & scalarint(db,"SELECT count(*) FROM claims WHERE source_concept_id='external-atlas'")=0,"review refuses unsupported loss of source scope without graph mutation " || error)
+  canonical="";review=""
+  errors=errors+check(planagentaction(store,config,profile,successor,"resolution",external_response,"review second source-backed edge","external-agent","unspecified",canonical,error)=0,"external path plans a grounded relationship " || error)
+  expected_claim=scalartext(db,"SELECT json_extract(" || _testquote(canonical) || ",'$.impact[0].object_id')")
+  expected_support=scalartext(db,"SELECT json_extract(" || _testquote(canonical) || ",'$.impact[0].support_id')")
+  errors=errors+check(pos("claim-sha256:",expected_claim)=1 & pos("support-sha256:",expected_support)=1,"public impact identifies the exact proposed claim and support")
+  rpc='{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"rag_task_resolve_plan","arguments":{"id":' || jsonquote(successor) || ',"response_json":' || jsonquote(external_response) || '}}}'
+  rpc_result=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","plan")
+  errors=errors+check(pos('"isError":false',rpc_result)>0 & pos('"propose"',rpc_result)>0,"MCP plan exposes relationship consequence without publication")
+  rpc='{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"rag_task_resolve_apply","arguments":{"plan_json":' || jsonquote(canonical) || ',"expect_digest":' || jsonquote(rxhash..sha256hex(canonical as .binary)) || '}}}'
+  rpc_result=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","curate")
+  review=scalartext(db,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(successor) || " AND review_type='maintenance-external' AND state='pending'")
+  errors=errors+check(pos('"isError":false',rpc_result)>0 & review<>"" & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=after & scalarint(db,"SELECT count(*) FROM claims WHERE source_concept_id='external-atlas' AND target_concept_id='external-beacon'")=0,"MCP apply creates only a mandatory review")
+  if review="" then return errors
+  rpc='{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"rag_review_decide","arguments":{"id":' || jsonquote(review) || ',"decision":"accept"}}}'
+  rpc_result=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","curate")
+  errors=errors+check(pos('"isError":false',rpc_result)>0 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=after+1 & scalarint(db,"SELECT count(*) FROM claims WHERE claim_id=" || _testquote(expected_claim) || " AND source_concept_id='external-atlas' AND target_concept_id='external-beacon' AND relationship_type='mentions' AND direction='outbound' AND json_extract(qualifiers_json,'$.scope')='Zone B' AND visible_to_generation IS NULL")=1 & scalarint(db,"SELECT count(*) FROM claim_support WHERE support_id=" || _testquote(expected_support) || " AND claim_id=" || _testquote(expected_claim) || " AND revision_chunk_id='external-chunk' AND span_start=0 AND span_end=32 AND visible_to_generation IS NULL")=1,"MCP review publishes the planned qualified edge and exact support")
+  final_generation=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  errors=errors+check(applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review,error)=0 & reviewagentaction(store,review,"accept",config,profile,error)<>0 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=final_generation & scalarint(db,"SELECT count(*) FROM provider_runs")=calls,"public replay preserves graph and provider history")
+  duplicate_task="";duplicate_job="";duplicate_review=""
+  current=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  extra="INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('graph-extra-artifact','graph-extra-raw','text/plain','utf-8',NULL,'fixture://graph-extra','fixture');"
+  extra=extra || "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('graph-extra-text','graph-extra-text-digest','Atlas appears in another note.','fixture','utf8-v1','fixture');"
+  extra=extra || "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('graph-extra-source','fixture','graph-extra','graph-extra-revision','active','fixture://graph-extra','Additional Atlas passage'," || current || ");"
+  extra=extra || "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('graph-extra-revision','graph-extra-source','graph-extra-envelope','graph-extra-artifact','graph-extra-text','graph-extra-meta','fixture'," || current || ");"
+  extra=extra || "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('graph-extra-content','graph-extra-content-digest','Atlas appears in another note.','graph-extra-input');"
+  extra=extra || "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('graph-extra-chunk','graph-extra-revision',1,0,30,'graph-extra-content','graph-extra-continuity','fixture','direct'," || current || ");"
+  extra=extra || "INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('graph-extra-atlas-mention','graph-atlas','graph-extra-chunk',0,5," || current || ")"
+  errors=errors+check(sqliteexec(db,extra)=0,"new synthetic passage changes review context while preserving the exact existing support")
+  errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept","graph-atlas","","",700000,.jsondocument(policy),duplicate_task,error)=0 & duplicate_task<>"" & duplicate_task<>task,"changed graph context gives the exact support an independent reviewable task " || error)
+  duplicate_job=scalartext(db,"SELECT job_id FROM maintenance_windows WHERE state='active' ORDER BY window_id DESC LIMIT 1")
+  errors=errors+check(nextwindow(store,policy,duplicate_job,error)=0 & duplicate_job<>"","dispatch independent duplicate-support task " || error)
+  errors=errors+check(runresolution(store,duplicate_job,duplicate_task,response,error)=0,"worker queues duplicate exact-support proposal " || error)
+  duplicate_review=scalartext(db,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(duplicate_task) || " AND review_type='maintenance-resolution' AND state='pending'")
+  errors=errors+check(duplicate_review<>"" & duplicate_review<>review,"duplicate support has a distinct pending review")
+  prior_claims=scalarint(db,"SELECT count(*) FROM claims WHERE source_concept_id='graph-atlas' AND target_concept_id='graph-beacon' AND visible_to_generation IS NULL")
+  prior_supports=scalarint(db,"SELECT count(*) FROM claim_support WHERE revision_chunk_id='graph-chunk' AND visible_to_generation IS NULL")
+  prior_claim_id=scalartext(db,"SELECT claim_id FROM claims WHERE source_concept_id='graph-atlas' AND target_concept_id='graph-beacon' AND visible_to_generation IS NULL")
+  prior_support_id=scalartext(db,"SELECT support_id FROM claim_support WHERE revision_chunk_id='graph-chunk' AND visible_to_generation IS NULL")
+  prior_runs=scalarint(db,"SELECT count(*) FROM provider_runs")
+  prior_generation=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  if duplicate_review<>"" then errors=errors+check(reviewbacklogdecision(store,duplicate_review,"accept",genericprofile(),error)=0,"independent review settles identical active support " || error)
+  errors=errors+check(prior_claims=1 & prior_supports=1 & pos("claim-sha256:",prior_claim_id)=1 & pos("support-sha256:",prior_support_id)=1 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=prior_generation & scalarint(db,"SELECT count(*) FROM claims WHERE claim_id=" || _testquote(prior_claim_id) || " AND visible_to_generation IS NULL")=1 & scalarint(db,"SELECT count(*) FROM claim_support WHERE support_id=" || _testquote(prior_support_id) || " AND visible_to_generation IS NULL")=1 & scalarint(db,"SELECT count(*) FROM provider_runs")=prior_runs & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(duplicate_task) || " AND disposition='propose-relationship:review:accept' AND applied_generation IS NULL")=1 & scalartext(db,"SELECT state FROM reviews WHERE review_id=" || _testquote(duplicate_review))="accepted" & scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(duplicate_task))="resolved","active exact support review settles with unchanged hashed identities and no second generation or provider call")
+  errors=errors+staleworkerrelationshipchecks(store,policy,"reject")
+  errors=errors+staleworkerrelationshipchecks(store,policy,"dismiss")
+  return errors
 
 aliascoalescencechecks: procedure = .int
   arg store=.ragstorehandle,raw=.string
@@ -1167,7 +1318,7 @@ main: procedure = .int
   arg args = .string[]
   if args.0 < 1 | args.0 > 2 then return 2
   selected_case = "core"; if args.0=2 then selected_case=args[2]
-  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" & selected_case<>"recording" & selected_case<>"reconsideration" then return 2
+  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" & selected_case<>"recording" & selected_case<>"reconsideration" & selected_case<>"sparse-edge" then return 2
   path = args[1]; errors = 0; error = ""; store = .ragstorehandle
   /* Applicability is a request contract as well as an apply-time guard. */
   note_schema = backlogschema("note",0); alias_schema = backlogschema("alias-issue",0)
@@ -1207,6 +1358,13 @@ main: procedure = .int
 
 
   policy_json = '{"mode":"automatic","window_seconds":1000,"automatic_actions":"reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate","maximum_impact":100,"maximum_attempts":3,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":100,"resolution_prompt":"Fixture resolution","knowledge_policy":"fixture-v1","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":100,"model_calls":100,"input_budget":10000000,"output_budget":1000000,"cost_budget":0,"codex_turns":0}'
+  if selected_case="sparse-edge" then do
+    errors=errors+sparseedgechecks(store,policy_json)
+    call closeragstore store,error
+    if errors>0 then return 1
+    say "DURABLE_BACKLOG_OK sparse-edge"
+    return 0
+  end
   if selected_case="reconsideration" then do
     errors=errors+reconsiderationchecks(store,policy_json)
     call closeragstore store,error

@@ -56,12 +56,13 @@ and subsequent owners. Operator settings still enter through `crexxrag.conf`.
 | `raganswercontract` / `raganswerreferences` / `ragreportcontract` | Answer and advisory-report message/schema pairs; answer references project a bounded context and restore canonical citations. Consumed by `ragqueryprovider` and `ragqueryservice`; token/byte ceilings remain in `ragquerypolicy`. |
 | `ragpromptinspection` | Public projection of those same builders, including exact system/schema hashes; no provider or library access. |
 
-Resolution contract `/8` requires every strict-schema property, including
-`dispositions`. Non-lifecycle actions return an empty array; only split, merge
+Resolution contract `/9` requires every strict-schema property, including
+`dispositions` and `relationship_type`. Non-lifecycle actions return an empty
+dispositions array; only split, merge
 and retire may carry nonempty, exact-census impact. `ragbacklog` retains the
 legacy absent-field form for already retained responses. The contract owner
-verifies exact frozen `/7` prompt and schema hashes before an old queued item
-uses the repaired `/8` request; the stored input and hashes remain immutable.
+verifies exact frozen `/7` and `/8` prompt and schema hashes before an old queued
+item uses the current request; the stored input and hashes remain immutable.
 An unsupported or altered binding is refused with an evidence-refresh action.
 
 `ragapplicationprovider` retains execution, input-envelope checks, receipt
@@ -847,9 +848,20 @@ failure, and it does not weaken the validator to force a plan through.
 `ragclaims` returns the stored review identity; `ragimprove` retains that result
 for each proposal, and public apply renders paired proposal/review IDs. Consumers
 use those IDs directly rather than scanning reviews or reconstructing hashes.
-Task resolution does not itself add relationships absent from the graph; those
-require separately grounded claim proposals. Neither exploration nor an LLM's
-reasoning bypasses ownership, exact-plan, review or lifecycle retirement gates.
+For a standalone sparse-node concept task, `/9` can return one
+`propose-relationship` action. `ragbacklog` binds its outbound subject and
+catalogue target to one exact cited passage containing resolved mentions of
+both active endpoints. The response carries a profile-permitted relationship
+type, source-supported qualifiers and optional effective dates; the model's
+semantic interpretation remains untrusted. Worker and external-agent paths
+both queue mandatory human review. The public impact preview names the
+prospective claim and support IDs, while leaving the graph unchanged.
+Acceptance rechecks the frozen evidence,
+uses `ragclaims` validation and its stable claim/support identities, and stages
+the edge through the existing claim publication transaction. A repeated exact
+support settles without a second graph generation. Other claim proposals
+retain their separate public path. Neither exploration nor an LLM's reasoning
+bypasses ownership, exact-plan, review or lifecycle retirement gates.
 
 ## Historic observability
 

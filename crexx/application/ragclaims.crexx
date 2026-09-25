@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragclaims expose activeclaimconcept validateassessment ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention chunkrankprojection rankchunk validateproposal applyproposal applyproposaltransaction applyclaimedproposal retractsupport traverseclaims
+namespace ragclaims expose activeclaimconcept validateassessment ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention chunkrankprojection rankchunk validateproposal proposalidentities applyproposal applyproposaltransaction applyclaimedproposal retractsupport traverseclaims
 
 import rxfnsb
 import rxjson
@@ -557,6 +557,12 @@ applyproposal: procedure = .int
   arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expected_generation = .int, config_snapshot_id = .string, expose result = .ragproposalresult, expose error = .string
   return _applyproposal(store, proposal, policy, expected_generation, config_snapshot_id, "", "", 0, "", result, error)
 
+proposalidentities: procedure = .int
+  arg proposal=.ragextractionproposal,policy=.ragclaimpolicy,expose claim_id=.string,expose support_id=.string
+  claim_id = "claim-sha256:" || rxhash..sha256hex((proposal.source_concept_id() || "00"x || proposal.relationship_type() || "00"x || proposal.target_concept_id() || "00"x || proposal.direction() || "00"x || proposal.qualifiers_json() || "00"x || proposal.effective_from() || "00"x || proposal.effective_to() || "00"x || policy.policy_version()) as .binary)
+  support_id = "support-sha256:" || rxhash..sha256hex((claim_id || "00"x || proposal.revision_chunk_id() || "00"x || proposal.span_start() || "00"x || proposal.span_end() || "00"x || proposal.polarity() || "00"x || proposal.extractor_identity()) as .binary)
+  return 0
+
 /* The caller owns the staging generation and IMMEDIATE transaction. Validate
  * against its provisional graph, retaining the ordinary public plan checks. */
 applyproposaltransaction: procedure = .int
@@ -626,8 +632,8 @@ _applyproposal: procedure = .int
   if validation.status() \= 0 then do; error = validation.reason(); result = .ragproposalresult(-1, "rejected", expected_generation, "", "", "", 0, error); return -1; end
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   if current \= expected_generation then do; error = "published generation changed; re-plan"; result = .ragproposalresult(-2, "stale", current, "", "", "", 0, error); return -2; end
-  claim_id = "claim-sha256:" || rxhash..sha256hex((proposal.source_concept_id() || "00"x || proposal.relationship_type() || "00"x || proposal.target_concept_id() || "00"x || proposal.direction() || "00"x || proposal.qualifiers_json() || "00"x || proposal.effective_from() || "00"x || proposal.effective_to() || "00"x || policy.policy_version()) as .binary)
-  support_id = "support-sha256:" || rxhash..sha256hex((claim_id || "00"x || proposal.revision_chunk_id() || "00"x || proposal.span_start() || "00"x || proposal.span_end() || "00"x || proposal.polarity() || "00"x || proposal.extractor_identity()) as .binary)
+  claim_id="";support_id=""
+  ignored=proposalidentities(proposal,policy,claim_id,support_id)
   if validation.disposition() = "accepted" then do
     existing_support = _boundcount(store.database(), "SELECT count(*) FROM claim_support WHERE support_id=?1", support_id)
     if existing_support < 0 then do; error = "cannot inspect proposal identity"; return -3; end

@@ -210,6 +210,7 @@ ragapplicationprovider: class implements .ragworkprovider
   _extraction: method = .ragworkproviderresult
     arg document = .jsondocument, root = .int, input_json = .string, claim = .ragworkclaim, provider_config = .ragproviderconfig, backend = .provider, receipt_body = ""
     empty_proposal = .ragextractionproposal
+    operational_input = ""
     messages = .providermessage[]; inputs = .string[]
     role_name = _jsonstring(document,root,"role"); if role_name = "" then role_name = "extractor"
     role_policy = rolebinding(_config,role_name)

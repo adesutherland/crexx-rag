@@ -18,6 +18,7 @@ import ragstore
 import ragmaintain
 import raggrounding
 import ragclaims
+import ragclaimrules
 import raglifecycle
 import ragadmission
 import ragrepository
@@ -1706,15 +1707,22 @@ validatebacklogresponse: procedure = .int
   arg database = .binary, task_id = .string, response = .string, expose grounding_json = .string, expose error = .string, policy_json = ""
   error = ""; grounding_json = "[]"; result = .jsondocument(response)
   if _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id)) = "provenance-chunk" then return validateenrichment(database,task_id,response,grounding_json,error)
-  if result.valid() \= 1 | result.node_type(result.root()) \= "object" | result.node_count(result.root()) < 12 | result.node_count(result.root()) > 13 | length(response) > 131072 then do; error = "resolution response has an invalid bounded shape"; return -1; end
+  if result.valid() \= 1 | result.node_type(result.root()) \= "object" | result.node_count(result.root()) < 12 | result.node_count(result.root()) > 14 | length(response) > 131072 then do; error = "resolution response has an invalid bounded shape"; return -1; end
   required = "action object_id target_concept_id canonical_label concept_type reason effective_from effective_to qualifiers_json question"
   do i = 1 to words(required)
     value = ""
     if result.node_string(result.member(result.root(),word(required,i)),value) \= 0 then do; error = "resolution response omitted a required string"; return -1; end
   end
   action = _s(result,"action")
+  relationship_node=result.member(result.root(),"relationship_type")
+  relationship_type=_s(result,"relationship_type")
+  if relationship_node>0 & result.node_type(relationship_node)<>"string" then do;error="resolution relationship type must be a string";return -1;end
+  if action="propose-relationship" then do
+    if result.node_count(result.root())<>14 | relationship_type="" then do;error="relationship proposal requires the current response contract and a type";return -1;end
+  end
+  else if relationship_type<>"" then do;error="only a relationship proposal may set relationship_type";return -1;end
   dispositions_node=result.member(result.root(),"dispositions")
-  if result.node_count(result.root())=13 & result.node_type(dispositions_node)<>"array" then do;error="only lifecycle dispositions may extend a resolution response";return -1;end
+  if result.node_count(result.root())>=13 & result.node_type(dispositions_node)<>"array" then do;error="only lifecycle dispositions may extend a resolution response";return -1;end
   if result.node_type(dispositions_node)="array" then do
     if result.node_count(dispositions_node)>10000 | (result.node_count(dispositions_node)>0 & wordpos(action,"split merge retire")=0) then do;error="nonempty impact dispositions apply only to bounded split, merge or retirement";return -1;end
     do i=1 to result.node_count(dispositions_node)
@@ -1761,6 +1769,9 @@ validatebacklogresponse: procedure = .int
   subject_type = _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id))
   workflow = _text(database,"SELECT workflow_id FROM maintenance_tasks WHERE task_id=" || _q(task_id)) \= ""
   if wordpos(action,resolutionactions(subject_type,workflow)) = 0 then do; error = "resolution action is not applicable to its subject"; return -1; end
+  if action="propose-relationship" then do
+    if _s(result,"concept_type")<>"" | _s(result,"canonical_label")<>"" | _s(result,"effective_to")<>"" & _s(result,"effective_from")="" | _s(result,"question")<>"" | result.node_count(successor_node)<>0 then do;error="relationship proposal contains unrelated mutation fields";return -1;end
+  end
   if action = "distinct" | action = "reuse" then do
     selected_label = ""; selected_type = ""
     if _identityselection(database,task_id,result,selected_label,selected_type,error) <> 0 then return -1
@@ -1819,7 +1830,42 @@ validatebacklogresponse: procedure = .int
     end
   end
   grounding_json = grounds || "]"
+  if action="propose-relationship" then if _validaterelationship(database,task_id,result,packet,.jsondocument(grounding_json),error)<>0 then return -1
   if policy_json<>"" then return _validateoutcome(database,task_id,result,.jsondocument(policy_json),error)
+  return 0
+
+_validaterelationship: procedure = .int
+  arg database=.binary,task_id=.string,result=.jsondocument,packet=.jsondocument,grounds=.jsondocument,expose error=.string
+  subject=.jsondocument(packet.node_get(packet.member(packet.root(),"subject")));source=_s(result,"object_id");target=_s(result,"target_concept_id")
+  if _text(database,"SELECT kind FROM maintenance_tasks WHERE task_id=" || _q(task_id))<>"sparse-node" | _s(subject,"id")<>source | source="" | target="" | source=target | _text(database,"SELECT workflow_id FROM maintenance_tasks WHERE task_id=" || _q(task_id))<>"" then do;error="relationship proposal must start at its sparse-node subject and select a different target";return -1;end
+  if grounds.node_count(grounds.root())<>1 | _number(database,"SELECT count(*) FROM json_each(" || _q(packet.node_get(packet.member(packet.root(),"catalogue"))) || ") WHERE json_extract(value,'$.concept_id')=" || _q(target))<>1 then do;error="relationship target must be in the selected source catalogue with one citation";return -1;end
+  ground=.jsondocument(grounds.node_get(grounds.element(grounds.root(),1)));chunk=_s(ground,"revision_chunk_id");begin=_n(ground,"span_start");finish=_n(ground,"span_end")
+  if chunk="" | begin<0 | finish<=begin then do;error="relationship source span is invalid";return -1;end
+  source_mentions=_number(database,"SELECT count(*) FROM mentions WHERE concept_id=" || _q(source) || " AND revision_chunk_id=" || _q(chunk) || " AND span_start>=" || begin || " AND span_end<=" || finish || " AND visible_to_generation IS NULL")
+  target_mentions=_number(database,"SELECT count(*) FROM mentions WHERE concept_id=" || _q(target) || " AND revision_chunk_id=" || _q(chunk) || " AND span_start>=" || begin || " AND span_end<=" || finish || " AND visible_to_generation IS NULL")
+  if source_mentions<1 | target_mentions<1 then do;error="relationship quotation must contain resolved mentions of both selected endpoints";return -1;end
+  return 0
+
+_relationshipproposal: procedure = .int
+  arg store=.ragstorehandle,task_id=.string,result=.jsondocument,profile=.ragprofile,expose proposal=.ragextractionproposal,expose claim_policy=.ragclaimpolicy,expose claim_id=.string,expose support_id=.string,expose error=.string
+  database=store.database();grounds="";claim_id="";support_id=""
+  if validatebacklogresponse(database,task_id,result.node_get(result.root()),grounds,error)<>0 then return -1
+  ground=.jsondocument(grounds);span=.jsondocument(ground.node_get(ground.element(ground.root(),1)))
+  source=_s(result,"object_id");target=_s(result,"target_concept_id");chunk=_s(span,"revision_chunk_id")
+  source_label=_text(database,"SELECT canonical_label FROM concepts WHERE concept_id=" || _q(source) || " AND lifecycle_state='active' AND visible_to_generation IS NULL")
+  source_type=_text(database,"SELECT concept_type FROM concepts WHERE concept_id=" || _q(source) || " AND lifecycle_state='active' AND visible_to_generation IS NULL")
+  target_label=_text(database,"SELECT canonical_label FROM concepts WHERE concept_id=" || _q(target) || " AND lifecycle_state='active' AND visible_to_generation IS NULL")
+  target_type=_text(database,"SELECT concept_type FROM concepts WHERE concept_id=" || _q(target) || " AND lifecycle_state='active' AND visible_to_generation IS NULL")
+  scope=_text(database,"SELECT s.observed_uri FROM revision_chunks r JOIN source_revisions v ON v.revision_id=r.revision_id JOIN sources s ON s.source_id=v.source_id WHERE r.revision_chunk_id=" || _q(chunk) || " AND r.visible_to_generation IS NULL AND s.lifecycle_state='active'")
+  lineage=_text(database,"SELECT v.source_id FROM revision_chunks r JOIN source_revisions v ON v.revision_id=r.revision_id WHERE r.revision_chunk_id=" || _q(chunk))
+  if source_label="" | source_type="" | target_label="" | target_type="" | scope="" | lineage="" then do;error="relationship source or endpoint identity is no longer active";return -1;end
+  qualifiers=_text(database,"SELECT json(" || _q(_s(result,"qualifiers_json")) || ")")
+  proposal=.ragextractionproposal("crexx-rag.extraction-proposal/1","maintenance:" || _hash(task_id || "00"x || result.node_get(result.root())),"claim",source,source_label,source_type,_s(result,"relationship_type"),target,target_label,target_type,"outbound",qualifiers,_s(result,"effective_from"),_s(result,"effective_to"),chunk,_n(span,"span_start"),_n(span,"span_end"),"support","assertion","direct","",lineage,1000000,"maintenance-resolution","reviewed-decision",task_id,resolutioncontractversion(),"maintenance-resolution/9",scope,profile.profile_id(),0)
+  claim_policy=effectiveclaimpolicy(profile)
+  validation=.ragproposalvalidation
+  if validateproposal(store,proposal,claim_policy,validation,error)<>0 then return -1
+  if validation.disposition()<>"accepted" then do;error="relationship claim requires separate identity or conflict review: " || validation.reason();return -1;end
+  ignored=proposalidentities(proposal,claim_policy,claim_id,support_id)
   return 0
 
 checkbacklogclaim: procedure = .int
@@ -1899,6 +1945,7 @@ completebacklogdecision: procedure = .int
   if action = "investigate" then decision_state = "unresolved"
   if action = "defer" then decision_state = "unresolved"
   if action \= "unresolved" & (_s(policy,"mode") \= "automatic" | wordpos(action,_s(policy,"automatic_actions")) = 0) then decision_state = "review"
+  if action="propose-relationship" then decision_state="review"
   if action = "escalate" then decision_state = "unresolved"
   if wordpos(action,"search read extract")>0 then decision_state = "pending"
   if action = "assess-provenance" & _s(policy,"enrichment") \= "" & _s(policy,"mode") = "automatic" then decision_state = "resolved"
@@ -1913,6 +1960,10 @@ completebacklogdecision: procedure = .int
   if status < 0 then return _rollback(database,error,error)
   if status \= 0 | fingerprint \= _s(task,"evidence_fingerprint") then do
     decision_state = "superseded"; action = "stale-evidence"
+  end
+  if action="propose-relationship" & decision_state="review" then do
+    proposal=.ragextractionproposal;claim_policy=.ragclaimpolicy;claim_id="";support_id=""
+    if _relationshipproposal(store,task_id,result,profile,proposal,claim_policy,claim_id,support_id,error)<>0 then return _rollback(database,error,error)
   end
   if decision_state = "resolved" & wordpos(action,"split merge type-correction retire restore synonym") > 0 then do
     subject = _text(database,"SELECT subject_id FROM maintenance_tasks WHERE task_id=" || _q(task_id) || " AND subject_type='concept'")
@@ -1975,11 +2026,16 @@ reviewbacklogdecision: procedure = .int
   row = .jsondocument(_text(database,"SELECT json_object('task_id',d.task_id,'response',d.response_json,'job_id',i.job_id,'profile_hash',o.profile_hash) FROM maintenance_decisions d JOIN job_items i ON i.item_id=d.item_id JOIN maintenance_provider_outputs o ON o.provider_run_id=d.provider_run_id AND o.task_id=d.task_id WHERE d.decision_id=" || _q(decision_id) || " AND d.disposition LIKE '%:review'"))
   if decision_id = "" | row.valid() \= 1 then do; error = "pending durable resolution review is unavailable"; return -1; end
   if _s(row,"profile_hash") \= ragsha256(canonicalprofile(profile)) then do; error = "resolution review profile has changed"; return -1; end
-  task_id = _s(row,"task_id"); job_id = _s(row,"job_id"); response = _s(row,"response"); grounds = ""
-  if validatebacklogresponse(database,task_id,response,grounds,error) \= 0 then return -1
+  task_id = _s(row,"task_id"); job_id = _s(row,"job_id"); response = _s(row,"response")
   current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1"); generation = 0
   review_result = .jsondocument(response)
-  if decision = "accept" & wordpos(_s(review_result,"action"),"no-change insufficient-evidence defer") = 0 then do
+  already_applied=0
+  if decision="accept" & _s(review_result,"action")="propose-relationship" then do
+    proposal=.ragextractionproposal;claim_policy=.ragclaimpolicy;claim_id="";support_id=""
+    if _relationshipproposal(store,task_id,review_result,profile,proposal,claim_policy,claim_id,support_id,error)<>0 then return -1
+    already_applied=_number(database,"SELECT count(*) FROM claim_support WHERE support_id=" || _q(support_id) || " AND visible_to_generation IS NULL")
+  end
+  if decision = "accept" & wordpos(_s(review_result,"action"),"no-change insufficient-evidence defer") = 0 & already_applied=0 then do
     snapshot_id = _text(database,"SELECT config_snapshot_id FROM jobs WHERE job_id=" || _q(job_id))
     if begingeneration(store,current,snapshot_id,"reviewed resolution " || task_id,generation,error) \= 0 then return -3
   end
@@ -2036,6 +2092,19 @@ _applydecision: procedure = .int
   database = store.database(); action = _s(result,"action"); kind = _s(task,"subject_type"); object = _s(task,"subject_id"); target = _s(result,"target_concept_id"); workflow_id = _s(task,"workflow_id")
   if action = "no-change" | action = "insufficient-evidence" then return 0
   if action = "defer" then return _applydeferral(database,task_id,result,error)
+  if action="propose-relationship" then do
+    proposal=.ragextractionproposal;claim_policy=.ragclaimpolicy;claim_id="";support_id=""
+    if _relationshipproposal(store,task_id,result,profile,proposal,claim_policy,claim_id,support_id,error)<>0 then return -1
+    if _number(database,"SELECT count(*) FROM claim_support WHERE support_id=" || _q(support_id) || " AND visible_to_generation IS NULL")=1 then return 0
+    if generation<1 then do;error="relationship publication requires a reviewed generation";return -1;end
+    applied=.ragproposalresult
+    snapshot_id=_text(database,"SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1")
+    if applyproposaltransaction(store,proposal,claim_policy,current,snapshot_id,generation,applied,error)<>0 | applied.disposition()<>"accepted" then do
+      if error="" then error="reviewed relationship did not pass shared claim publication"
+      return -1
+    end
+    return 0
+  end
   if action = "assess-provenance" & kind = "provenance-chunk" then return applyenrichment(store,task_id,result.node_get(result.root()),profile,job_id,current,generation,error)
   if action = "reuse" | action = "distinct" then do
     if _resolvealias(store,task_id,task,result,profile,current,generation,error) \= 0 then return -1
@@ -2347,12 +2416,17 @@ planagentaction: procedure = .int
   action_snapshot_id = _text(database,"SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1")
   library = _text(database,"SELECT library_id FROM library_meta WHERE singleton=1")
   job_id = _text(database,"SELECT job_id FROM maintenance_windows WHERE policy_fingerprint=" || _q(_s(task,"policy_fingerprint")) || " ORDER BY created_epoch DESC,window_id DESC LIMIT 1")
-  impact = "[]"; grounds = "[]"
+  impact = "[]"; grounds = "[]"; proposed_claim_id=""; proposed_support_id=""
   if kind = "resolution" then do
     fresh = ""; fingerprint = ""
     if _freshbacklogtask(database,task_id,config.maintenance().maximum_evidence_bytes(),fresh,fingerprint,error) \= 0 | fingerprint \= _s(task,"evidence_fingerprint") then do; error = "task evidence changed or exceeds its bound; obtain a fresh maintenance task"; return -1; end
     if validatebacklogresponse(database,task_id,response,grounds,error) \= 0 then return -1
     result = .jsondocument(response); action = _s(result,"action")
+    if action="propose-relationship" then do
+      proposal=.ragextractionproposal;claim_policy=.ragclaimpolicy;claim_id="";support_id=""
+      if _relationshipproposal(store,task_id,result,profile,proposal,claim_policy,claim_id,support_id,error)<>0 then return -1
+      proposed_claim_id=claim_id;proposed_support_id=support_id
+    end
     if action = "escalate" then do; error = "use an escalation plan to flag advanced reasoning"; return -1; end
     if wordpos(action,"search read extract")>0 then do; error="external agents use query inspect, citation show and existing extraction plans, then propose a grounded decision"; return -1; end
     types = profile.concept_types(); selected_type = _s(result,"concept_type"); successors = result.member(result.root(),"successors")
@@ -2363,7 +2437,7 @@ planagentaction: procedure = .int
     end
     outcome_policy = .jsondocument(backlogpolicy(config,profile,""))
     if _validateoutcome(database,task_id,result,outcome_policy,error) <> 0 then return -1
-    if _agenteffects(database,config,task_id,task,result,current,impact,error) \= 0 then return -1
+    if _agenteffects(database,config,task_id,task,result,current,impact,error,proposed_claim_id,proposed_support_id) \= 0 then return -1
   end
   else if response \= "" then do; error = "escalation cannot contain a corpus resolution"; return -1; end
   canonical = '{"schema":"crexx-rag.agent-action/1","kind":' || jsonquote(kind) || ',"library_id":' || jsonquote(library) || ',"generation":' || current || ',"config_snapshot_id":' || jsonquote(action_snapshot_id) || ',"profile_hash":' || jsonquote(_hash(canonicalprofile(profile))) || ',"task_id":' || jsonquote(task_id) || ',"task_stamp":' || jsonquote(_hash(stamp)) || ',"evidence_fingerprint":' || jsonquote(_s(task,"evidence_fingerprint")) || ',"job_id":' || jsonquote(job_id) || ',"actor":' || jsonquote(actor) || ',"model":' || jsonquote(model) || ',"attribution":"self-reported external agent; provider usage not measured here","reason":' || jsonquote(reason) || ',"response_json":' || jsonquote(response) || ',"grounding":' || grounds || ',"impact":' || impact || '}'
@@ -2371,9 +2445,13 @@ planagentaction: procedure = .int
   return 0
 
 _agenteffects: procedure = .int
-  arg database = .binary, config = .ragconfig, task_id = .string, task = .jsondocument, result = .jsondocument, current = .int, expose impact = .string, expose error = .string
+  arg database = .binary, config = .ragconfig, task_id = .string, task = .jsondocument, result = .jsondocument, current = .int, expose impact = .string, expose error = .string, proposed_claim_id = "", proposed_support_id = ""
   impact = "[]"; action = _s(result,"action")
   if wordpos(action,"no-change insufficient-evidence defer")>0 then return 0
+  if action="propose-relationship" then do
+    impact='[{"object_type":"claim","object_id":' || jsonquote(proposed_claim_id) || ',"support_id":' || jsonquote(proposed_support_id) || ',"effect":"propose","source_concept_id":' || jsonquote(_s(result,"object_id")) || ',"relationship_type":' || jsonquote(_s(result,"relationship_type")) || ',"target_concept_id":' || jsonquote(_s(result,"target_concept_id")) || ',"direction":"outbound","qualifiers":' || _s(result,"qualifiers_json") || '}]'
+    return 0
+  end
   parent = ""
   if _s(task,"subject_type") = "concept" then parent = _s(task,"subject_id")
   if _s(task,"subject_type") = "note" & wordpos(action,"split merge synonym type-correction retire restore")>0 then do
@@ -2477,10 +2555,10 @@ previewagentaction: procedure = .int
   plan = .jsondocument(canonical)
   if plan.valid() <> 1 then do; error = "pending external resolution review was not found"; return -1; end
   task = .jsondocument(_agenttaskstamp(database,_s(plan,"task_id")))
-  return _checkagentreview(database,plan,task,config,profile,impact,error)
+  return _checkagentreview(store,database,plan,task,config,profile,impact,error)
 
 _checkagentreview: procedure = .int
-  arg database = .binary, plan = .jsondocument, task = .jsondocument, config = .ragconfig, profile = .ragprofile, expose impact = .string, expose error = .string
+  arg store = .ragstorehandle, database = .binary, plan = .jsondocument, task = .jsondocument, config = .ragconfig, profile = .ragprofile, expose impact = .string, expose error = .string
   current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1"); task_id = _s(plan,"task_id")
   if taskwaiveractive(database,task_id)<>0 then do; error="task is waived; use maintain retry to reopen it before proposing work"; return -1; end
   if current < _n(plan,"generation") | _s(plan,"profile_hash") <> _hash(canonicalprofile(profile)) | _s(plan,"config_snapshot_id") <> _text(database,"SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1") then do; error = "external resolution generation, profile or configuration changed; reject and re-plan"; return -1; end
@@ -2489,10 +2567,16 @@ _checkagentreview: procedure = .int
   fresh = ""; fingerprint = ""; grounds = ""
   if _freshbacklogtask(database,task_id,config.maintenance().maximum_evidence_bytes(),fresh,fingerprint,error) <> 0 | fingerprint <> _s(plan,"evidence_fingerprint") then do; error = "external resolution evidence changed; reject and re-plan"; return -1; end
   if validatebacklogresponse(database,task_id,_s(plan,"response_json"),grounds,error) <> 0 then return -1
-  result = .jsondocument(_s(plan,"response_json"))
+  result = .jsondocument(_s(plan,"response_json"));proposed_claim_id="";proposed_support_id=""
+  if _s(result,"action")="propose-relationship" then do
+    /* The public preview and transactional review compose the same claim gate. */
+    proposal=.ragextractionproposal;claim_policy=.ragclaimpolicy;claim_id="";support_id=""
+    if _relationshipproposal(store,task_id,result,profile,proposal,claim_policy,claim_id,support_id,error)<>0 then return -1
+    proposed_claim_id=claim_id;proposed_support_id=support_id
+  end
   policy = .jsondocument(backlogpolicy(config,profile,""))
   if _validateoutcome(database,task_id,result,policy,error) <> 0 then return -1
-  if _agenteffects(database,config,task_id,task,result,current,impact,error) <> 0 then return -1
+  if _agenteffects(database,config,task_id,task,result,current,impact,error,proposed_claim_id,proposed_support_id) <> 0 then return -1
   /* Legacy reviews without an effect census retain their original-generation
    * recovery path. Reuse across publication additionally requires exact effects. */
   if current > _n(plan,"generation") & impact <> plan.node_get(plan.member(plan.root(),"impact")) then do; error="external resolution effects changed; reject and re-plan using the retained response"; return -1; end
@@ -2541,10 +2625,16 @@ reviewagentaction: procedure = .int
   if decision = "accept" then do
     current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
     impact = ""
-    if _checkagentreview(database,plan,task,config,profile,impact,error) \= 0 then return _rollback(database,error,error)
+    if _checkagentreview(store,database,plan,task,config,profile,impact,error) \= 0 then return _rollback(database,error,error)
     action = _s(result,"action")
     if action \= "unresolved" then do
-      if wordpos(action,"no-change insufficient-evidence defer")=0 then if stagegeneration(store,current,_s(plan,"config_snapshot_id"),"external resolution " || task_id,generation,error) \= 0 then return _rollback(database,error,error)
+      already_applied=0
+      if action="propose-relationship" then do
+        proposal=.ragextractionproposal;claim_policy=.ragclaimpolicy;claim_id="";support_id=""
+        if _relationshipproposal(store,task_id,result,profile,proposal,claim_policy,claim_id,support_id,error)<>0 then return _rollback(database,error,error)
+        already_applied=_number(database,"SELECT count(*) FROM claim_support WHERE support_id=" || _q(support_id) || " AND visible_to_generation IS NULL")
+      end
+      if wordpos(action,"no-change insufficient-evidence defer")=0 & already_applied=0 then if stagegeneration(store,current,_s(plan,"config_snapshot_id"),"external resolution " || task_id,generation,error) \= 0 then return _rollback(database,error,error)
       policy = .jsondocument(backlogpolicy(config,profile,""))
       if _applydecision(store,task_id,task,result,profile,_s(plan,"job_id"),current,generation,policy,error) \= 0 then return _rollback(database,error,error)
       task_state = "resolved"; if action = "investigate" | action = "defer" then task_state = "unresolved"
