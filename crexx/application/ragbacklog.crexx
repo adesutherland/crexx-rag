@@ -553,12 +553,13 @@ enqueuebacklogtask: procedure = .int
   arg database = .binary, kind = .string, subject_type = .string, subject_id = .string, workflow_id = .string, parent_task_id = .string, priority = .int, policy = .jsondocument, expose task_id = .string, expose error = .string
   evidence = ""; fingerprint = ""; task_id = ""; reopen_reason=""
   group_filter="kind=" || _q(kind) || " AND subject_type=" || _q(subject_type) || " AND subject_id=" || _q(subject_id) || " AND workflow_id=" || _q(workflow_id)
-  settled=""
+  settled="";waiting=""
   if workflow_id="" & (wordpos(subject_type,"concept alias-issue note gap")>0 | (subject_type="chunk" & kind="alias-follow-up:chunk")) then do
     /* Ownership and explicit holds survive discovery of a changed question. */
     held=_text(database,"SELECT t.task_id FROM maintenance_tasks t WHERE " || group_filter || " AND t.state<>'superseded' AND (" || taskwaived("t.task_id") || " OR EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=t.task_id AND r.state='pending') OR EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=t.task_id AND i.state IN('queued','running','cancel_requested'))) ORDER BY t.created_epoch DESC,t.task_id LIMIT 1")
     if held<>"" then do;task_id=held;error="";return 0;end
     settled=_text(database,"SELECT t.task_id FROM maintenance_tasks t WHERE " || group_filter || " AND t.state='resolved' AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_type=t.subject_type AND c.subject_id=t.subject_id AND c.workflow_id=t.workflow_id) ORDER BY t.updated_epoch DESC,t.task_id LIMIT 1")
+    waiting=_text(database,"SELECT t.task_id FROM maintenance_tasks t WHERE " || group_filter || " AND t.state='unresolved' AND t.escalation_origin IN('evidence-wait','capability-wait') AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_type=t.subject_type AND c.subject_id=t.subject_id AND c.workflow_id=t.workflow_id) ORDER BY t.updated_epoch DESC,t.task_id LIMIT 1")
   end
   /* A hard earliest date survives rediscovery and routine route edits. */
   deferred = _text(database,"SELECT task_id FROM maintenance_tasks WHERE kind=" || _q(kind) || " AND subject_type=" || _q(subject_type) || " AND subject_id=" || _q(subject_id) || " AND workflow_id=" || _q(workflow_id) || " AND state IN('pending','unresolved','review','failed') AND not_before_epoch>unixepoch() ORDER BY not_before_epoch DESC,created_epoch,task_id LIMIT 1")
@@ -591,6 +592,13 @@ enqueuebacklogtask: procedure = .int
     fingerprint = _hash(evidence); state = "review"
   end
   else if status \= 0 then return -1
+  if waiting<>"" & state="pending" then do
+    previous=_reviewcontext(database,_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(waiting)))
+    context=_reviewcontext(database,evidence)
+    if previous=context then do;task_id=waiting;error="";return 0;end
+    if parent_task_id="" then parent_task_id=waiting
+    reopen_reason="material evidence or linked graph context changed for a waiting correction"
+  end
   if settled<>"" & state="pending" then do
     previous=_assessedcontext(database,settled)
     context=_reviewcontext(database,evidence)
@@ -613,6 +621,12 @@ enqueuebacklogtask: procedure = .int
    * redispatched by a later ordinary chunk census with the same evidence. */
   held = _text(database,"SELECT task_id FROM maintenance_tasks t WHERE kind=" || _q(kind) || " AND subject_type=" || _q(subject_type) || " AND subject_id=" || _q(subject_id) || " AND evidence_fingerprint=" || _q(fingerprint) || " AND required_capability='advanced-reasoning' AND state IN('unresolved','review') AND EXISTS(SELECT 1 FROM job_events e WHERE e.event_type='extraction-review-required' AND CASE WHEN json_valid(e.message) THEN json_extract(e.message,'$.task_id') END=t.task_id) ORDER BY created_epoch,task_id LIMIT 1")
   if held \= "" then do; task_id = held; error = ""; return 0; end
+  if parent_task_id="" & workflow_id="" & wordpos(subject_type,"concept alias-issue note gap")>0 then do
+    /* A changed unfinished question also has one lineage root. Retain its
+     * original decision and attempts, then supersede only the old packet. */
+    prior_open=_text(database,"SELECT task_id FROM maintenance_tasks WHERE " || group_filter || " AND state IN('pending','unresolved','review','failed') AND evidence_fingerprint<>" || _q(fingerprint) || " ORDER BY updated_epoch DESC,task_id DESC LIMIT 1")
+    if prior_open<>"" then parent_task_id=prior_open
+  end
   task_id = "task:" || _hash(kind || "00"x || subject_type || "00"x || subject_id || "00"x || workflow_id || "00"x || fingerprint || "00"x || _s(policy,"knowledge_policy"))
   question = _question(kind)
   reason=error; if reopen_reason<>"" then reason=reopen_reason
@@ -623,11 +637,11 @@ enqueuebacklogtask: procedure = .int
     if sqliteexec(database,sql)<>0 then do;error="cannot coalesce pending per-issue alias follow-ups";return -1;end
   end
   if settled<>"" & parent_task_id=settled then do
-    if sqliteexec(database,"UPDATE maintenance_tasks SET required_capability=(SELECT required_capability FROM maintenance_tasks WHERE task_id=" || _q(settled) || "),escalation_origin=(SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || "),escalation_reason=(SELECT escalation_reason FROM maintenance_tasks WHERE task_id=" || _q(settled) || "),not_before_epoch=(SELECT not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") WHERE task_id=" || _q(task_id) || " AND attempt_count=0")<>0 then do;error="cannot retain settled successor routing";return -1;end
+    if sqliteexec(database,"UPDATE maintenance_tasks SET required_capability=(SELECT required_capability FROM maintenance_tasks WHERE task_id=" || _q(settled) || "),escalation_origin=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") IN('evidence-wait','capability-wait') THEN '' ELSE (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") END,escalation_reason=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") IN('evidence-wait','capability-wait') THEN '' ELSE (SELECT escalation_reason FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") END,not_before_epoch=(SELECT not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") WHERE task_id=" || _q(task_id) || " AND attempt_count=0")<>0 then do;error="cannot retain settled successor routing";return -1;end
   end
   predecessor = _text(database,"SELECT task_id FROM maintenance_tasks WHERE kind=" || _q(kind) || " AND subject_type=" || _q(subject_type) || " AND subject_id=" || _q(subject_id) || " AND workflow_id=" || _q(workflow_id) || " AND task_id<>" || _q(task_id) || " AND required_capability='advanced-reasoning' AND state IN('pending','unresolved','review','failed') ORDER BY not_before_epoch DESC,updated_epoch DESC,task_id LIMIT 1")
   if predecessor<>"" then do
-    sql="UPDATE maintenance_tasks SET required_capability='advanced-reasoning',not_before_epoch=max(not_before_epoch,(SELECT not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ")),escalation_origin=(SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || "),escalation_reason=(SELECT escalation_reason FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || "),parent_task_id=CASE WHEN parent_task_id='' THEN " || _q(predecessor) || " ELSE parent_task_id END WHERE task_id=" || _q(task_id) || " AND attempt_count=0 AND state IN('pending','review')"
+    sql="UPDATE maintenance_tasks SET required_capability='advanced-reasoning',not_before_epoch=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") IN('evidence-wait','capability-wait') THEN 0 ELSE max(not_before_epoch,(SELECT not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ")) END,escalation_origin=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") IN('evidence-wait','capability-wait') THEN '' ELSE (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") END,escalation_reason=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") IN('evidence-wait','capability-wait') THEN '' ELSE (SELECT escalation_reason FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") END,parent_task_id=CASE WHEN parent_task_id='' THEN " || _q(predecessor) || " ELSE parent_task_id END WHERE task_id=" || _q(task_id) || " AND attempt_count=0 AND state IN('pending','review')"
     if sqliteexec(database,sql)<>0 then do;error="cannot preserve evidence successor handoff";return -1;end
   end
   /* Changed evidence supersedes waiting interpretations, never running work. */
@@ -667,7 +681,9 @@ _assessedcontext: procedure = .string
   arg database=.binary,task_id=.string
   value=_text(database,"SELECT json_extract(message,'$.fingerprint') FROM job_events WHERE item_id IS NULL AND event_type=" || _q("maintenance-assessed-context:" || task_id) || " ORDER BY event_id DESC LIMIT 1")
   if value<>"" then return value
-  return _text(database,"SELECT json_extract(decision_json,'$.assessed_context') FROM reviews WHERE subject_id=" || _q(task_id) || " AND state='accepted' AND json_extract(decision_json,'$.assessed_context') IS NOT NULL ORDER BY decided_at DESC,review_id DESC LIMIT 1")
+  value=_text(database,"SELECT json_extract(decision_json,'$.assessed_context') FROM reviews WHERE subject_id=" || _q(task_id) || " AND state='accepted' AND json_extract(decision_json,'$.assessed_context') IS NOT NULL ORDER BY decided_at DESC,review_id DESC LIMIT 1")
+  if value<>"" then return value
+  return _text(database,"SELECT json_extract(decision_json,'$.replacement_assessed_context') FROM reviews WHERE state='accepted' AND json_extract(decision_json,'$.replacement_task_id')=" || _q(task_id) || " ORDER BY decided_at DESC,review_id DESC LIMIT 1")
 
 _remembercontextvalue: procedure = .int
   arg database=.binary,task_id=.string,job_id=.string,value=.string,basis=.string,expose error=.string,review_id=""
@@ -689,6 +705,20 @@ _rememberassessment: procedure = .int
   if status<0 then return -1
   if status<>0 then do;error="";return 0;end
   return _remembercontextvalue(database,task_id,job_id,_reviewcontext(database,packet),"post-decision",error,review_id)
+
+/* The accepted correction review owns the replacement's assessed context,
+ * including when an external proposal has no job or maintenance window. */
+_remembercorrectedassessment: procedure = .int
+  arg database=.binary,task_id=.string,review_id=.string,result=.jsondocument,policy=.jsondocument,expose error=.string
+  if _s(result,"action")<>"correct-note" then return 0
+  corrected="note-correction:" || _hash(task_id || "00"x || _s(result,"resolution_text"))
+  assessed=_text(database,"SELECT task_id FROM maintenance_tasks WHERE subject_type='note' AND subject_id=" || _q(corrected) || " AND state='resolved'")
+  if assessed="" then do;error="corrected note assessment is unavailable";return -1;end
+  packet="";fingerprint=""
+  if buildbacklogevidence(database,"note",corrected,"",_n(policy,"maximum_evidence_bytes"),packet,fingerprint,error,100,1)<>0 then do;error="cannot assess reviewed replacement source: " || error;return -1;end
+  context=_reviewcontext(database,packet)
+  if sqliteexec(database,"UPDATE reviews SET decision_json=json_set(decision_json,'$.replacement_task_id'," || _q(assessed) || ",'$.replacement_assessed_context'," || _q(context) || ") WHERE review_id=" || _q(review_id) || " AND state='accepted'")<>0 then do;error="cannot retain reviewed replacement assessment";return -1;end
+  return 0
 
 /* Upgrade without mass reopening. Preserve the old source packet, account for
  * the recorded action, and baseline only connection fields old packets lacked. */
@@ -1099,15 +1129,15 @@ _scan: procedure = .int
   end
   return more
 
-/* Separate cursor, same bounded census. A completed task need not still satisfy
- * the open-alias or sparse-node selectors which originally discovered it. */
+/* Separate cursor, same bounded census. A settled task or explicit wait need
+ * not still satisfy the selector which originally discovered it. */
 _scansettled: procedure = .int
   arg database=.binary,policy=.jsondocument,expose error=.string,batch_items=.int,scan_token=.string
   bucket="settled-questions"
   if _number(database,"SELECT count(*) FROM maintenance_scan_cursors WHERE kind=" || _q(bucket) || " AND scan_token=" || _q(scan_token) || " AND completed=1")=1 then return 0
   prefix=left(scan_token,pos(":",scan_token,pos(":",scan_token)+1)-1)
   cursor=_text(database,"SELECT after_id FROM maintenance_scan_cursors WHERE kind=" || _q(bucket) || " AND substr(scan_token,1," || length(prefix) || ")=" || _q(prefix))
-  sql="SELECT t.task_id FROM maintenance_tasks t WHERE t.state='resolved' AND t.workflow_id='' AND t.task_id>" || _q(cursor) || " AND (t.subject_type='alias-issue' OR (t.subject_type='chunk' AND t.kind='alias-follow-up:chunk' AND EXISTS(SELECT 1 FROM revision_chunks r WHERE r.revision_chunk_id=t.subject_id AND r.visible_to_generation IS NULL)) OR (t.subject_type='concept' AND EXISTS(SELECT 1 FROM concepts c WHERE c.concept_id=t.subject_id AND c.visible_to_generation IS NULL AND c.lifecycle_state='active')) OR (t.subject_type='note' AND EXISTS(SELECT 1 FROM analysis_notes n WHERE n.note_id=t.subject_id AND n.state IN('active','resolved'))) OR (t.subject_type='gap' AND EXISTS(SELECT 1 FROM query_gaps g WHERE g.gap_id=t.subject_id AND g.state IN('open','resolved')))) AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_id=t.subject_id AND c.subject_type=t.subject_type AND c.workflow_id=t.workflow_id)" || _taskscope(policy) || " ORDER BY t.task_id LIMIT " || batch_items
+  sql="SELECT t.task_id FROM maintenance_tasks t WHERE (t.state='resolved' OR (t.state='unresolved' AND t.escalation_origin IN('evidence-wait','capability-wait'))) AND t.workflow_id='' AND t.task_id>" || _q(cursor) || " AND (t.subject_type='alias-issue' OR (t.subject_type='chunk' AND t.kind='alias-follow-up:chunk' AND EXISTS(SELECT 1 FROM revision_chunks r WHERE r.revision_chunk_id=t.subject_id AND r.visible_to_generation IS NULL)) OR (t.subject_type='concept' AND EXISTS(SELECT 1 FROM concepts c WHERE c.concept_id=t.subject_id AND c.visible_to_generation IS NULL AND c.lifecycle_state='active')) OR (t.subject_type='note' AND EXISTS(SELECT 1 FROM analysis_notes n WHERE n.note_id=t.subject_id AND n.state IN('active','resolved'))) OR (t.subject_type='gap' AND EXISTS(SELECT 1 FROM query_gaps g WHERE g.gap_id=t.subject_id AND g.state IN('open','resolved')))) AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_id=t.subject_id AND c.subject_type=t.subject_type AND c.workflow_id=t.workflow_id)" || _taskscope(policy) || " ORDER BY t.task_id LIMIT " || batch_items
   prepared=.binary;ids=.string[]
   if sqliteprepare(database,sql,prepared)<>0 then do;error="cannot prepare settled question census";return -1;end
   do forever
@@ -1387,7 +1417,7 @@ _eligiblebacklog: procedure = .string
   advanced = .jsondocument(policy.node_get(policy.member(policy.root(),"advanced_route")))
   advanced_enabled = _s(advanced,"provider_id") <> ""
   if advanced.member(advanced.root(),"allowed")>0 & _n(advanced,"allowed")=0 then advanced_enabled=0
-  return "((state='pending' AND required_capability='standard') OR (" || advanced_enabled || "=1 AND required_capability='advanced-reasoning' AND state IN('pending','unresolved','review','failed'))) AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskdispatchscope(policy) || _taskdispatchsafe() || " AND not_before_epoch<=unixepoch() AND (" || _routecallcount("maintenance_tasks.task_id") || "<" || _routeattemptlimit(policy) || " OR " || _recoverablecount("maintenance_tasks.task_id") || ">0)"
+  return "((state='pending' AND required_capability='standard') OR (" || advanced_enabled || "=1 AND required_capability='advanced-reasoning' AND state IN('pending','unresolved','review','failed'))) AND escalation_origin NOT IN('evidence-wait','capability-wait') AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskdispatchscope(policy) || _taskdispatchsafe() || " AND not_before_epoch<=unixepoch() AND (" || _routecallcount("maintenance_tasks.task_id") || "<" || _routeattemptlimit(policy) || " OR " || _recoverablecount("maintenance_tasks.task_id") || ">0)"
 
 _backlogorder: procedure = .string
   arg policy = .jsondocument
@@ -1457,7 +1487,7 @@ _refreshduetask: procedure = .int
     if _reviewcontext(database,old)=_reviewcontext(database,packet) then return 0
   end
   successor="task:" || _hash(_s(task,"kind") || "00"x || _s(task,"subject_type") || "00"x || _s(task,"subject_id") || "00"x || _s(task,"workflow_id") || "00"x || fingerprint || "00"x || _s(policy,"knowledge_policy"))
-  sql="INSERT OR IGNORE INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,parent_task_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,not_before_epoch,required_capability,escalation_origin,escalation_reason,created_epoch,updated_epoch,last_error) SELECT " || _q(successor) || ",kind,subject_type,subject_id,workflow_id,task_id," || _q(fingerprint) || "," || _q(_s(policy,"knowledge_policy")) || "," || _q(packet) || ",question,'pending',priority,not_before_epoch,required_capability,escalation_origin,escalation_reason,unixepoch(),unixepoch(),'material subject, passage, connection or linked identity context changed' FROM maintenance_tasks WHERE task_id=" || _q(task_id)
+  sql="INSERT OR IGNORE INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,parent_task_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,not_before_epoch,required_capability,escalation_origin,escalation_reason,created_epoch,updated_epoch,last_error) SELECT " || _q(successor) || ",kind,subject_type,subject_id,workflow_id,task_id," || _q(fingerprint) || "," || _q(_s(policy,"knowledge_policy")) || "," || _q(packet) || ",question,'pending',priority,not_before_epoch,required_capability,CASE WHEN escalation_origin IN('evidence-wait','capability-wait') THEN '' ELSE escalation_origin END,CASE WHEN escalation_origin IN('evidence-wait','capability-wait') THEN '' ELSE escalation_reason END,unixepoch(),unixepoch(),'material subject, passage, connection or linked identity context changed' FROM maintenance_tasks WHERE task_id=" || _q(task_id)
   if sqliteexec(database,sql)<>0 then do;error="cannot retain current evidence successor";return -1;end
   if sqliteexec(database,"UPDATE maintenance_tasks SET state='superseded',updated_epoch=unixepoch() WHERE task_id=" || _q(task_id))<>0 then do;error="cannot supersede prior evidence";return -1;end
   if _text(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _q(successor))<>"pending" then return 1
@@ -1707,18 +1737,26 @@ validatebacklogresponse: procedure = .int
   arg database = .binary, task_id = .string, response = .string, expose grounding_json = .string, expose error = .string, policy_json = ""
   error = ""; grounding_json = "[]"; result = .jsondocument(response)
   if _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id)) = "provenance-chunk" then return validateenrichment(database,task_id,response,grounding_json,error)
-  if result.valid() \= 1 | result.node_type(result.root()) \= "object" | result.node_count(result.root()) < 12 | result.node_count(result.root()) > 14 | length(response) > 131072 then do; error = "resolution response has an invalid bounded shape"; return -1; end
+  if result.valid() \= 1 | result.node_type(result.root()) \= "object" | result.node_count(result.root()) < 12 | result.node_count(result.root()) > 15 | length(response) > 131072 then do; error = "resolution response has an invalid bounded shape"; return -1; end
   required = "action object_id target_concept_id canonical_label concept_type reason effective_from effective_to qualifiers_json question"
   do i = 1 to words(required)
     value = ""
     if result.node_string(result.member(result.root(),word(required,i)),value) \= 0 then do; error = "resolution response omitted a required string"; return -1; end
   end
   action = _s(result,"action")
+  resolution_text_node=result.member(result.root(),"resolution_text")
+  resolution_text=_s(result,"resolution_text")
+  if resolution_text_node>0 & result.node_type(resolution_text_node)<>"string" then do;error="resolution text must be a string";return -1;end
+  if length(resolution_text)>2048 then do;error="resolution text exceeds its bound";return -1;end
+  if wordpos(action,"correct-note resolve-gap capability-wait")>0 then do
+    if resolution_text_node=0 | strip(resolution_text)="" | result.member(result.root(),"relationship_type")=0 | result.member(result.root(),"dispositions")=0 then do;error="actionable correction requires the current response fields and specific resolution text";return -1;end
+  end
+  else if resolution_text<>"" then do;error="only a correction or capability wait may set resolution_text";return -1;end
   relationship_node=result.member(result.root(),"relationship_type")
   relationship_type=_s(result,"relationship_type")
   if relationship_node>0 & result.node_type(relationship_node)<>"string" then do;error="resolution relationship type must be a string";return -1;end
   if action="propose-relationship" then do
-    if result.node_count(result.root())<>14 | relationship_type="" then do;error="relationship proposal requires the current response contract and a type";return -1;end
+    if (result.node_count(result.root())<>14 & result.node_count(result.root())<>15) | relationship_type="" then do;error="relationship proposal requires the current response contract and a type";return -1;end
   end
   else if relationship_type<>"" then do;error="only a relationship proposal may set relationship_type";return -1;end
   dispositions_node=result.member(result.root(),"dispositions")
@@ -1769,6 +1807,20 @@ validatebacklogresponse: procedure = .int
   subject_type = _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id))
   workflow = _text(database,"SELECT workflow_id FROM maintenance_tasks WHERE task_id=" || _q(task_id)) \= ""
   if wordpos(action,resolutionactions(subject_type,workflow)) = 0 then do; error = "resolution action is not applicable to its subject"; return -1; end
+  if action="retain" & subject_type="gap" then do;error="query gap needs an evidence-backed resolve-gap answer or a specific wait";return -1;end
+  if wordpos(action,"correct-note resolve-gap capability-wait")>0 then do
+    if _s(result,"target_concept_id")<>"" | _s(result,"canonical_label")<>"" | _s(result,"concept_type")<>"" | result.node_count(successor_node)<>0 | _s(result,"effective_from")<>"" | _s(result,"effective_to")<>"" | _s(result,"qualifiers_json")<>"{}" | relationship_type<>"" | result.node_count(dispositions_node)<>0 then do;error="correction or capability wait contains unrelated mutation fields";return -1;end
+    if action="capability-wait" then do
+      if _s(result,"object_id")<>"" | strip(_s(result,"question"))="" then do;error="capability wait requires a specific missing operation and no selected mutation object";return -1;end
+    end
+    else if _s(result,"object_id")<>_text(database,"SELECT subject_id FROM maintenance_tasks WHERE task_id=" || _q(task_id)) | workflow then do;error="correction must select its current note or gap subject";return -1;end
+    if result.node_count(evidence_node)=0 then do;error="correction or capability wait requires grounded source evidence";return -1;end
+    if action="correct-note" then do
+      original=_text(database,"SELECT text FROM analysis_notes WHERE note_id=" || _q(_s(result,"object_id")) || " AND state='active'")
+      if original="" | original=resolution_text then do;error="note correction must replace an active note with different source-supported text";return -1;end
+    end
+    if action="resolve-gap" then if _number(database,"SELECT count(*) FROM query_gaps WHERE gap_id=" || _q(_s(result,"object_id")) || " AND state='open'")<>1 then do;error="query gap is no longer open";return -1;end
+  end
   if action="propose-relationship" then do
     if _s(result,"concept_type")<>"" | _s(result,"canonical_label")<>"" | _s(result,"effective_to")<>"" & _s(result,"effective_from")="" | _s(result,"question")<>"" | result.node_count(successor_node)<>0 then do;error="relationship proposal contains unrelated mutation fields";return -1;end
   end
@@ -1860,7 +1912,10 @@ _relationshipproposal: procedure = .int
   lineage=_text(database,"SELECT v.source_id FROM revision_chunks r JOIN source_revisions v ON v.revision_id=r.revision_id WHERE r.revision_chunk_id=" || _q(chunk))
   if source_label="" | source_type="" | target_label="" | target_type="" | scope="" | lineage="" then do;error="relationship source or endpoint identity is no longer active";return -1;end
   qualifiers=_text(database,"SELECT json(" || _q(_s(result,"qualifiers_json")) || ")")
-  proposal=.ragextractionproposal("crexx-rag.extraction-proposal/1","maintenance:" || _hash(task_id || "00"x || result.node_get(result.root())),"claim",source,source_label,source_type,_s(result,"relationship_type"),target,target_label,target_type,"outbound",qualifiers,_s(result,"effective_from"),_s(result,"effective_to"),chunk,_n(span,"span_start"),_n(span,"span_end"),"support","assertion","direct","",lineage,1000000,"maintenance-resolution","reviewed-decision",task_id,resolutioncontractversion(),"maintenance-resolution/9",scope,profile.profile_id(),0)
+  contract_version="crexx-rag.resolution-contract/9"
+  if result.member(result.root(),"resolution_text")>0 then contract_version=resolutioncontractversion()
+  /* This identity names the support route, not the response-schema version. */
+  proposal=.ragextractionproposal("crexx-rag.extraction-proposal/1","maintenance:" || _hash(task_id || "00"x || result.node_get(result.root())),"claim",source,source_label,source_type,_s(result,"relationship_type"),target,target_label,target_type,"outbound",qualifiers,_s(result,"effective_from"),_s(result,"effective_to"),chunk,_n(span,"span_start"),_n(span,"span_end"),"support","assertion","direct","",lineage,1000000,"maintenance-resolution","reviewed-decision",task_id,contract_version,"maintenance-resolution/9",scope,profile.profile_id(),0)
   claim_policy=effectiveclaimpolicy(profile)
   validation=.ragproposalvalidation
   if validateproposal(store,proposal,claim_policy,validation,error)<>0 then return -1
@@ -1930,6 +1985,14 @@ _applydeferral: procedure = .int
   if sqliteexec(database,"UPDATE maintenance_tasks SET not_before_epoch=unixepoch(" || _q(_s(result,"effective_from")) || "),required_capability='advanced-reasoning',escalation_origin='expected-evidence',escalation_reason=" || _q(_s(result,"question")) || " WHERE task_id=" || _q(task_id)) <> 0 then do; error = "cannot retain evidence deferral"; return -1; end
   return 0
 
+/* A completed reconsideration consumes only a fulfilled wait route. The
+ * original decision, question, review and usage remain durable history. */
+_clearfulfilledwait: procedure = .int
+  arg database=.binary,task_id=.string,state=.string,expose error=.string
+  if state<>"resolved" then return 0
+  if sqliteexec(database,"UPDATE maintenance_tasks SET escalation_origin='',escalation_reason='' WHERE task_id=" || _q(task_id) || " AND state='resolved' AND escalation_origin IN('evidence-wait','capability-wait')")<>0 then do;error="cannot consume fulfilled maintenance wait";return -1;end
+  return 0
+
 completebacklogdecision: procedure = .int
   arg store = .ragstorehandle, job_id = .string, item_id = .string, attempt_id = .string, worker_id = .string, fence = .int, provider_run_id = .string, response = .string, profile = .ragprofile, expose error = .string, reused = 0
   database = store.database(); error = ""
@@ -1945,6 +2008,8 @@ completebacklogdecision: procedure = .int
   if action = "investigate" then decision_state = "unresolved"
   if action = "defer" then decision_state = "unresolved"
   if action \= "unresolved" & (_s(policy,"mode") \= "automatic" | wordpos(action,_s(policy,"automatic_actions")) = 0) then decision_state = "review"
+  if wordpos(action,"insufficient-evidence capability-wait")>0 then decision_state="unresolved"
+  if wordpos(action,"correct-note resolve-gap")>0 then decision_state="review"
   if action="propose-relationship" then decision_state="review"
   if action = "escalate" then decision_state = "unresolved"
   if wordpos(action,"search read extract")>0 then decision_state = "pending"
@@ -1979,11 +2044,12 @@ completebacklogdecision: procedure = .int
     if review_status<0 then return _rollback(database,error,error)
     if review_status=1 then decision_state="review"
   end
-  if decision_state = "resolved" & wordpos(action,"no-change insufficient-evidence")=0 then do
+  if decision_state = "resolved" & (wordpos(action,"no-change insufficient-evidence retain investigate capability-wait")=0 | (action="retain" & _s(task,"subject_type")="conflict")) then do
     snapshot_id = _text(database,"SELECT config_snapshot_id FROM jobs WHERE job_id=" || _q(job_id))
     if stagegeneration(store,current,snapshot_id,"maintenance resolution " || task_id,generation,error) \= 0 then return -3
     if _applydecision(store,task_id,task,result,profile,job_id,current,generation,policy,error) \= 0 then return _rollback(database,error,error)
   end
+  if decision_state="resolved" & action="investigate" then if _applydecision(store,task_id,task,result,profile,job_id,current,0,policy,error)<>0 then return _rollback(database,error,error)
   if decision_state = "pending" & wordpos(action,"search read") > 0 then do
     if _resolverstep(store,task_id,result,profile,policy,grounds,error) <> 0 then return _rollback(database,error,error)
   end
@@ -1993,6 +2059,11 @@ completebacklogdecision: procedure = .int
   if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot retain maintenance decision provenance",error)
   sql = "UPDATE maintenance_tasks SET state=" || _q(decision_state) || ",last_error=" || _q(_s(result,"reason")) || ",updated_epoch=unixepoch() WHERE task_id=" || _q(task_id)
   if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot checkpoint maintenance decision",error)
+  if decision_state="unresolved" & wordpos(action,"insufficient-evidence capability-wait")>0 then do
+    waiting="evidence-wait";if action="capability-wait" then waiting="capability-wait"
+    if sqliteexec(database,"UPDATE maintenance_tasks SET escalation_origin=" || _q(waiting) || ",escalation_reason=" || _q(_s(result,"question")) || " WHERE task_id=" || _q(task_id))<>0 then return _rollback(database,"cannot retain explicit maintenance wait",error)
+  end
+  if _clearfulfilledwait(database,task_id,decision_state,error)<>0 then return _rollback(database,error,error)
   if decision_state="resolved" then if _rememberassessment(database,task_id,job_id,_n(policy,"maximum_evidence_bytes"),error)<>0 then return _rollback(database,error,error)
   if action = "defer" & decision_state = "unresolved" then if _applydeferral(database,task_id,result,error) <> 0 then return _rollback(database,error,error)
   if action = "escalate" then if sqliteexec(database,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning',escalation_origin='worker',escalation_reason=" || _q(_s(result,"reason")) || " WHERE task_id=" || _q(task_id)) \= 0 then return _rollback(database,"cannot retain worker escalation",error)
@@ -2035,7 +2106,7 @@ reviewbacklogdecision: procedure = .int
     if _relationshipproposal(store,task_id,review_result,profile,proposal,claim_policy,claim_id,support_id,error)<>0 then return -1
     already_applied=_number(database,"SELECT count(*) FROM claim_support WHERE support_id=" || _q(support_id) || " AND visible_to_generation IS NULL")
   end
-  if decision = "accept" & wordpos(_s(review_result,"action"),"no-change insufficient-evidence defer") = 0 & already_applied=0 then do
+  if decision = "accept" & (wordpos(_s(review_result,"action"),"no-change insufficient-evidence defer retain investigate capability-wait") = 0 | (_s(review_result,"action")="retain" & _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id))="conflict")) & already_applied=0 then do
     snapshot_id = _text(database,"SELECT config_snapshot_id FROM jobs WHERE job_id=" || _q(job_id))
     if begingeneration(store,current,snapshot_id,"reviewed resolution " || task_id,generation,error) \= 0 then return -3
   end
@@ -2051,13 +2122,19 @@ reviewbacklogdecision: procedure = .int
     if validatebacklogresponse(database,task_id,response,grounds,error) <> 0 | _validateoutcome(database,task_id,result,policy,error) <> 0 then return _rollback(database,error,error)
     if _applydecision(store,task_id,task,result,profile,job_id,current,generation,policy,error) \= 0 then return _rollback(database,error,error)
   end
-  state = "unresolved"; if decision = "accept" & _s(review_result,"action") <> "defer" then state = "resolved"
-  if sqliteexec(database,"UPDATE maintenance_tasks SET state=" || _q(state) || ",updated_epoch=unixepoch(),last_error=" || _q("operator " || decision) || " WHERE task_id=" || _q(task_id)) \= 0 then return _rollback(database,"cannot record reviewed task",error)
+  task_state = "unresolved"; if decision = "accept" & wordpos(_s(review_result,"action"),"defer insufficient-evidence capability-wait")=0 then task_state = "resolved"
+  if sqliteexec(database,"UPDATE maintenance_tasks SET state=" || _q(task_state) || ",updated_epoch=unixepoch(),last_error=" || _q("operator " || decision) || " WHERE task_id=" || _q(task_id)) \= 0 then return _rollback(database,"cannot record reviewed task",error)
+  if decision="accept" & wordpos(_s(review_result,"action"),"insufficient-evidence capability-wait")>0 then do
+    waiting="evidence-wait";if _s(review_result,"action")="capability-wait" then waiting="capability-wait"
+    if sqliteexec(database,"UPDATE maintenance_tasks SET escalation_origin=" || _q(waiting) || ",escalation_reason=" || _q(_s(review_result,"question")) || " WHERE task_id=" || _q(task_id))<>0 then return _rollback(database,"cannot retain reviewed maintenance wait",error)
+  end
+  if _clearfulfilledwait(database,task_id,task_state,error)<>0 then return _rollback(database,error,error)
   generation_sql = "NULL"; if generation > 0 then generation_sql = generation || ""
   if sqliteexec(database,"UPDATE maintenance_decisions SET disposition=disposition||" || _q(":" || decision) || ",applied_generation=" || generation_sql || " WHERE decision_id=" || _q(decision_id)) \= 0 then return _rollback(database,"cannot record reviewed resolution",error)
   state = decision || "ed"; if decision = "accept" then state = "accepted"
   if sqliteexec(database,"UPDATE reviews SET state=" || _q(state) || ",decision_json=" || _q('{"decision":' || jsonquote(decision) || '}') || ",decided_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE review_id=" || _q(review_id) || " AND state='pending'") \= 0 then return _rollback(database,"cannot close resolution review",error)
-  if decision="accept" & _s(review_result,"action")<>"defer" then if _rememberassessment(database,task_id,job_id,_n(policy,"maximum_evidence_bytes"),error,review_id)<>0 then return _rollback(database,error,error)
+  if decision="accept" then if _remembercorrectedassessment(database,task_id,review_id,review_result,policy,error)<>0 then return _rollback(database,error,error)
+  if task_state="resolved" then if _rememberassessment(database,task_id,job_id,_n(policy,"maximum_evidence_bytes"),error,review_id)<>0 then return _rollback(database,error,error)
   if generation > 0 then do
     if commitgeneration(store,generation,error) \= 0 then return -3
     if publishmanifest(store,error) \= 0 then return -4
@@ -2090,7 +2167,34 @@ inspectbacklog: procedure = .string
 _applydecision: procedure = .int
   arg store = .ragstorehandle, task_id = .string, task = .jsondocument, result = .jsondocument, profile = .ragprofile, job_id = .string, current = .int, generation = .int, policy = .jsondocument, expose error = .string
   database = store.database(); action = _s(result,"action"); kind = _s(task,"subject_type"); object = _s(task,"subject_id"); target = _s(result,"target_concept_id"); workflow_id = _s(task,"workflow_id")
-  if action = "no-change" | action = "insufficient-evidence" then return 0
+  if wordpos(action,"no-change insufficient-evidence capability-wait")>0 then return 0
+  if action="correct-note" then do
+    if generation<1 | kind<>"note" then do;error="note correction needs a reviewed publication generation";return -1;end
+    grounding=""
+    if validatebacklogresponse(database,task_id,result.node_get(result.root()),grounding,error)<>0 then return -1
+    citations=.jsondocument(grounding);first=.jsondocument(citations.node_get(citations.element(citations.root(),1)))
+    if first.valid()<>1 then do;error="note correction has no grounded source";return -1;end
+    corrected="note-correction:" || _hash(task_id || "00"x || _s(result,"resolution_text"))
+    provenance='{"supersedes_note_id":' || jsonquote(object) || ',"task_id":' || jsonquote(task_id) || ',"citations":' || grounding || '}'
+    sql="INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) SELECT " || _q(corrected) || ",'observation'," || _q(_s(result,"resolution_text")) || ",importance,uncertainty,'','active'," || _q(provenance) || ",'maintenance-review'," || generation || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM analysis_notes WHERE note_id=" || _q(object) || " AND state='active'"
+    if sqliteexec(database,sql)<>0 then do;error="cannot retain corrected note";return -1;end
+    if _number(database,"SELECT count(*) FROM analysis_notes WHERE note_id=" || _q(corrected))<>1 then do;error="corrected note did not replace an active note";return -1;end
+    chunk=_s(first,"revision_chunk_id");begin=_n(first,"span_start");finish=_n(first,"span_end")
+    sql="INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) SELECT " || _q(corrected || ":source") || "," || _q(corrected) || ",'chunk'," || _q(chunk) || "," || _q(chunk) || "," || begin || "," || finish
+    if sqliteexec(database,sql)<>0 then do;error="cannot retain correcting source link";return -1;end
+    if sqliteexec(database,"UPDATE analysis_notes SET state='superseded',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE note_id=" || _q(object) || " AND state='active'")<>0 then do;error="cannot supersede original note";return -1;end
+    /* The replacement is quiet now, but its own cited source can change.
+     * Record its assessed context without copying old concept associations. */
+    assessed="";priority=_number(database,"SELECT priority FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+    if priority<0 | enqueuebacklogtask(database,"analysis-lead","note",corrected,"","",priority,policy,assessed,error)<>0 | assessed="" then do;error="cannot retain corrected note assessment " || error;return -1;end
+    if sqliteexec(database,"UPDATE maintenance_tasks SET state='resolved',last_error='source-grounded replacement assessed',updated_epoch=unixepoch() WHERE task_id=" || _q(assessed) || " AND state='pending' AND attempt_count=0")<>0 then do;error="cannot settle corrected note assessment";return -1;end
+    if _number(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id=" || _q(assessed) || " AND state='resolved'")<>1 then do;error="corrected note assessment was not settled";return -1;end
+    return 0
+  end
+  if action="resolve-gap" then do
+    if generation<1 | kind<>"gap" | sqliteexec(database,"UPDATE query_gaps SET state='resolved' WHERE gap_id=" || _q(object) || " AND state='open'")<>0 then do;error="cannot apply reviewed evidence-backed gap answer";return -1;end
+    return 0
+  end
   if action = "defer" then return _applydeferral(database,task_id,result,error)
   if action="propose-relationship" then do
     proposal=.ragextractionproposal;claim_policy=.ragclaimpolicy;claim_id="";support_id=""
@@ -2124,12 +2228,6 @@ _applydecision: procedure = .int
   if action = "retain" then do
     if kind = "conflict" then do
       if sqliteexec(database,"UPDATE claim_conflicts SET review_state='resolved-retain-both',visible_to_generation=" || generation || " WHERE conflict_id=" || _q(object) || " AND visible_to_generation IS NULL") \= 0 then do; error = "cannot record compatible claim resolution"; return -1; end
-    end
-    if kind = "note" then do
-      if sqliteexec(database,"UPDATE analysis_notes SET state='resolved',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE note_id=" || _q(object)) \= 0 then do; error = "cannot settle investigated note"; return -1; end
-    end
-    if kind = "gap" then do
-      if sqliteexec(database,"UPDATE query_gaps SET state='resolved' WHERE gap_id=" || _q(object)) \= 0 then do; error = "cannot settle investigated query gap"; return -1; end
     end
     return 0
   end
@@ -2302,8 +2400,12 @@ backlogsummary: procedure = .string
   deferred=_number(database,"SELECT count(*) FROM maintenance_tasks WHERE state IN('pending','unresolved','review','failed') AND not_before_epoch>unixepoch()" || scope)
   actual_review=_number(database,"SELECT count(*) FROM maintenance_tasks WHERE EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=maintenance_tasks.task_id AND r.state='pending')" || scope)
   no_change=_number(database,"SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=(SELECT window_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ") AND d.disposition IN('no-change:resolved','no-change:review:accept')")
+  retained=_number(database,"SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id JOIN maintenance_tasks t ON t.task_id=d.task_id WHERE m.window_id=(SELECT window_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ") AND t.subject_type<>'gap' AND d.disposition IN('retain:resolved','retain:review:accept')")
+  evidence_wait=_number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='unresolved' AND escalation_origin='evidence-wait'" || scope)
+  capability_wait=_number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='unresolved' AND escalation_origin='capability-wait'" || scope)
+  correction_review=_number(database,"SELECT count(*) FROM reviews r JOIN maintenance_tasks t ON t.task_id=r.subject_id LEFT JOIN maintenance_decisions d ON d.decision_id=json_extract(r.proposal_json,'$.decision_id') LEFT JOIN maintenance_agent_actions a ON a.action_id=json_extract(r.proposal_json,'$.action_id') WHERE r.state='pending' AND coalesce(json_extract(d.response_json,'$.action'),json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')) IN('correct-note','resolve-gap','propose-relationship') AND t.task_id IN(SELECT maintenance_tasks.task_id FROM maintenance_tasks WHERE 1=1" || scope || ")")
   applied_changes=_number(database,"SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=(SELECT window_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ") AND d.applied_generation IS NOT NULL AND json_extract(d.response_json,'$.action') NOT IN('retain','investigate','no-change','defer')")
-  summary=_text(database,"SELECT json_set(" || _q(summary) || ",'$.due_ordinary'," || due_ordinary || ",'$.due_advanced'," || due_advanced || ",'$.deferred'," || deferred || ",'$.actual_review'," || actual_review || ",'$.final_no_change_decisions'," || no_change || ",'$.applied_change_decisions'," || applied_changes || ")")
+  summary=_text(database,"SELECT json_set(" || _q(summary) || ",'$.due_ordinary'," || due_ordinary || ",'$.due_advanced'," || due_advanced || ",'$.deferred'," || deferred || ",'$.actual_review'," || actual_review || ",'$.supported_retention_decisions'," || retained || ",'$.justified_no_change_decisions'," || no_change || ",'$.final_no_change_decisions'," || no_change || ",'$.evidence_waits'," || evidence_wait || ",'$.capability_waits'," || capability_wait || ",'$.pending_correction_reviews'," || correction_review || ",'$.applied_change_decisions'," || applied_changes || ")")
   waived=0
   if _s(policy,"source_id")<>"" then waived=_number(database,"SELECT count(*) FROM maintenance_tasks WHERE " || taskwaived("maintenance_tasks.task_id") || scope)
   else waived=taskwaivercount(database)
@@ -2447,7 +2549,15 @@ planagentaction: procedure = .int
 _agenteffects: procedure = .int
   arg database = .binary, config = .ragconfig, task_id = .string, task = .jsondocument, result = .jsondocument, current = .int, expose impact = .string, expose error = .string, proposed_claim_id = "", proposed_support_id = ""
   impact = "[]"; action = _s(result,"action")
-  if wordpos(action,"no-change insufficient-evidence defer")>0 then return 0
+  if wordpos(action,"no-change insufficient-evidence defer capability-wait")>0 then return 0
+  if action="correct-note" then do
+    impact='[{"object_type":"note","object_id":' || jsonquote(_s(result,"object_id")) || ',"effect":"supersede","replacement_text":' || jsonquote(_s(result,"resolution_text")) || '}]'
+    return 0
+  end
+  if action="resolve-gap" then do
+    impact='[{"object_type":"gap","object_id":' || jsonquote(_s(result,"object_id")) || ',"effect":"resolve","answer":' || jsonquote(_s(result,"resolution_text")) || '}]'
+    return 0
+  end
   if action="propose-relationship" then do
     impact='[{"object_type":"claim","object_id":' || jsonquote(proposed_claim_id) || ',"support_id":' || jsonquote(proposed_support_id) || ',"effect":"propose","source_concept_id":' || jsonquote(_s(result,"object_id")) || ',"relationship_type":' || jsonquote(_s(result,"relationship_type")) || ',"target_concept_id":' || jsonquote(_s(result,"target_concept_id")) || ',"direction":"outbound","qualifiers":' || _s(result,"qualifiers_json") || '}]'
     return 0
@@ -2621,7 +2731,7 @@ reviewagentaction: procedure = .int
   plan = .jsondocument(raw)
   if plan.valid() \= 1 then return _rollback(database,"pending external resolution review was not found",error)
   task_id = _s(plan,"task_id"); task = .jsondocument(_agenttaskstamp(database,task_id)); result = .jsondocument(_s(plan,"response_json"))
-  generation = 0; task_state = "unresolved"
+  generation = 0; task_state = "unresolved"; action=""; policy = .jsondocument(backlogpolicy(config,profile,""))
   if decision = "accept" then do
     current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
     impact = ""
@@ -2634,16 +2744,21 @@ reviewagentaction: procedure = .int
         if _relationshipproposal(store,task_id,result,profile,proposal,claim_policy,claim_id,support_id,error)<>0 then return _rollback(database,error,error)
         already_applied=_number(database,"SELECT count(*) FROM claim_support WHERE support_id=" || _q(support_id) || " AND visible_to_generation IS NULL")
       end
-      if wordpos(action,"no-change insufficient-evidence defer")=0 & already_applied=0 then if stagegeneration(store,current,_s(plan,"config_snapshot_id"),"external resolution " || task_id,generation,error) \= 0 then return _rollback(database,error,error)
-      policy = .jsondocument(backlogpolicy(config,profile,""))
+      if (wordpos(action,"no-change insufficient-evidence defer retain investigate capability-wait")=0 | (action="retain" & _s(task,"subject_type")="conflict")) & already_applied=0 then if stagegeneration(store,current,_s(plan,"config_snapshot_id"),"external resolution " || task_id,generation,error) \= 0 then return _rollback(database,error,error)
       if _applydecision(store,task_id,task,result,profile,_s(plan,"job_id"),current,generation,policy,error) \= 0 then return _rollback(database,error,error)
-      task_state = "resolved"; if action = "investigate" | action = "defer" then task_state = "unresolved"
+      task_state = "resolved"; if wordpos(action,"investigate defer insufficient-evidence capability-wait")>0 then task_state = "unresolved"
     end
   end
   if sqliteexec(database,"UPDATE maintenance_tasks SET state=" || _q(task_state) || ",last_error=" || _q("external resolution " || decision) || ",updated_epoch=unixepoch() WHERE task_id=" || _q(task_id) || " AND state='review'") \= 0 then return _rollback(database,"cannot checkpoint external resolution",error)
+  if decision="accept" & wordpos(action,"insufficient-evidence capability-wait")>0 then do
+    waiting="evidence-wait";if action="capability-wait" then waiting="capability-wait"
+    if sqliteexec(database,"UPDATE maintenance_tasks SET escalation_origin=" || _q(waiting) || ",escalation_reason=" || _q(_s(result,"question")) || " WHERE task_id=" || _q(task_id))<>0 then return _rollback(database,"cannot retain external maintenance wait",error)
+  end
+  if _clearfulfilledwait(database,task_id,task_state,error)<>0 then return _rollback(database,error,error)
   state = decision || "ed"; if decision = "accept" then state = "accepted"
   disposition = '{"decision":' || jsonquote(decision) || ',"generation":' || generation || ',"task_state":' || jsonquote(task_state) || '}'
   if sqliteexec(database,"UPDATE reviews SET state=" || _q(state) || ",decision_json=" || _q(disposition) || ",decided_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE review_id=" || _q(review_id) || " AND state='pending'") \= 0 then return _rollback(database,"cannot retain external resolution decision",error)
+  if decision="accept" & action="correct-note" then if _remembercorrectedassessment(database,task_id,review_id,result,policy,error)<>0 then return _rollback(database,error,error)
   if task_state="resolved" then if _rememberassessment(database,task_id,_s(plan,"job_id"),config.maintenance().maximum_evidence_bytes(),error,review_id)<>0 then return _rollback(database,error,error)
   if generation>0 then do
     if commitgeneration(store,generation,error) \= 0 then return -3

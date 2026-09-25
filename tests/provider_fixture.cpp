@@ -268,17 +268,17 @@ int main(int argc, char** argv)
                     std::string resolution = scenario == "product-backlog-malformed"
                         ? R"({"action":"synthetic-product-gemini-key"})"
                         : scenario == "product-backlog-rejected"
-                        ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":""})"
-                        : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":""})";
+                        ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":"","resolution_text":""})"
+                        : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":"","resolution_text":""})";
                     if (scenario == "product-backlog-advanced" || scenario == "product-backlog-upgrade"
                         || scenario == "product-first-pass") {
                         if (request.find("Resolve the maintenance question using validated source evidence") == std::string::npos
                             || request.find("advanced-resolver") == std::string::npos
                             || request.find("final reasoning route") == std::string::npos
                             || request.find("prompt_sha256") == std::string::npos) return 6;
-                        resolution = R"({"action":"no-change","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The retained evidence does not justify an additional change.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":""})";
+                        resolution = R"({"action":"no-change","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The retained evidence does not justify an additional change.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":"","resolution_text":""})";
                         if (scenario == "product-first-pass")
-                            resolution = R"({"action":"extract","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"A corrected typed extraction can assess the source passage.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":""})";
+                            resolution = R"({"action":"extract","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"A corrected typed extraction can assess the source passage.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":"","resolution_text":""})";
                     }
                     if (scenario.rfind("product-backlog-correction", 0) == 0) {
                         if (request.find("Never insert ellipses") == std::string::npos

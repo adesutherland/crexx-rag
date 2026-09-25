@@ -543,7 +543,7 @@ refreshchecks: procedure = .int
   digest=rxhash..sha256hex(canonical as .binary)
   errors=errors+check(sqliteexec(database,"UPDATE mentions SET span_end=7 WHERE mention_id='refresh-extra-99'")=0 & applybacklogrefresh(store,config,profile,canonical,digest,replay,error)\=0,"changed evidence invalidates refresh apply")
   errors=errors+check(enqueuebacklogtask(database,"external-refresh","concept","refresh-concept-2","","",12345,policy,replay,error)=0 & replay\=byte_task,"sentinel fingerprints evidence beyond cutoff")
-  errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=current+1 & scalarint(database,"SELECT count(*) FROM provider_runs")=calls & scalarint(database,"SELECT count(*) FROM source_revisions")=sources,"only accepted resolution changes generation; source and provider receipts preserved")
+  errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=current & scalarint(database,"SELECT count(*) FROM provider_runs")=calls & scalarint(database,"SELECT count(*) FROM source_revisions")=sources,"accepted retention changes no generation; source and provider receipts preserved")
   return errors
 
 /* Saved-run reproduction: a quoted name occurs before and at the selected
@@ -574,6 +574,304 @@ selectedquotationchecks: procedure = .int
 responsejson: procedure = .string
   arg action = .string, target = "", successors = "[]", evidence = "[]", object_id = "", question = "", qualifiers = "{}", effective_from = "", effective_to = ""
   return '{"action":' || jsonquote(action) || ',"object_id":' || jsonquote(object_id) || ',"target_concept_id":' || jsonquote(target) || ',"canonical_label":"","concept_type":"","successors":' || successors || ',"reason":"fixture evidence-based decision","evidence":' || evidence || ',"effective_from":' || jsonquote(effective_from) || ',"effective_to":' || jsonquote(effective_to) || ',"qualifiers_json":' || jsonquote(qualifiers) || ',"question":' || jsonquote(question) || '}'
+
+convergencemetric: procedure = .int
+  arg database=.binary,response=.string,name=.string
+  return scalarint(database,"SELECT json_extract(value,'$.fields." || name || "') FROM json_each(" || _testquote(response) || ",'$.result.structuredContent.records') WHERE json_extract(value,'$.kind')='convergence-census'")
+
+actionabilitychecks: procedure = .int
+  arg store=.ragstorehandle,raw=.string
+  db=store.database();errors=0;error="";task="";grounds="";job="";packet="";fingerprint=""
+  raw=changestr("retain investigate",raw,"retain investigate no-change")
+  policy=.jsondocument(raw);current=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  errors=errors+check(sqliteexec(db,"UPDATE analysis_notes SET note_kind='observation' WHERE note_id='note-parent' AND next_action=''")=0,"keep the unrelated fixture observation outside actionability discovery")
+  errors=errors+check(pos('"correct-note"',backlogschema("note",0))>0 & pos('"resolve-gap"',backlogschema("gap",0))>0 & pos('"capability-wait"',backlogschema("note",0))>0,"actionability contract exposes grounded correction and wait actions")
+  errors=errors+check(sqliteexec(db,"INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-outdated','lead','Platform is absent',800000,200000,'Review source','active','{}','fixture',1,'fixture','fixture'),('note-capability','lead','Platform needs a structured qualifier',800000,200000,'Review representation','active','{}','fixture',1,'fixture','fixture'); INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-outdated','note-outdated','concept','concept-parent','chunk-lifecycle',0,8),('link-capability','note-capability','concept','concept-parent','chunk-lifecycle',0,8)")=0,"seed outdated and capability-limited notes")
+  errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note","note-outdated","","",800000,policy,task,error)=0 & task<>"","enqueue outdated note " || error)
+  errors=errors+check(buildbacklogevidence(db,"note","note-outdated","",65536,packet,fingerprint,error)=0,"note correction receives current source packet " || error)
+  evidence_id=scalartext(db,"SELECT json_extract(" || _testquote(packet) || ",'$.passages[0].evidence_id')")
+  response=currentresponse(responsejson("correct-note","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]',"note-outdated"),"Platform appears with Peer.")
+  before=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1");calls=scalarint(db,"SELECT count(*) FROM provider_runs")
+  wrong=currentresponse(responsejson("correct-note","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]',"note-capability"),"Platform appears with Peer.")
+  missing=currentresponse(responsejson("correct-note","","[]","[]","note-outdated"),"Platform appears with Peer.")
+  misquoted=currentresponse(responsejson("correct-note","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform is absent"}]',"note-outdated"),"Platform appears with Peer.")
+  errors=errors+check(validatebacklogresponse(db,task,wrong,grounds,error)<>0 & validatebacklogresponse(db,task,missing,grounds,error)<>0 & validatebacklogresponse(db,task,misquoted,grounds,error)<>0 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=before & scalarint(db,"SELECT count(*) FROM provider_runs")=calls,"note correction rejects wrong subject, missing grounding and misquoted source without publication")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & runresolution(store,job,task,response,error)=0,"worker proposes grounded note correction " || error)
+  review=scalartext(db,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(task) || " AND state='pending'")
+  errors=errors+check(review<>"" & scalartext(db,"SELECT state FROM analysis_notes WHERE note_id='note-outdated'")="active" & scalarint(db,"SELECT count(*) FROM analysis_notes WHERE json_extract(grounding_json,'$.supersedes_note_id')='note-outdated'")=0 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=current,"pending note proposal is not an applied repair")
+  if review<>"" then errors=errors+check(reviewbacklogdecision(store,review,"accept",genericprofile(),error)=0,"review applies exact grounded note correction " || error)
+  corrected=scalartext(db,"SELECT note_id FROM analysis_notes WHERE json_extract(grounding_json,'$.supersedes_note_id')='note-outdated'")
+  errors=errors+check(corrected<>"" & scalartext(db,"SELECT state FROM analysis_notes WHERE note_id='note-outdated'")="superseded" & scalartext(db,"SELECT text FROM analysis_notes WHERE note_id=" || _testquote(corrected))="Platform appears with Peer." & scalartext(db,"SELECT note_kind FROM analysis_notes WHERE note_id=" || _testquote(corrected))="observation" & scalarint(db,"SELECT count(*) FROM analysis_note_links WHERE note_id=" || _testquote(corrected) || " AND object_type='chunk' AND revision_chunk_id='chunk-lifecycle'")=1 & scalarint(db,"SELECT count(*) FROM analysis_note_links WHERE note_id=" || _testquote(corrected) || " AND object_type='concept'")=0 & scalarint(db,"SELECT count(*) FROM analysis_note_links WHERE note_id='note-outdated' AND object_type='concept'")=1,"corrected observation cites its own source without relabeling old associations")
+  calls=scalarint(db,"SELECT count(*) FROM provider_runs");again=""
+  errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note","note-outdated","","",800000,policy,again,error)=0 & scalarint(db,"SELECT count(*) FROM provider_runs")=calls,"unchanged corrected note is not reasoned again")
+  errors=errors+check(sqliteexec(db,"INSERT INTO query_gaps(gap_id,question_hash,normalized_question,gap_text,trace_id,observed_generation,occurrence_count,state,first_observed_at,last_observed_at) VALUES('gap-actionable','hash-actionable','Does the source mention Platform?','Answer requires cited source','trace-actionable',1,1,'open','fixture','fixture'),('gap-wait','hash-wait','Where is the other source?','No matching source yet','trace-wait',1,1,'open','fixture','fixture')")=0,"seed answered and evidence-waiting gaps")
+  task=""
+  errors=errors+check(enqueuebacklogtask(db,"query-gap","gap","gap-actionable","","",750000,policy,task,error)=0 & task<>"","enqueue answerable gap " || error)
+  errors=errors+check(validatebacklogresponse(db,task,responsejson("retain","","[]",'[{"evidence_id":"mention-parent","quote":"Platform"}]'),grounds,error)<>0,"generic retain cannot silently resolve a query gap")
+  packet="";fingerprint=""
+  errors=errors+check(buildbacklogevidence(db,"gap","gap-actionable","",65536,packet,fingerprint,error)=0,"gap receives source packet " || error)
+  evidence_id=scalartext(db,"SELECT json_extract(" || _testquote(packet) || ",'$.passages[0].evidence_id')")
+  response=currentresponse(responsejson("resolve-gap","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]',"gap-actionable"),"Yes. The source says Platform Peer.")
+  before=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1");calls=scalarint(db,"SELECT count(*) FROM provider_runs")
+  wrong=currentresponse(responsejson("resolve-gap","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]',"gap-wait"),"Yes. The source says Platform Peer.")
+  missing=currentresponse(responsejson("resolve-gap","","[]","[]","gap-actionable"),"Yes. The source says Platform Peer.")
+  misquoted=currentresponse(responsejson("resolve-gap","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform is absent"}]',"gap-actionable"),"Yes. The source says Platform Peer.")
+  errors=errors+check(validatebacklogresponse(db,task,wrong,grounds,error)<>0 & validatebacklogresponse(db,task,missing,grounds,error)<>0 & validatebacklogresponse(db,task,misquoted,grounds,error)<>0 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=before & scalarint(db,"SELECT count(*) FROM provider_runs")=calls,"gap resolution rejects wrong subject, missing grounding and misquoted source without publication")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & runresolution(store,job,task,response,error)=0,"worker proposes evidence-backed gap answer " || error)
+  errors=errors+check(scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE subject_type='note' AND subject_id=" || _testquote(corrected) || " AND state='resolved'")=1 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE subject_type='note' AND subject_id=" || _testquote(corrected) || " AND state<>'resolved'")=0,"normal discovery leaves the assessed corrected observation quiet")
+  review=scalartext(db,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(task) || " AND state='pending'")
+  errors=errors+check(review<>"" & scalartext(db,"SELECT state FROM query_gaps WHERE gap_id='gap-actionable'")="open","pending gap proposal does not resolve original question")
+  if review<>"" then errors=errors+check(reviewbacklogdecision(store,review,"accept",genericprofile(),error)=0,"review accepts grounded gap answer " || error)
+  errors=errors+check(scalartext(db,"SELECT state FROM query_gaps WHERE gap_id='gap-actionable'")="resolved" & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(task) || " AND disposition='resolve-gap:review:accept' AND applied_generation IS NOT NULL")=1,"gap answer is applied with retained review and source receipt")
+  gap_wait=""
+  errors=errors+check(enqueuebacklogtask(db,"query-gap","gap","gap-wait","","",750000,policy,gap_wait,error)=0 & nextwindow(store,raw,job,error)=0,"dispatch evidence question " || error)
+  response=responsejson("insufficient-evidence","","[]","[]","","A new source naming the other source")
+  errors=errors+check(runresolution(store,job,gap_wait,response,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE task_id=" || _testquote(gap_wait) || " AND state='unresolved' AND escalation_origin='evidence-wait'")=1,"missing evidence remains an outstanding question " || error)
+  /* A retained older review can hold this same response before acceptance. */
+  legacy_decision=scalartext(db,"SELECT decision_id FROM maintenance_decisions WHERE task_id=" || _testquote(gap_wait) || " ORDER BY created_epoch DESC,decision_id DESC LIMIT 1")
+  legacy_review="review:" || legacy_decision
+  errors=errors+check(sqliteexec(db,"UPDATE maintenance_decisions SET disposition='insufficient-evidence:review' WHERE decision_id=" || _testquote(legacy_decision) || "; UPDATE maintenance_tasks SET state='review' WHERE task_id=" || _testquote(gap_wait) || "; INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES(" || _testquote(legacy_review) || ",'maintenance-resolution'," || _testquote(gap_wait) || ",'pending'," || _testquote('{"schema":"crexx-rag.resolution-review/1","task_id":' || jsonquote(gap_wait) || ',"decision_id":' || jsonquote(legacy_decision) || '}') || ",'fixture')")=0,"retain an authentic older pending evidence review")
+  rpc='{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"rag_library_overview","arguments":{}}}'
+  config=architecturelocalconfig()
+  report_before=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  delta_before=convergencemetric(db,report_before,"reconciliation_delta");unreconciled_before=convergencemetric(db,report_before,"unreconciled_logical_questions")
+  settlements_before=convergencemetric(db,report_before,"durable_settlements");reopenings_before=convergencemetric(db,report_before,"materially_reopened_questions")
+  errors=errors+check(reviewbacklogdecision(store,legacy_review,"accept",genericprofile(),error)=0 & scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(gap_wait))="unresolved" & scalartext(db,"SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(gap_wait))="evidence-wait","retained older review accepts an unresolved evidence wait " || error)
+  report_after=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(convergencemetric(db,report_after,"reconciliation_delta")=delta_before & convergencemetric(db,report_after,"unreconciled_logical_questions")=unreconciled_before & convergencemetric(db,report_after,"durable_settlements")=settlements_before & convergencemetric(db,report_after,"materially_reopened_questions")=reopenings_before,"accepted older wait adds neither settlement nor reopening")
+  cap_task=""
+  errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note","note-capability","","",800000,policy,cap_task,error)=0 & nextwindow(store,raw,job,error)=0,"dispatch capability question " || error)
+  packet="";fingerprint=""
+  errors=errors+check(buildbacklogevidence(db,"note","note-capability","",65536,packet,fingerprint,error)=0,"capability question has exact source packet")
+  evidence_id=scalartext(db,"SELECT json_extract(" || _testquote(packet) || ",'$.passages[0].evidence_id')")
+  response=currentresponse(responsejson("capability-wait","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]',"","An operation to attach a structured alternative qualifier to a note"),"Retain the original note and attach a second structured alternative qualifier.")
+  errors=errors+check(runresolution(store,job,cap_task,response,error)=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE task_id=" || _testquote(cap_task) || " AND state='unresolved' AND escalation_origin='capability-wait'")=1,"known unsupported correction remains outstanding " || error)
+  before=scalarint(db,"SELECT count(*) FROM provider_runs");again=""
+  errors=errors+check(enqueuebacklogtask(db,"query-gap","gap","gap-wait","","",750000,policy,again,error)=0 & again=gap_wait & tickbacklogwindow(store,job,error)>=0 & scalarint(db,"SELECT count(*) FROM provider_runs")=before,"unchanged evidence wait does not dispatch another provider call")
+  summary=.jsondocument(backlogsummary(db,job))
+  errors=errors+check(scalarint(db,"SELECT json_extract(" || _testquote(summary.node_get(summary.root())) || ",'$.evidence_waits')")>=1 & scalarint(db,"SELECT json_extract(" || _testquote(summary.node_get(summary.root())) || ",'$.capability_waits')")>=1,"compact status separates both waiting conditions")
+  retained="";unchanged=""
+  errors=errors+check(sqliteexec(db,"INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-retain','lead','Platform is described by the source',800000,200000,'Review source','active','{}','fixture',1,'fixture','fixture'),('note-nochange','lead','Review another Platform detail',800000,200000,'Review source','active','{}','fixture',1,'fixture','fixture'); INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-retain','note-retain','concept','concept-parent','chunk-lifecycle',0,8),('link-nochange','note-nochange','concept','concept-parent','chunk-lifecycle',0,8)")=0,"seed independent retention and no-change assessments")
+  errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note","note-retain","","",800000,policy,retained,error)=0 & enqueuebacklogtask(db,"analysis-lead","note","note-nochange","","",800000,policy,unchanged,error)=0 & retained<>"" & unchanged<>"" & nextwindow(store,raw,job,error)=0,"dispatch separate retention and no-change assessments " || error)
+  before=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  packet="";fingerprint=""
+  errors=errors+check(buildbacklogevidence(db,"note","note-retain","",65536,packet,fingerprint,error)=0,"retention uses its selected source packet " || error)
+  evidence_id=scalartext(db,"SELECT json_extract(" || _testquote(packet) || ",'$.passages[0].evidence_id')")
+  response=currentresponse(responsejson("retain","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform"}]'),"")
+  errors=errors+check(runresolution(store,job,retained,response,error)=0 & scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(retained))="resolved" & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=before,"supported note retention settles without a graph mutation " || error)
+  response=currentresponse(responsejson("no-change"),"")
+  errors=errors+check(runresolution(store,job,unchanged,response,error)=0 & scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(unchanged))="resolved" & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=before,"justified no-change settles only the assessed question " || error)
+  summary=.jsondocument(backlogsummary(db,job))
+  errors=errors+check(scalarint(db,"SELECT json_extract(" || _testquote(summary.node_get(summary.root())) || ",'$.supported_retention_decisions')")>=1 & scalarint(db,"SELECT json_extract(" || _testquote(summary.node_get(summary.root())) || ",'$.justified_no_change_decisions')")>=1,"status keeps supported retention separate from no-change")
+  config=architecturelocalconfig();profile=genericprofile()
+  rpc='{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"rag_maintain_inspect","arguments":{"id":' || jsonquote(gap_wait) || '}}}'
+  public=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(pos('"isError":false',public)>0 & pos('evidence-wait',public)>0 & pos('A new source naming the other source',public)>0,"MCP task inspection preserves the exact evidence waiting reason")
+  rpc='{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"rag_library_overview","arguments":{}}}'
+  public=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(pos('"isError":false',public)>0 & convergencemetric(db,public,"waiting_for_evidence")>=1 & convergencemetric(db,public,"waiting_for_capability")>=1 & convergencemetric(db,public,"supported_retention_assessments")>=1 & convergencemetric(db,public,"justified_no_change_assessments")>=1,"read-only MCP report distinguishes settled and waiting outcomes")
+  successor=""
+  errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note","note-capability","","",800000,policy,successor,error)=0 & successor=cap_task,"unchanged capability wait is not redispatched " || error)
+  profile=genericprofile();identity=.ragconfigidentity
+  errors=errors+check(identifyconfig(config,profile,identity,error)=0 & sqliteexec(db,"UPDATE config_snapshots SET config_hash=" || _testquote(identity.config_hash()) || ",profile_hash=" || _testquote(identity.profile_hash()) || " WHERE config_snapshot_id='snapshot-lifecycle'")=0,"bind external resolution to current synthetic configuration " || error)
+  packet="";fingerprint=""
+  errors=errors+check(buildbacklogevidence(db,"note","note-capability","",65536,packet,fingerprint,error)=0,"external wait resolution has its own source packet " || error)
+  evidence_id=scalartext(db,"SELECT json_extract(" || _testquote(packet) || ",'$.passages[0].evidence_id')")
+  response=currentresponse(responsejson("retain","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]'),"")
+  canonical="";review=""
+  errors=errors+check(planagentaction(store,config,profile,cap_task,"resolution",response,"supported source retention","fixture-agent","fixture",canonical,error)=0 & applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review,error)=0 & review<>"","external review can reconsider a capability wait " || error)
+  rpc='{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"rag_library_overview","arguments":{}}}'
+  report_before=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  settlements_before=convergencemetric(db,report_before,"durable_settlements");reopenings_before=convergencemetric(db,report_before,"materially_reopened_questions")
+  if review<>"" then errors=errors+check(reviewagentaction(store,review,"accept",config,profile,error)=0,"supported external decision settles the old wait " || error)
+  report_after=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(convergencemetric(db,report_after,"durable_settlements")=settlements_before+1 & convergencemetric(db,report_after,"materially_reopened_questions")=reopenings_before,"accepted external retention settles exactly one existing version")
+  errors=errors+check(scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(cap_task))="resolved" & scalartext(db,"SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(cap_task))="","fulfilled capability wait no longer supplies a blocking route")
+  errors=errors+check(sqliteexec(db,"UPDATE analysis_notes SET text='Platform needs an explicitly structured alternative qualifier' WHERE note_id='note-capability'")=0,"simulate material change to a waiting note")
+  successor=""
+  errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note","note-capability","","",800000,policy,successor,error)=0 & successor<>"" & successor<>cap_task & scalartext(db,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _testquote(successor))=cap_task & scalartext(db,"SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(successor))="","changed note context creates an eligible linked successor " || error)
+  report_after=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(convergencemetric(db,report_after,"materially_reopened_questions")=reopenings_before+1 & convergencemetric(db,report_after,"durable_settlements")=settlements_before+1,"changed external-retained question reopens once without losing settlement")
+  selected=.jsondocument(backlogselection(db,policy,0,98,job))
+  errors=errors+check(pos(successor,selected.node_get(selected.root()))>0 & nextwindow(store,raw,job,error)=0 & tickbacklogwindow(store,job,error)>=0 & scalarint(db,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=" || _testquote(successor) || " AND i.state='queued'")=1,"changed successor is actually eligible and queued for service " || error)
+  errors=errors+check(runresolution(store,job,successor,currentresponse(responsejson("no-change"),""),error)=0,"changed successor receives one validated service decision " || error)
+  identity=.ragconfigidentity
+  errors=errors+check(identifyconfig(config,profile,identity,error)=0 & sqliteexec(db,"UPDATE config_snapshots SET config_hash=" || _testquote(identity.config_hash()) || ",profile_hash=" || _testquote(identity.profile_hash()) || " WHERE config_snapshot_id='snapshot-lifecycle'")=0,"bind synthetic public correction to current configuration " || error)
+  errors=errors+check(sqliteexec(db,"INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-public','lead','Platform is absent from this source',800000,200000,'Correct','active','{}','fixture',1,'fixture','fixture'); INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-public','note-public','concept','concept-parent','chunk-lifecycle',0,8)")=0,"seed separate external correction")
+  external="";packet="";fingerprint=""
+  errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note","note-public","","",800000,policy,external,error)=0 & external<>"" & buildbacklogevidence(db,"note","note-public","",65536,packet,fingerprint,error)=0,"external correction binds current source packet " || error)
+  evidence_id=scalartext(db,"SELECT json_extract(" || _testquote(packet) || ",'$.passages[0].evidence_id')")
+  response=currentresponse(responsejson("correct-note","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]',"note-public"),"Platform appears with Peer.")
+  canonical="";review=""
+  errors=errors+check(planagentaction(store,config,profile,external,"resolution",response,"correct outdated note","fixture-agent","fixture",canonical,error)=0 & pos('"replacement_text":"Platform appears with Peer."',canonical)>0,"external plan previews the exact note replacement " || error)
+  rpc='{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"rag_task_resolve_plan","arguments":{"id":' || jsonquote(external) || ',"response_json":' || jsonquote(response) || '}}}'
+  public=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","plan")
+  errors=errors+check(pos('"isError":false',public)>0 & pos('correct-note',public)>0 & pos('supersede',public)>0,"MCP plan exposes the note consequence before apply")
+  before=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  calls=scalarint(db,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review,error)=0 & review<>"" & scalartext(db,"SELECT state FROM analysis_notes WHERE note_id='note-public'")="active" & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=before,"external apply queues review without correction or provider call " || error)
+  summary=.jsondocument(backlogsummary(db,job))
+  errors=errors+check(scalarint(db,"SELECT json_extract(" || _testquote(summary.node_get(summary.root())) || ",'$.pending_correction_reviews')")>=1,"status counts pending external correction review")
+  rpc='{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"rag_library_overview","arguments":{}}}'
+  public=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(pos('"isError":false',public)>0 & convergencemetric(db,public,"pending_correction_reviews")>=1,"read-only MCP report exposes pending correction consequence")
+  if review<>"" then errors=errors+check(reviewagentaction(store,review,"accept",config,profile,error)=0,"external review applies note replacement " || error)
+  errors=errors+check(scalartext(db,"SELECT state FROM analysis_notes WHERE note_id='note-public'")="superseded" & scalarint(db,"SELECT count(*) FROM analysis_notes WHERE json_extract(grounding_json,'$.supersedes_note_id')='note-public' AND text='Platform appears with Peer.'")=1 & scalarint(db,"SELECT count(*) FROM provider_runs")=calls,"external correction retains history without fabricated provider usage")
+  public=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(pos('"isError":false',public)>0 & convergencemetric(db,public,"applied_note_corrections")=2 & convergencemetric(db,public,"applied_gap_resolutions")=1 & scalarint(db,"SELECT count(*) FROM reviews WHERE review_id=" || _testquote(review) || " AND state='accepted'")=1,"public report counts worker and external corrections with accepted review")
+  errors=errors+check(sqliteexec(db,"INSERT INTO query_gaps(gap_id,question_hash,normalized_question,gap_text,trace_id,observed_generation,occurrence_count,state,first_observed_at,last_observed_at) VALUES('gap-public','hash-public','Does Platform appear with Peer?','Answer requires cited source','trace-public',1,1,'open','fixture','fixture')")=0,"seed separate external gap answer")
+  external="";packet="";fingerprint=""
+  errors=errors+check(enqueuebacklogtask(db,"query-gap","gap","gap-public","","",750000,policy,external,error)=0 & external<>"" & buildbacklogevidence(db,"gap","gap-public","",65536,packet,fingerprint,error)=0,"external gap plan binds its own current evidence " || error)
+  evidence_id=scalartext(db,"SELECT json_extract(" || _testquote(packet) || ",'$.passages[0].evidence_id')")
+  response=currentresponse(responsejson("resolve-gap","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]',"gap-public"),"Yes. Platform appears with Peer.")
+  canonical="";review=""
+  errors=errors+check(planagentaction(store,config,profile,external,"resolution",response,"answer original gap","fixture-agent","fixture",canonical,error)=0 & pos('"effect":"resolve"',canonical)>0 & pos('"answer":"Yes. Platform appears with Peer."',canonical)>0,"external gap plan previews the original-question answer " || error)
+  before=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  errors=errors+check(applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review,error)=0 & review<>"" & scalartext(db,"SELECT state FROM query_gaps WHERE gap_id='gap-public'")="open" & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=before,"external gap submission waits for review without closing the question " || error)
+  if review<>"" then errors=errors+check(reviewagentaction(store,review,"accept",config,profile,error)=0,"external review applies source-backed gap answer " || error)
+  rpc='{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"rag_library_overview","arguments":{}}}'
+  public=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(scalartext(db,"SELECT state FROM query_gaps WHERE gap_id='gap-public'")="resolved" & scalarint(db,"SELECT count(*) FROM reviews WHERE review_id=" || _testquote(review) || " AND state='accepted'")=1 & convergencemetric(db,public,"applied_gap_resolutions")=2,"public report includes both worker and external reviewed gap answers")
+  errors=errors+check(sqliteexec(db,"INSERT INTO query_gaps(gap_id,question_hash,normalized_question,gap_text,trace_id,observed_generation,occurrence_count,state,first_observed_at,last_observed_at) VALUES('gap-external-wait','hash-external-wait','Where is another Platform source?','Source still missing','trace-external-wait',1,1,'open','fixture','fixture')")=0,"seed independent externally reviewed evidence wait")
+  external_wait="";canonical="";review=""
+  errors=errors+check(enqueuebacklogtask(db,"query-gap","gap","gap-external-wait","","",750000,policy,external_wait,error)=0 & external_wait<>"","enqueue external evidence wait " || error)
+  response=currentresponse(responsejson("insufficient-evidence","","[]","[]","","A new independent source identifying another Platform source"),"")
+  rpc='{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"rag_library_overview","arguments":{}}}'
+  report_before=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  delta_before=convergencemetric(db,report_before,"reconciliation_delta");unreconciled_before=convergencemetric(db,report_before,"unreconciled_logical_questions")
+  before=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1");calls=scalarint(db,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(planagentaction(store,config,profile,external_wait,"resolution",response,"explicit source wait","fixture-agent","fixture",canonical,error)=0 & applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review,error)=0 & review<>"","external evidence wait passes through its own review receipt " || error)
+  if review<>"" then errors=errors+check(reviewagentaction(store,review,"accept",config,profile,error)=0,"accept external evidence wait without pretending to answer " || error)
+  report_after=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(external_wait))="unresolved" & scalartext(db,"SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(external_wait))="evidence-wait" & scalarint(db,"SELECT count(*) FROM reviews WHERE review_id=" || _testquote(review) || " AND state='accepted'")=1 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=before & scalarint(db,"SELECT count(*) FROM provider_runs")=calls & convergencemetric(db,report_after,"reconciliation_delta")=delta_before & convergencemetric(db,report_after,"unreconciled_logical_questions")=unreconciled_before,"external reviewed wait preserves outstanding debt and does not fabricate work")
+  errors=errors+check(sqliteexec(db,"INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-stale','lead','Platform is absent',800000,200000,'Review source','active','{}','fixture',1,'fixture','fixture'); INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-stale','note-stale','concept','concept-parent','chunk-lifecycle',0,8); INSERT INTO query_gaps(gap_id,question_hash,normalized_question,gap_text,trace_id,observed_generation,occurrence_count,state,first_observed_at,last_observed_at) VALUES('gap-stale','hash-stale','Does the source mention Platform?','Answer requires cited source','trace-stale',1,1,'open','fixture','fixture')")=0,"seed independent stale note and gap reviews")
+  stale_note="";packet="";fingerprint=""
+  errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note","note-stale","","",800000,policy,stale_note,error)=0 & buildbacklogevidence(db,"note","note-stale","",65536,packet,fingerprint,error)=0,"stale note has current source packet " || error)
+  evidence_id=scalartext(db,"SELECT json_extract(" || _testquote(packet) || ",'$.passages[0].evidence_id')")
+  response=currentresponse(responsejson("correct-note","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]',"note-stale"),"Platform appears with Peer.")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & runresolution(store,job,stale_note,response,error)=0,"queue stale note proposal under exact source " || error)
+  stale_review=scalartext(db,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(stale_note) || " AND state='pending'")
+  stale_generation=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1");stale_usage=scalartext(db,"SELECT json_array(coalesce(sum(input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(cost_microunits),0)) FROM provider_runs")
+  errors=errors+check(sqliteexec(db,"UPDATE analysis_notes SET text='Platform lead changed before acceptance' WHERE note_id='note-stale'")=0 & reviewbacklogdecision(store,stale_review,"accept",genericprofile(),error)<>0 & scalartext(db,"SELECT state FROM reviews WHERE review_id=" || _testquote(stale_review))="pending" & reviewbacklogdecision(store,stale_review,"reject",genericprofile(),error)=0,"changed note blocks acceptance and permits safe rejection " || error)
+  errors=errors+check(scalartext(db,"SELECT state FROM analysis_notes WHERE note_id='note-stale'")="active" & scalartext(db,"SELECT state FROM reviews WHERE review_id=" || _testquote(stale_review))="rejected" & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(stale_note) || " AND disposition='correct-note:review:reject'")=1 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=stale_generation & scalartext(db,"SELECT json_array(coalesce(sum(input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(cost_microunits),0)) FROM provider_runs")=stale_usage,"rejected stale note retains original decision and exact usage without publication")
+  errors=errors+check(sqliteexec(db,"UPDATE analysis_notes SET text='Platform is absent' WHERE note_id='note-stale'")=0,"restore the synthetic note after stale-review refusal")
+  stale_gap="";packet="";fingerprint=""
+  errors=errors+check(enqueuebacklogtask(db,"query-gap","gap","gap-stale","","",750000,policy,stale_gap,error)=0 & buildbacklogevidence(db,"gap","gap-stale","",65536,packet,fingerprint,error)=0,"stale gap has current source packet " || error)
+  evidence_id=scalartext(db,"SELECT json_extract(" || _testquote(packet) || ",'$.passages[0].evidence_id')")
+  response=currentresponse(responsejson("resolve-gap","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]',"gap-stale"),"Yes. Platform Peer appears in the source.")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & runresolution(store,job,stale_gap,response,error)=0,"queue stale gap answer under exact source " || error)
+  stale_review=scalartext(db,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(stale_gap) || " AND state='pending'")
+  stale_generation=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1");stale_usage=scalartext(db,"SELECT json_array(coalesce(sum(input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(cost_microunits),0)) FROM provider_runs")
+  errors=errors+check(sqliteexec(db,"UPDATE chunk_contents SET text='Platform Node' WHERE content_id='content-lifecycle'; UPDATE source_revision_texts SET normalized_utf8='Platform Node' WHERE text_id='text-lifecycle'; UPDATE chunks_fts SET body='Platform Node' WHERE revision_chunk_id='chunk-lifecycle'")=0 & reviewbacklogdecision(store,stale_review,"accept",genericprofile(),error)<>0 & scalartext(db,"SELECT state FROM reviews WHERE review_id=" || _testquote(stale_review))="pending" & reviewbacklogdecision(store,stale_review,"dismiss",genericprofile(),error)=0,"changed source passage blocks gap acceptance and permits safe dismissal " || error)
+  errors=errors+check(scalartext(db,"SELECT state FROM query_gaps WHERE gap_id='gap-stale'")="open" & scalartext(db,"SELECT state FROM reviews WHERE review_id=" || _testquote(stale_review))="dismissed" & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(stale_gap) || " AND disposition='resolve-gap:review:dismiss'")=1 & scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")=stale_generation & scalartext(db,"SELECT json_array(coalesce(sum(input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(cost_microunits),0)) FROM provider_runs")=stale_usage,"dismissed stale gap retains decision and exact usage without publication")
+  errors=errors+check(sqliteexec(db,"UPDATE chunk_contents SET text='Platform Peer' WHERE content_id='content-lifecycle'; UPDATE source_revision_texts SET normalized_utf8='Platform Peer' WHERE text_id='text-lifecycle'; UPDATE chunks_fts SET body='Platform Peer' WHERE revision_chunk_id='chunk-lifecycle'")=0,"restore the synthetic source after stale-review refusal for the later census")
+  quiet=changestr('"knowledge_policy":"fixture-v1"',raw,'"knowledge_policy":"fixture-waiting-unlimited"')
+  quiet=changestr('"window_seconds":1000',quiet,'"window_seconds":0')
+  quiet=changestr('"item_limit":100',quiet,'"item_limit":0')
+  quiet=changestr('"model_calls":100',quiet,'"model_calls":0')
+  quiet=changestr('"input_budget":10000000',quiet,'"input_budget":0')
+  quiet=changestr('"output_budget":1000000',quiet,'"output_budget":0')
+  quiet=left(quiet,length(quiet)-1) || ',"zero_unlimited":1,"phase":"identity","phase_cohort":["concept-parent"],"phase_denominator":1}'
+  quiet_task="";quiet_job=job
+  errors=errors+check(enqueuebacklogtask(db,"identity-review","concept","concept-parent","","",900000,.jsondocument(quiet),quiet_task,error)=0 & quiet_task<>"" & nextwindow(store,quiet,quiet_job,error)=0,"start an unlimited identity cohort with a real question " || error)
+  response=currentresponse(responsejson("insufficient-evidence","","[]","[]","","A new source resolving whether Platform and Peer are identical"),"")
+  errors=errors+check(runresolution(store,quiet_job,quiet_task,response,error)=0 & scalartext(db,"SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(quiet_task))="evidence-wait","the unlimited cohort retains a specific unresolved evidence wait " || error)
+  calls=scalarint(db,"SELECT count(*) FROM provider_runs")
+  do pass=1 to 4
+    if scalartext(db,"SELECT state FROM maintenance_windows WHERE job_id=" || _testquote(quiet_job))<>"active" then leave
+    errors=errors+check(tickbacklogwindow(store,quiet_job,error)>=0,"checkpoint unlimited waiting window " || error)
+  end
+  summary=.jsondocument(backlogsummary(db,quiet_job))
+  errors=errors+check(scalartext(db,"SELECT state FROM maintenance_windows WHERE job_id=" || _testquote(quiet_job))="complete" & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE task_id=" || _testquote(quiet_task) || " AND state='unresolved' AND escalation_origin='evidence-wait'")=1 & scalarint(db,"SELECT count(*) FROM provider_runs")=calls & scalarint(db,"SELECT json_extract(" || _testquote(summary.node_get(summary.root())) || ",'$.evidence_waits')")>=1,"unlimited window becomes quiet while reporting its outstanding wait")
+  correction_task=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE subject_type='note' AND subject_id=" || _testquote(corrected) || " AND state='resolved'")
+  errors=errors+check(correction_task<>"","accepted note correction retains an assessed replacement for bounded rediscovery")
+  errors=errors+check(scalarint(db,"SELECT count(*) FROM maintenance_alias_issues WHERE state='open' AND lower(proposed_label)='platform'")=0,"identity wait lies outside the ordinary identity selector")
+  new_text="Platform Peer appears in a new source."
+  new_generation=scalarint(db,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  sql="INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('artifact-actionability-new','raw-actionability-new','text/plain','utf-8',NULL,'fixture://actionability-new','fixture');"
+  sql=sql || "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-actionability-new','digest-actionability-new'," || _testquote(new_text) || ",'fixture','utf8-v1','fixture');"
+  sql=sql || "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-actionability-new','fixture','actionability-new','revision-actionability-new','active','fixture://actionability-new','New source'," || new_generation || ");"
+  sql=sql || "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-actionability-new','source-actionability-new','envelope-actionability-new','artifact-actionability-new','text-actionability-new','meta-actionability-new','fixture'," || new_generation || ");"
+  sql=sql || "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-actionability-new','content-digest-actionability-new'," || _testquote(new_text) || ",'input-actionability-new');"
+  sql=sql || "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-actionability-new','revision-actionability-new',1,0," || length(new_text) || ",'content-actionability-new','continuity-actionability-new','fixture','direct'," || new_generation || ");"
+  sql=sql || "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-actionability-new','content-actionability-new'," || _testquote(new_text) || ");"
+  sql=sql || "INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('mention-actionability-new','concept-parent','chunk-actionability-new',0,8," || new_generation || ");"
+  sql=sql || "INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-correction-new'," || _testquote(corrected) || ",'chunk','chunk-actionability-new','chunk-actionability-new',0,13)"
+  errors=errors+check(sqliteexec(db,sql)=0,"add independent relevant source evidence to the corrected note and waiting identity question")
+  before=scalarint(db,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & tickbacklogwindow(store,job,error)>=0,"ordinary bounded census revisits changed source context " || error)
+  errors=errors+check(scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id=" || _testquote(correction_task) || " AND subject_id=" || _testquote(corrected))=1 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id=" || _testquote(quiet_task) || " AND kind='identity-review' AND subject_id='concept-parent' AND escalation_origin=''")=1 & scalarint(db,"SELECT count(*) FROM provider_runs")=before,"ordinary census reopens corrected note and off-selector identity wait on relevant new evidence")
+  errors=errors+check(nextwindow(store,raw,job,error)=0 & tickbacklogwindow(store,job,error)>=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id=" || _testquote(correction_task))=1 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id=" || _testquote(quiet_task))=1 & scalarint(db,"SELECT count(*) FROM provider_runs")=before,"unchanged follow-up census creates no duplicate questions or calls")
+  rpc='{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"rag_library_overview","arguments":{}}}'
+  report_after=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(convergencemetric(db,report_after,"new_logical_questions")+convergencemetric(db,report_after,"materially_reopened_questions")-convergencemetric(db,report_after,"durable_settlements")-convergencemetric(db,report_after,"parked_exceptions")-convergencemetric(db,report_after,"closing_actionable_debt")=0 & convergencemetric(db,report_after,"reconciliation_delta")=0 & convergencemetric(db,report_after,"unreconciled_logical_questions")=0 & convergencemetric(db,report_after,"debt_reconciliation_available")=1,"five outcomes and changed successors reconcile exact task-version debt")
+  errors=errors+check(convergencemetric(db,report_after,"supported_retention_assessments")=2 & convergencemetric(db,report_after,"justified_no_change_assessments")=2 & convergencemetric(db,report_after,"waiting_for_evidence")=0 & convergencemetric(db,report_after,"waiting_for_capability")=0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id IN(" || _testquote(gap_wait) || "," || _testquote(external_wait) || ")")=2 & convergencemetric(db,report_after,"applied_note_corrections")=2 & convergencemetric(db,report_after,"applied_gap_resolutions")=2,"public counts distinguish retained, no-change, relevant wait successors and applied results exactly")
+  errors=errors+check(mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")=report_after & scalarint(db,"SELECT count(*) FROM provider_runs")=before,"repeated read-only report leaves all decisions and provider usage stable")
+  errors=errors+check(convergencemetric(db,report_after,"new_logical_questions")=17 & convergencemetric(db,report_after,"materially_reopened_questions")=7 & convergencemetric(db,report_after,"durable_settlements")=10 & convergencemetric(db,report_after,"closing_actionable_debt")=14,"known synthetic versions give independent event totals before supersession")
+  errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET state='superseded' WHERE task_id IN(" || _testquote(cap_task) || "," || _testquote(correction_task) || ") AND state='resolved'")=0,"model retained superseded state after the two real accepted chains")
+  report_after=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(convergencemetric(db,report_after,"new_logical_questions")=17 & convergencemetric(db,report_after,"materially_reopened_questions")=7 & convergencemetric(db,report_after,"durable_settlements")=10 & convergencemetric(db,report_after,"closing_actionable_debt")=14 & convergencemetric(db,report_after,"reconciliation_delta")=0 & convergencemetric(db,report_after,"unreconciled_logical_questions")=0,"superseded accepted chains retain exact settlements and reopenings")
+  nojob_raw=changestr('"knowledge_policy":"fixture-v1"',raw,'"knowledge_policy":"fixture-no-job"')
+  nojob_policy=.jsondocument(nojob_raw)
+  errors=errors+check(sqliteexec(db,"INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-nojob','lead','Platform is absent from the no-job source',800000,200000,'Correct','active','{}','fixture',1,'fixture','fixture'); INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-nojob','note-nojob','chunk','chunk-lifecycle','chunk-lifecycle',0,13)")=0,"seed external correction with no matching maintenance window")
+  nojob_task="";packet="";fingerprint=""
+  errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note","note-nojob","","",800000,nojob_policy,nojob_task,error)=0 & buildbacklogevidence(db,"note","note-nojob","",65536,packet,fingerprint,error)=0,"no-job correction uses its own exact source packet " || error)
+  evidence_id=scalartext(db,"SELECT json_extract(" || _testquote(packet) || ",'$.passages[0].evidence_id')")
+  response=currentresponse(responsejson("correct-note","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform Peer"}]',"note-nojob"),"Platform and Peer appear together.")
+  canonical="";review=""
+  errors=errors+check(planagentaction(store,config,profile,nojob_task,"resolution",response,"correct note without a job","fixture-agent","fixture",canonical,error)=0 & pos('"job_id":""',canonical)>0 & applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review,error)=0 & review<>"","external no-job correction reaches mandatory review " || error)
+  if review<>"" then errors=errors+check(reviewagentaction(store,review,"accept",config,profile,error)=0,"external no-job correction accepts exact source " || error)
+  nojob_corrected=scalartext(db,"SELECT note_id FROM analysis_notes WHERE json_extract(grounding_json,'$.supersedes_note_id')='note-nojob'")
+  nojob_assessment=scalartext(db,"SELECT task_id FROM maintenance_tasks WHERE subject_type='note' AND subject_id=" || _testquote(nojob_corrected) || " AND state='resolved'")
+  errors=errors+check(nojob_assessment<>"" & scalartext(db,"SELECT json_extract(decision_json,'$.replacement_task_id') FROM reviews WHERE review_id=" || _testquote(review))=nojob_assessment & scalartext(db,"SELECT json_extract(decision_json,'$.replacement_assessed_context') FROM reviews WHERE review_id=" || _testquote(review))<>"" & scalarint(db,"SELECT count(*) FROM job_events WHERE event_type=" || _testquote("maintenance-assessed-context:" || nojob_assessment))=0,"no-job corrected assessment has an accepted review-backed context receipt")
+  rpc='{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"rag_library_overview","arguments":{}}}'
+  report_before=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  settlements_before=convergencemetric(db,report_before,"durable_settlements");reopenings_before=convergencemetric(db,report_before,"materially_reopened_questions")
+  errors=errors+check(sqliteexec(db,"INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-nojob-new'," || _testquote(nojob_corrected) || ",'chunk','chunk-actionability-new','chunk-actionability-new',0,13)")=0 & nextwindow(store,raw,job,error)=0 & tickbacklogwindow(store,job,error)>=0,"bounded census sees new cited evidence for a no-job correction " || error)
+  errors=errors+check(scalarint(db,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id=" || _testquote(nojob_assessment) || " AND subject_id=" || _testquote(nojob_corrected))=1,"review-backed corrected assessment reopens once on new source")
+  report_after=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(convergencemetric(db,report_after,"durable_settlements")=settlements_before & convergencemetric(db,report_after,"materially_reopened_questions")=reopenings_before+1,"no-job assessment contributes one source-driven reopening")
+  errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET state='superseded' WHERE task_id=" || _testquote(nojob_assessment) || " AND state='resolved'")=0,"retain no-job assessment history in a superseded version")
+  report_after=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(convergencemetric(db,report_after,"durable_settlements")=settlements_before & convergencemetric(db,report_after,"materially_reopened_questions")=reopenings_before+1 & convergencemetric(db,report_after,"unreconciled_logical_questions")=0,"accepted review receipt retains no-job settlement and reopening after supersession")
+
+  /* Two retained historical review shapes: one has a post-decision receipt,
+   * while the other cannot prove that its old accepted review settled work. */
+  legacy_notes=.string[];legacy_tasks=.string[]
+  legacy_notes[1]="note-legacy-known";legacy_notes[2]="note-legacy-unknown"
+  errors=errors+check(sqliteexec(db,"INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-legacy-known','lead','Platform needs legacy evidence',800000,200000,'Review','active','{}','fixture',1,'fixture','fixture'),('note-legacy-unknown','lead','Peer needs legacy evidence',800000,200000,'Review','active','{}','fixture',1,'fixture','fixture'); INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-legacy-known','note-legacy-known','chunk','chunk-lifecycle','chunk-lifecycle',0,13),('link-legacy-unknown','note-legacy-unknown','chunk','chunk-lifecycle','chunk-lifecycle',0,13)")=0,"seed two synthetic legacy review subjects")
+  do i=1 to 2
+    errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note",legacy_notes[i],"","",800000,policy,legacy_tasks[i],error)=0 & legacy_tasks[i]<>"","enqueue synthetic legacy review " || i || " " || error)
+  end
+  errors=errors+check(nextwindow(store,raw,job,error)=0,"open authentic worker window for legacy review fixtures " || error)
+  legacy_job=job
+  do i=1 to 2
+    response=currentresponse(responsejson("insufficient-evidence","","[]","[]","","An independently cited source for this note"),"")
+    errors=errors+check(runresolution(store,legacy_job,legacy_tasks[i],response,error)=0,"retain authentic insufficient-evidence worker receipt " || i || " " || error)
+    legacy_decision=scalartext(db,"SELECT decision_id FROM maintenance_decisions WHERE task_id=" || _testquote(legacy_tasks[i]) || " ORDER BY created_epoch DESC,decision_id DESC LIMIT 1")
+    legacy_review="review:" || legacy_decision
+    sql="UPDATE maintenance_decisions SET disposition='insufficient-evidence:review:accept' WHERE decision_id=" || _testquote(legacy_decision) || "; UPDATE maintenance_tasks SET state='resolved',escalation_origin='',escalation_reason='' WHERE task_id=" || _testquote(legacy_tasks[i]) || "; INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,decision_json,created_at,decided_at) VALUES(" || _testquote(legacy_review) || ",'maintenance-resolution'," || _testquote(legacy_tasks[i]) || ",'accepted'," || _testquote('{"schema":"crexx-rag.resolution-review/1","task_id":' || jsonquote(legacy_tasks[i]) || ',"decision_id":' || jsonquote(legacy_decision) || '}') || "," || _testquote('{"decision":"accept"}') || ",'fixture','fixture')"
+    errors=errors+check(sqliteexec(db,sql)=0,"model accepted old resolved-review state without changing its provider receipt " || i)
+  end
+  legacy_fingerprint=scalartext(db,"SELECT evidence_fingerprint FROM maintenance_tasks WHERE task_id=" || _testquote(legacy_tasks[1]))
+  legacy_message='{"schema":"crexx-rag.assessed-context/1","task_id":' || jsonquote(legacy_tasks[1]) || ',"fingerprint":' || jsonquote(legacy_fingerprint) || ',"basis":"post-decision"}'
+  errors=errors+check(sqliteexec(db,"INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _testquote(legacy_job) || "," || _testquote("maintenance-assessed-context:" || legacy_tasks[1]) || "," || _testquote(legacy_message) || ",'fixture')")=0,"retain explicit historical post-decision assessment for the known resolved review")
+  rpc='{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"rag_library_overview","arguments":{}}}'
+  report_before=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  settlements_before=convergencemetric(db,report_before,"durable_settlements");reopenings_before=convergencemetric(db,report_before,"materially_reopened_questions")
+  errors=errors+check(sqliteexec(db,"UPDATE analysis_notes SET text='Platform has newer evidence' WHERE note_id='note-legacy-known'; UPDATE analysis_notes SET text='Peer has newer evidence' WHERE note_id='note-legacy-unknown'")=0,"give both historical reviews materially changed source context")
+  do i=1 to 2
+    successor=""
+    errors=errors+check(enqueuebacklogtask(db,"analysis-lead","note",legacy_notes[i],"","",800000,policy,successor,error)=0 & successor<>legacy_tasks[i] & scalartext(db,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _testquote(successor))=legacy_tasks[i],"link changed historical question " || i || " " || error)
+  end
+  errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET state='superseded' WHERE task_id IN(" || _testquote(legacy_tasks[1]) || "," || _testquote(legacy_tasks[2]) || ") AND state='resolved'")=0,"model retained superseded historical review versions")
+  report_after=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(convergencemetric(db,report_after,"durable_settlements")=settlements_before-1 & convergencemetric(db,report_after,"materially_reopened_questions")=reopenings_before+1 & convergencemetric(db,report_after,"unreconciled_logical_questions")=1 & convergencemetric(db,report_after,"debt_reconciliation_available")=0,"proved legacy settlement remains while receipt-free accepted review is reported uncertain")
+  return errors
+
+currentresponse: procedure = .string
+  arg response=.string,resolution_text=.string
+  return left(response,length(response)-1) || ',"dispositions":[],"relationship_type":"","resolution_text":' || jsonquote(resolution_text) || '}'
 
 withdispositions: procedure = .string
   arg response=.string,dispositions=.string
@@ -714,7 +1012,8 @@ sparseedgechecks: procedure = .int
   errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept","graph-atlas","","",700000,.jsondocument(policy),duplicate_task,error)=0 & duplicate_task<>"" & duplicate_task<>task,"changed graph context gives the exact support an independent reviewable task " || error)
   duplicate_job=scalartext(db,"SELECT job_id FROM maintenance_windows WHERE state='active' ORDER BY window_id DESC LIMIT 1")
   errors=errors+check(nextwindow(store,policy,duplicate_job,error)=0 & duplicate_job<>"","dispatch independent duplicate-support task " || error)
-  errors=errors+check(runresolution(store,duplicate_job,duplicate_task,response,error)=0,"worker queues duplicate exact-support proposal " || error)
+  current_edge=left(response,length(response)-1) || ',"resolution_text":""}'
+  errors=errors+check(runresolution(store,duplicate_job,duplicate_task,current_edge,error)=0,"current-contract worker queues duplicate exact-support proposal " || error)
   duplicate_review=scalartext(db,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(duplicate_task) || " AND review_type='maintenance-resolution' AND state='pending'")
   errors=errors+check(duplicate_review<>"" & duplicate_review<>review,"duplicate support has a distinct pending review")
   prior_claims=scalarint(db,"SELECT count(*) FROM claims WHERE source_concept_id='graph-atlas' AND target_concept_id='graph-beacon' AND visible_to_generation IS NULL")
@@ -1318,7 +1617,7 @@ main: procedure = .int
   arg args = .string[]
   if args.0 < 1 | args.0 > 2 then return 2
   selected_case = "core"; if args.0=2 then selected_case=args[2]
-  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" & selected_case<>"recording" & selected_case<>"reconsideration" & selected_case<>"sparse-edge" then return 2
+  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" & selected_case<>"recording" & selected_case<>"reconsideration" & selected_case<>"sparse-edge" & selected_case<>"actionability" then return 2
   path = args[1]; errors = 0; error = ""; store = .ragstorehandle
   /* Applicability is a request contract as well as an apply-time guard. */
   note_schema = backlogschema("note",0); alias_schema = backlogschema("alias-issue",0)
@@ -1358,6 +1657,13 @@ main: procedure = .int
 
 
   policy_json = '{"mode":"automatic","window_seconds":1000,"automatic_actions":"reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate","maximum_impact":100,"maximum_attempts":3,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":100,"resolution_prompt":"Fixture resolution","knowledge_policy":"fixture-v1","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":100,"model_calls":100,"input_budget":10000000,"output_budget":1000000,"cost_budget":0,"codex_turns":0}'
+  if selected_case="actionability" then do
+    errors=errors+actionabilitychecks(store,policy_json)
+    call closeragstore store,error
+    if errors>0 then return 1
+    say "DURABLE_BACKLOG_OK actionability"
+    return 0
+  end
   if selected_case="sparse-edge" then do
     errors=errors+sparseedgechecks(store,policy_json)
     call closeragstore store,error
@@ -1723,9 +2029,11 @@ main: procedure = .int
   errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0,"normal maintenance discovers corrected query gaps " || error)
   errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE subject_type='gap' AND state='dispatched'") = 3,"all query gaps enter ordinary durable maintenance")
   evidence = '[{"evidence_id":"chunk-lifecycle","quote":"Platform Peer"}]'
-  errors = errors + check(runresolution(store,job_id,gap_task,responsejson("retain","","[]",evidence),error) = 0 & scalartext(database,"SELECT state FROM query_gaps WHERE gap_id='gap-platform'") = "resolved","grounded maintenance can settle an investigated gap " || error)
+  errors = errors + check(runresolution(store,job_id,gap_task,responsejson("no-change","","[]",evidence),error) = 0 & scalartext(database,"SELECT state FROM query_gaps WHERE gap_id='gap-platform'") = "open","no-change settles assessment without claiming a gap answer " || error)
+  gap_review=scalartext(database,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(gap_task) || " AND state='pending'")
+  errors=errors+check(gap_review<>"" & reviewbacklogdecision(store,gap_review,"accept",genericprofile(),error)=0 & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(gap_task))="resolved","reviewed no-change closes only this gap assessment " || error)
   resolved_gap_task = gap_task; settled_gap = ""
-  errors = errors + check(enqueuebacklogtask(database,"query-gap","gap","gap-platform","","",750000,policy,settled_gap,error) = 0 & settled_gap = resolved_gap_task,"settled query gap stays closed on unchanged rediscovery " || error)
+  errors = errors + check(enqueuebacklogtask(database,"query-gap","gap","gap-platform","","",750000,policy,settled_gap,error) = 0 & settled_gap = resolved_gap_task,"final gap assessment does not recur on unchanged rediscovery " || error)
   errors = errors + check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('unrelated-catalogue','Unrelated catalogue entry','concept','active',(SELECT published_generation FROM library_meta)); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('unrelated-catalogue-mention','unrelated-catalogue','chunk-lifecycle',0,1,(SELECT published_generation FROM library_meta))") = 0,"add unrelated catalogue identity on a settled gap passage")
   settled_gap = ""
   errors = errors + check(enqueuebacklogtask(database,"query-gap","gap","gap-platform","","",750000,policy,settled_gap,error) = 0 & settled_gap = resolved_gap_task & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id='" || resolved_gap_task || "'") = 0,"unrelated catalogue growth does not reopen settled gap " || error)
@@ -1735,11 +2043,9 @@ main: procedure = .int
   insufficient=responsejson("insufficient-evidence","","[]","[]","","A new source passage identifying Vestiarium Scoticum in this question's context")
   grounds=""
   errors=errors+check(validatebacklogresponse(database,gap_task,responsejson("insufficient-evidence"),grounds,error)<>0 & pos("reopening trigger",error)>0,"insufficient evidence requires a material reopening trigger")
-  errors = errors + check(runresolution(store,job_id,gap_task,insufficient,error) = 0 & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || gap_task || "'") = "review","unapproved insufficient conclusion retains review authority " || error)
-  insufficient_review=scalartext(database,"SELECT review_id FROM reviews WHERE subject_id=" || _testquote(gap_task) || " AND state='pending'")
-  errors=errors+check(insufficient_review<>"" & reviewbacklogdecision(store,insufficient_review,"accept",genericprofile(),error)=0 & scalartext(database,"SELECT state FROM query_gaps WHERE gap_id='gap-missing'")="open" & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(gap_task))="resolved" & scalarint(database,"SELECT published_generation FROM library_meta")=previous_generation,"reviewed insufficient evidence settles the question without graph publication " || error)
+  errors = errors + check(runresolution(store,job_id,gap_task,insufficient,error) = 0 & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || gap_task || "'") = "unresolved" & scalartext(database,"SELECT escalation_origin FROM maintenance_tasks WHERE task_id='" || gap_task || "'")="evidence-wait" & scalartext(database,"SELECT state FROM query_gaps WHERE gap_id='gap-missing'")="open" & scalarint(database,"SELECT published_generation FROM library_meta")=previous_generation,"insufficient evidence remains an explicit no-call wait " || error)
   settled_gap=""
-  errors=errors+check(enqueuebacklogtask(database,"query-gap","gap","gap-missing","","",750000,policy,settled_gap,error)=0 & settled_gap=gap_task,"final insufficient evidence remains settled on unchanged context " || error)
+  errors=errors+check(enqueuebacklogtask(database,"query-gap","gap","gap-missing","","",750000,policy,settled_gap,error)=0 & settled_gap=gap_task,"missing-evidence question waits on unchanged context " || error)
   errors = errors + check(pausejob(store,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0,"close query-gap test window")
   errors = errors + check(scalartext(database,"SELECT text FROM chunk_contents WHERE content_id='content-lifecycle'") = "Platform Peer" & scalartext(database,"SELECT hex(vector) FROM embeddings WHERE embedding_id='fixture-vector'") = "0000803F" & scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"query-gap maintenance preserves source and vector state")
   /* Budget completion is a successful boundary, with uncalled tasks retained

@@ -178,6 +178,9 @@ foreach(case IN LISTS CPRAG_CASES)
         string(REPLACE "budget.input_tokens = 8192" "budget.input_tokens = 16384" config "${config}")
         string(REPLACE "budget.output_tokens = 1024" "budget.output_tokens = 2048" config "${config}")
     endif()
+    # The current strict resolution request exceeds half of the old aggregate
+    # 8192-token allowance when the two-worker fixture reserves both slots.
+    string(REPLACE "budget.input_tokens = 8192" "budget.input_tokens = 16384" config "${config}")
     string(REPLACE "budget.model_calls = 2" "budget.model_calls = ${window_calls}" config "${config}")
     string(REPLACE "budget.item_limit = 2" "budget.item_limit = ${window_items}" config "${config}")
     string(APPEND config "\nmaintenance.mode = ${maintenance_mode}\nmaintenance.batch_items = ${batch_items}\nmaintenance.maximum_attempts = 1\nmaintenance.resolution_prompt = fixture-resolution-prompt\n")

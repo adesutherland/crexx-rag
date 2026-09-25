@@ -1,5 +1,20 @@
 # SQL performance repair delivery — 13 September 2026
 
+## Actionable corrections and waiting states — 25 September 2026, local candidate
+
+`ragbacklog` keeps correction validation and note/gap writes in the existing
+review transaction. Note supersession uses the note primary key; the answer
+updates one open gap by its gap primary key. Waiting-task discovery compares
+the existing bounded question packet and uses the current kind/subject lookup;
+unchanged waits are excluded by the dispatch predicate before worker claim.
+`backlogsummary` and `ragreportservice` add read-only counts over task state,
+decision history and pending reviews. Their review effect lookup follows the
+stored decision or external action ID; accepted external corrections are
+counted through that same keyed action/review join. This adds no per-task application
+loop. No schema, index, new transaction owner or corpus-scale claim is added.
+The focused `durable_backlog_actionability` case exercises those paths; the
+full performance and regression gates remain separate.
+
 ## Sparse-node review closure and exact support — 25 September 2026, coordinator-reviewed local checkpoint
 
 The R1 review repair removes the current-evidence validation query from reject

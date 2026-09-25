@@ -1,5 +1,16 @@
 # Captured provider contracts
 
+25 September actionable-correction candidate: the two resolution captures
+change to the `/10` system instructions and strict schema with required
+`resolution_text`, `correct-note`, `resolve-gap` and `capability-wait`. Their
+new sorted pairs are `3b8ea4d2… / d6934f9f…` and
+`a67a0c58… / d6934f9f…`. Extraction, answer and report captures are unchanged.
+The native fixture's aggregate input allowance is 16,384 tokens for this
+journey: its two-worker reservation had capped a single `/10` request at 4,096
+and refused it before capture. The product's configured per-request guard is
+unchanged. Direct contract inspection verifies authentic `/7`, `/8` and `/9`
+queued bindings; synthetic note/gap and waiting tests verify the new behavior.
+
 `provider-contracts.sha256` was captured from the stage 1 native artifact
 `8b7d3d096c62f963c89982ee585c618089feaaf0f674b4f6237dde89a2cba505`
 before extracting prompt builders. Each sorted line contains the SHA-256 of

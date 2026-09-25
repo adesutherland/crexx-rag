@@ -741,15 +741,15 @@ Completed work takes precedence over older unanswered attempts. An explicit
 retry can redo unfinished work with a missing response within the normal attempt
 and run limits. Attempts, receipts, usage, old items and window deadlines remain intact.
 
-For a retained resolution item frozen under contract `/7`, first inspect the
-task, its job and any exact Codex turn. Reconcile an uncertain turn before
+For a retained resolution item frozen under contract `/7`, `/8` or `/9`, first
+inspect the task, its job and any exact Codex turn. Reconcile an uncertain turn before
 requesting a new call. A confirmed `invalid_json_schema` or other terminal
 invalid-request receipt is nonretryable automatically. When the original
 selected configuration, active window and unused attempt/call allowance still
 permit work, request **only the affected task** with `maintain retry TASK_ID`
 and continue that job. The worker verifies the exact old frozen prompt/schema
-binding, sends the corrected `/8` schema, and retains the old item, receipt,
-attempt and usage. A newly dispatched item uses `/8` directly. Repeat inspection
+binding, sends the current `/10` schema, and retains the old item, receipt,
+attempt and usage. A newly dispatched item uses `/10` directly. Repeat inspection
 to confirm one validated decision; repeat retry is idempotent. A closed window,
 exhausted allowance, pending review, unknown outcome or changed evidence is an
 operator decision point. Do not treat a new window or increased allowance as
@@ -1264,9 +1264,10 @@ identifies the failing array entry, rejected quotation and required endpoint
 labels when relevant. Resolution feedback identifies the offending field or
 reference and, for quotation failures, the rejected quote and selected source
 span. It must pass the same validation; it may withdraw unsupported extraction
-content. Ordinary resolution may escalate; advanced resolution must conclude
-a supported decision or final no-change unless expected new evidence permits
-deferral. This does not enable fuzzy matching or partial publication.
+content. Ordinary resolution may escalate; advanced resolution must conclude a
+supported decision, retain supported material, record a justified no-change,
+or name a specific evidence or capability wait. This does not enable fuzzy
+matching or partial publication.
 
 The correction is a separate provider call within the existing shared call,
 token, cost and time budgets, including when the ordinary attempt limit is one.
@@ -1307,6 +1308,30 @@ it does not infer the relevance of every change elsewhere in the graph. Older
 records baseline relationship fields they did not originally retain. Use
 `maintain reset TASK_ID` for deliberate reconsideration outside automatic scope.
 See the [comparison diagram](architecture.md#reconsidering-settled-maintenance-questions).
+
+An active note that is demonstrably outdated can use `correct-note`: the
+replacement text and exact source quotation enter a mandatory review. On
+acceptance, the old note becomes superseded and its history remains available.
+The accepted replacement is an active observation with its own source citation;
+it does not inherit unverified concept or claim links or queue another lead.
+The reviewed replacement has a quiet assessment that ordinary bounded discovery
+revisits if its cited source context changes. The superseded original remains
+historical.
+An open query gap can use `resolve-gap` with an answer to its original question
+and an exact answering source quotation; review acceptance closes the gap.
+A search result alone is not an answer. A known correction that cannot be
+expressed by an available operation uses `capability-wait`, naming both the
+specific correction and the missing operation. Missing source evidence uses
+`insufficient-evidence`, naming what evidence is needed. Both waits remain
+open without repeated calls on unchanged evidence. `retain` affirms supported
+existing material without publication; `no-change` says only that this
+assessment found no justified change. Pending reviews and unfinished dependent
+work remain visible as consequences until decided or completed. Ordinary bounded
+discovery compares unresolved waits even when the original selector no longer
+matches. A materially changed subject, selected passage or linked graph context
+can create a linked successor. Availability of a previously missing operation
+alone is not detected automatically; use a reviewed external resolution or
+`maintain reset TASK_ID` to request deliberate reconsideration.
 
 For durable maintenance, `maintenance.window_seconds` is the default elapsed
 duration. Parallel provider-call durations do not consume it. The optional
@@ -1471,22 +1496,33 @@ were available when they were captured.
 
 The `convergence-census` record separates current accepted first-pass chunks,
 accepted-empty assessments, incomplete and waived chunks from distinct open and
-settled logical questions. It also reports final insufficient-evidence
-conclusions, applied changes, pending review kinds, technical holds, unfinished
+settled logical questions. It also reports historical final insufficient-evidence
+decisions separately from current evidence waits, plus applied changes,
+pending review kinds, technical holds, unfinished
 migrations and dependent task versions. The retained task-history ledger reports
 opening actionable debt (zero at task-ledger creation), new questions, linked
 reopenings, settlements, parked exceptions and closing actionable debt. The
 ledger is reconciled only when both its global delta and each logical question's
 balance are zero. A durable terminal decision remains a settlement when its
 task version later becomes superseded; a linked successor with changed evidence
-after settlement is a reopening. An accepted `defer` keeps its question open;
-it is not counted as a settlement or as a trigger for a later reopening.
+after settlement is a reopening. Accepted external resolution reviews and
+recorded post-decision assessments also preserve that history, including a
+reviewed corrected note with no maintenance job. An accepted `defer`, evidence
+wait or capability wait keeps its question open; it is not counted as a
+settlement or as a trigger for a later reopening.
 Repeat decisions on one task version do not create extra logical
-closures. Missing or inconsistent legacy lineage is counted separately
-as unreconciled logical questions. Parked exceptions remain
+closures. Missing or inconsistent legacy lineage, including a superseded old
+accepted review with no proof of settlement, is counted separately as
+unreconciled logical questions. Parked exceptions remain
 unresolved quality debt, and neither current-state counts nor this ledger alone
 measure answer quality. A resolved origin task
 does not close an unfinished workflow or pending review.
+The same record separately counts supported retention assessments, justified
+no-change assessments, evidence waits, capability waits, pending correction
+reviews, and applied note and gap corrections. `maintain status` reports the
+waiting and pending-review counts for the selected window. An unlimited run
+may close with no eligible actions while a wait or review remains outstanding;
+inspect those counts and task reasons before calling the corpus finished.
 
 `--narrative cached` reads a matching prior advisory result without a provider
 call. `--narrative refresh` makes exactly one call through the configured

@@ -56,13 +56,27 @@ and subsequent owners. Operator settings still enter through `crexxrag.conf`.
 | `raganswercontract` / `raganswerreferences` / `ragreportcontract` | Answer and advisory-report message/schema pairs; answer references project a bounded context and restore canonical citations. Consumed by `ragqueryprovider` and `ragqueryservice`; token/byte ceilings remain in `ragquerypolicy`. |
 | `ragpromptinspection` | Public projection of those same builders, including exact system/schema hashes; no provider or library access. |
 
-Resolution contract `/9` requires every strict-schema property, including
-`dispositions` and `relationship_type`. Non-lifecycle actions return an empty
+Resolution contract `/10` requires every strict-schema property, including
+`dispositions`, `relationship_type` and `resolution_text`. Non-lifecycle actions return an empty
 dispositions array; only split, merge
 and retire may carry nonempty, exact-census impact. `ragbacklog` retains the
 legacy absent-field form for already retained responses. The contract owner
-verifies exact frozen `/7` and `/8` prompt and schema hashes before an old queued
+verifies exact frozen `/7`, `/8` and `/9` prompt and schema hashes before an old queued
 item uses the current request; the stored input and hashes remain immutable.
+`ragbacklog` owns source-bound correction validation, waiting-state dispatch and
+the existing review transaction for note and gap changes. A reviewed note
+replacement gains a settled assessment of its own cited source; the bounded
+question census compares that assessment and unresolved waits even when their
+old discovery selectors no longer select them. Changed unfinished packets retain
+a parent link. A completed reviewed decision consumes an obsolete wait route,
+while its response and review history remain durable. `ragreportservice`
+projects those durable outcomes and counts reviewed waits as outstanding debt.
+Its task-version settlement predicate also reads accepted external resolution
+reviews and post-decision assessment receipts, including the correction review's
+replacement assessment when there was no job. Supersession retains a proved
+settlement and its linked reopening. A historical accepted
+`insufficient-evidence` review without a settlement receipt stays uncertain in
+the reconciliation report; acceptance alone does not prove it was resolved.
 An unsupported or altered binding is refused with an evidence-refresh action.
 
 `ragapplicationprovider` retains execution, input-envelope checks, receipt
@@ -848,7 +862,7 @@ failure, and it does not weaken the validator to force a plan through.
 `ragclaims` returns the stored review identity; `ragimprove` retains that result
 for each proposal, and public apply renders paired proposal/review IDs. Consumers
 use those IDs directly rather than scanning reviews or reconstructing hashes.
-For a standalone sparse-node concept task, `/9` can return one
+For a standalone sparse-node concept task, `/10` retains the `/9`
 `propose-relationship` action. `ragbacklog` binds its outbound subject and
 catalogue target to one exact cited passage containing resolved mentions of
 both active endpoints. The response carries a profile-permitted relationship
@@ -1401,11 +1415,12 @@ timestamp. No new schema or restart/recovery protocol is introduced.
 Alias-resolution subject candidates require active lifecycle state and expose
 that state explicitly. Migration parents remain historical/contextual evidence.
 Shared initial/correction instructions explain split-parent identity and literal
-OCR escapes; final no-change remains a supported conclusion. Exact frozen `/7`
-resolution bindings have the compatibility path above; other changed bindings
-retain the explicit evidence-refresh route. An explicit task retry can dispatch
-a fresh `/8` item within an active window under its existing attempt and call
-limits. It skips only automatic retry backoff; deliberate deferral remains.
+OCR escapes; final no-change remains a supported conclusion. At this delivery
+point, exact frozen `/7` resolution bindings had the compatibility path above;
+other changed bindings retained the explicit evidence-refresh route. An explicit
+task retry could dispatch a fresh `/8` item within an active window under its
+existing attempt and call limits. It skipped only automatic retry backoff;
+deliberate deferral remained. Current compatibility is described above.
 Terminal Codex failures retain bounded error message, type/code and HTTP status
 in the existing receipt and read-back surfaces. Invalid-schema and
 invalid-request rejection is nonretryable; unknown outcomes still require

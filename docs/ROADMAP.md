@@ -10,6 +10,23 @@ and [coverage matrix](regression-coverage.md#sparse-node-graph-development--25-s
 record focused evidence. Full regression, hosted/platform, integrated long-run,
 installation and publication belong to the separate final programme gate;
 this checkpoint is not yet release-qualified or installed.
+Item 4, actionable corrections and honest closure, is a coordinator-reviewed
+local checkpoint on `temp/item4-actionable-closure`.
+Reviewed note replacement and source-backed gap answers have explicit apply
+paths. Retention, justified no-change, evidence wait, capability wait and
+pending review remain distinct in the current response contract, dispatch and
+reporting. The first coordinator review found four bounded gaps: reviewed wait
+debt classification, fulfilled wait routing, off-selector rediscovery and
+correction refusal/debt evidence. The second review found that superseded
+accepted external resolutions and corrected-note assessments lost their
+settlement and reopening counts together. Retained accepted review and assessed
+context receipts now preserve those exact events. An old accepted review with
+no settlement receipt remains explicitly unreconciled after supersession.
+The third coordinator review accepted R1-R5 for this focused checkpoint. The
+findings have fail-first and passing focused controls; full programme
+qualification remains deferred. Evidence and remaining gates are recorded in the
+[change record](maintenance-refactoring-delivery.md#actionable-corrections-and-honest-closure--25-september-2026)
+and [coverage matrix](regression-coverage.md#actionable-corrections-and-honest-closure--25-september-2026).
 The [final beta plan](beta-release-plan-20260920.md) is **implemented, locally qualified and installed; beta release held**.
 The candidate passes 133 required local cases, two live Gemini smokes and the
 bounded Scottish-copy run: 200 successful calls, clean closeout and integrity.

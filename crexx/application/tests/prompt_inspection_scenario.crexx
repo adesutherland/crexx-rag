@@ -42,6 +42,11 @@ main: procedure = .int
   legacy8_schema='6d60c87300f294bbcd72c26e402392d9b89ce2631845044bc3332bc40700b949'
   if resolutionlegacybinding(legacy8_input,"Synthetic objective","concept",0,legacy8_prompt,legacy8_schema)<>1 then do;say "PROMPT_FAIL authentic v8 frozen concept binding";return 1;end
   if resolutionlegacybinding(legacy8_input,"Synthetic objective","concept",0,legacy8_prompt,changestr("6d60",legacy8_schema,"ffff"))=1 then do;say "PROMPT_FAIL tampered v8 frozen schema accepted";return 1;end
+  legacy9_input='{"resolution_contract":"crexx-rag.resolution-contract/9","required_capability":"advanced-reasoning","evidence_expected":0}'
+  legacy9_prompt='9fad3306788a3d1df653f37703064d6c4aefecb041ccca54bed6d50e4404df69'
+  legacy9_schema='046e73dddc15484cb8cb9d9b360ed5c838dbe3eca9c35f71f7817f39472d4b25'
+  if resolutionlegacybinding(legacy9_input,"Synthetic objective","concept",0,legacy9_prompt,legacy9_schema)<>1 then do;say "PROMPT_FAIL authentic v9 frozen concept binding";return 1;end
+  if resolutionlegacybinding(legacy9_input,"Synthetic objective","concept",0,legacy9_prompt,changestr("046e",legacy9_schema,"ffff"))=1 then do;say "PROMPT_FAIL tampered v9 frozen schema accepted";return 1;end
   answer_input='{"schema":"crexx-rag.answer-context/2","passages":[{"citation":"crexx-rag:long-source-one","text":"Literal E1 and crexx-rag:long-source-one","source_metadata":{"citation":"untouched"}}],"accepted_claims":[{"subject":"Philip Miller","object":"Johnson","direction":"outbound","supports":[{"citation":"crexx-rag:long-source-two","stance":"assertion"},{"citation":"crexx-rag:long-source-one"}]}],"analysis_notes":[{"citations":["crexx-rag:long-source-two"],"text":"Philips is a different person"}],"graph_leads":[{"limitation":"unproved"}],"gaps":["unknown"]}'
   answer_refs=.raganswerreferences(answer_input);answer_error=""
   projected=answer_refs.input()
@@ -113,8 +118,8 @@ main: procedure = .int
   if left(plain,18)\="operator objective" | enriched\=plain || "0A"x || assessmentprompt() then return 1
   if wordpos("split",resolutionactions("claim",0))>0 | wordpos("retract",resolutionactions("claim",0))=0 then return 1
   if wordpos("move",resolutionactions("support",0))>0 | wordpos("move",resolutionactions("support",1))=0 then return 1
-  if resolutioncontractversion()<>"crexx-rag.resolution-contract/9" | wordpos("propose-relationship",resolutionactions("concept",0))=0 | wordpos("propose-relationship",resolutionactions("concept",1))>0 | wordpos("propose-relationship",resolutionactions("claim",0))>0 then return 1
-  if pos('"dispositions","relationship_type"]',resolutionresponseschema("concept",0))=0 | pos("source-scoped catalogue",resolutionprompt("objective","concept"))=0 | pos("human semantic review",resolutionprompt("objective","concept"))=0 then return 1
+  if resolutioncontractversion()<>"crexx-rag.resolution-contract/10" | wordpos("propose-relationship",resolutionactions("concept",0))=0 | wordpos("propose-relationship",resolutionactions("concept",1))>0 | wordpos("propose-relationship",resolutionactions("claim",0))>0 then return 1
+  if pos('"relationship_type","resolution_text"]',resolutionresponseschema("concept",0))=0 | pos("source-scoped catalogue",resolutionprompt("objective","concept"))=0 | pos("human semantic review",resolutionprompt("objective","concept"))=0 then return 1
   if resolutionresponseschema("provenance-chunk",0)\=enrichmentschema() then return 1
   if resolutionprompt("ignored","provenance-chunk")\=enrichmentprompt() || "0A"x || quotationcontract() then return 1
   final_prompt=resolutioninputprompt('{"required_capability":"advanced-reasoning","evidence_expected":0,"remaining_calls_including_this":1,"remaining_evidence_reads":0}',"Final objective","chunk")

@@ -9,9 +9,10 @@ corpus census. The thirteen task families and seven task states remain unchanged
 ## Purpose
 
 Maintenance improves semantic search and analysis. It cannot make a corpus
-perfect. Work should finish with a supported improvement or an explicit,
-reasoned no-change outcome. Deferral is useful only when identifiable further
-evidence could change the decision. Repeating unchanged reasoning is not progress.
+perfect. An assessment may affirm supported material, make a reviewed change,
+or conclude that the examined evidence does not justify a change. A specific
+evidence or capability wait remains unresolved. Repeating unchanged reasoning
+is not progress.
 
 ## Current records and routing
 
@@ -192,7 +193,9 @@ No timer or daemon is created. A later normal maintenance invocation considers
 due work. Retry reconciliation, census and evidence successors preserve the date.
 Explicit `maintain reset TASK_ID` is the deliberate reconsideration path, including for a final assessment. `maintain reset --all` preserves completed tasks.
 
-The resolution contract keeps its twelve fields and adds these control actions:
+The `/10` resolution contract includes `dispositions`, `relationship_type` and
+`resolution_text` alongside the established fields. Its control and outcome
+actions are:
 
 | Action | Meaning |
 | --- | --- |
@@ -201,6 +204,32 @@ The resolution contract keeps its twelve fields and adds these control actions:
 | `extract` | Advanced chunk reasoning explicitly selects a further call using the existing extraction contract. It cannot request this on the last available call. |
 | `defer` | `question` names realistically expected evidence and its relevance; `effective_from` gives the future date. |
 | `no-change` | Explicit final no-change with a reason. No fact is asserted and no graph generation is published. |
+| `retain` | Affirm the existing supported subject for this assessed context; no graph mutation is needed. A genuine isolate can be retained. |
+| `correct-note` | Propose source-supported replacement text for the active note; a review must accept before the old note is superseded. |
+| `resolve-gap` | Propose an answer to the original open question with an exact answering source passage; a review must accept before the gap closes. |
+| `insufficient-evidence` | Keep the question unresolved and name the new evidence needed to reconsider it. |
+| `capability-wait` | Keep a cited, specific correction unresolved and name the missing operation needed to apply it. |
+
+The `/10` strict response includes `resolution_text` for every action. Set it
+only for `correct-note`, `resolve-gap` or `capability-wait`; use an empty string
+otherwise. A search hit is a lead, not an answered gap. Both correction actions
+need an exact source quotation and the current note or gap ID in `object_id`.
+They create a pending review, with no corpus change until acceptance. The
+accepted decision retains the answer or replacement text and citation; the
+replacement is an active observation, while the original note and its links
+remain as superseded history. Generic `retain` cannot close a
+gap. `no-change` records the limits of the examined evidence; it does not
+affirm that an existing statement is correct. A pending review or unfinished
+dependent workflow remains an outstanding consequence after the assessment.
+Evidence and capability waits stay in the task list but are excluded from
+ordinary redispatch. Unchanged discovery and polling make no new provider call.
+A material change to the subject, source passages or linked graph context may
+create a linked successor; an explicit task reset is the deliberate operator
+reconsideration path. Bounded ordinary discovery revisits waits outside their
+old selectors; it does not watch for a missing operation becoming available
+without a packet change. A reviewed external resolution can also settle a wait.
+An unlimited window can close when only these waits
+remain, and status still counts them separately.
 
 Unused mutation fields remain empty. Each search/read is a normal paid reasoning
 step with its own receipt, followed by a cREXX-owned read. The read itself makes
@@ -216,14 +245,17 @@ oversized packets produce an explicit limit outcome. Completed read results and
 provider outputs are retained through normal restart; a committed search result
 is not replayed as a later final decision. A refreshed packet marks previously read source spans that are no longer current as unavailable; they are not accepted as current support.
 
-The advanced route must choose a supported change or `no-change`. `unresolved`,
-`investigate` and another escalation are refused on that route. This is a
+The advanced route must choose a supported change, `retain`, `no-change`, or a
+specific evidence or capability wait. `unresolved`, `investigate` and another
+escalation are refused on that route. This is a
 bounded contract, not a guarantee that a model always produces valid output:
 malformed responses and exhausted allowances remain visible failures.
 
 `maintenance.evidence_expected` defaults to false. When false, a model cannot
-defer. When true, a specific justified future-evidence wait is permitted, but the
-same evidence cannot be deferred repeatedly. An elapsed date is not evidence
+choose a dated `defer`. An undated `insufficient-evidence` wait still records
+the missing evidence and is not eligible for an unchanged retry. When true, a
+specific justified dated deferral is permitted, but the same evidence cannot
+be deferred repeatedly. An elapsed date is not evidence
 and cannot invent a conclusion; the advanced model supplies the final assessment.
 A no-change conclusion means the evidence does not justify a change, not that
 the historical question is definitively false. This is the clear null decision;

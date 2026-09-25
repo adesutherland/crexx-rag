@@ -1,5 +1,70 @@
 # Regression coverage baseline — REG-01
 
+## Actionable corrections and honest closure — 25 September 2026
+
+The new `durable_backlog_actionability` case failed first on the reviewed Item 3
+baseline because `correct-note` was outside the resolution vocabulary. Its
+synthetic source now covers a grounded replacement note with mandatory review,
+old-note/link history, source-only replacement and unchanged rediscovery; a
+grounded query-gap answer; refused generic gap retention; evidence and
+capability waits; and separate retention and no-change without publication.
+It checks source, state, decision, receipt, generation, usage and report
+independently. The same case reads wait and outcome counters through MCP,
+reviews external note and gap corrections, and closes an unlimited identity
+cohort while its wait stays outstanding. `regression_prompt_inspection` verifies
+the `/10` strict fields and authentic frozen `/7`, `/8` and `/9` bindings.
+
+Coordinator review R1-R4 added four fail-first routes. A retained older worker
+review accepted as `insufficient-evidence` initially reduced the debt ledger as
+if it were a settlement (`20260925T220827-1359d422`). An external reviewed
+resolution of a capability wait initially left a blocking wait tag on the
+changed successor (`20260925T221141-819220a9`). Ordinary windows initially
+missed a waiting identity question outside its old selector and an accepted
+corrected observation (`20260925T221705-3c9d5403`). Exact ledger controls
+then exposed two unlinked successors after safe rejection/dismissal of stale
+correction reviews (`20260925T222621-a8adc5b5`). These tests now pass without
+rewriting historical decisions: reviewed waits remain open debt, fulfilled
+wait routes clear, bounded rediscovery revisits waits and assessed replacements,
+and changed unfinished packets keep parent lineage. The correction matrix
+rejects wrong-subject, missing-source and misquoted note/gap changes; stale
+acceptance refuses after a changed note or cited source passage, while
+reject/dismiss preserve graph, decisions and usage.
+Worker and external reviewed waits, all five outcome counts, exact zero debt
+delta and zero unreconciled logical questions, and repeated read-only report
+stability are asserted in `durable_backlog_actionability`.
+
+The existing `durable_backlog`, `durable_backlog_reconsideration` and
+`durable_backlog_sparse_edge` remain required controls for review lifecycle,
+context reopening, grounded graph mutation and duplicate support. Native
+provider fixtures include the new required response field. The current fast
+tier has 11 passing receipts; the captured native prompt contract and selected
+public/source, malformed-output and redaction cases pass. The full formal
+regression, hosted/platform and long-running programme gates
+remain outside this local checkpoint.
+
+The repaired actionability case passes both VMs at
+`20260925T223502-dce8f7be`. An affected 16-case selection passed, with that
+exact-input case reused as CTest skipped; it includes the six sibling backlog
+cases, native surfaces, source maintenance, SQL performance, prompt contract,
+four provider loopback routes and Codex invalid-schema refusal. The current QA
+ledger and fast-tier receipts are recorded in the change record. This is local
+synthetic and loopback evidence only.
+
+Second coordinator review R5 found a balanced but incomplete event ledger:
+superseding an accepted external resolution or a quiet corrected-note assessment
+could erase both its settlement and its changed-evidence reopening. Exact
+synthetic integer counts failed first at `20260925T224625-9718e2ae`.
+`durable_backlog_actionability` now requires those counts before and after
+supersession; it also checks a no-job external correction's accepted review
+receipt and one reopening from new cited evidence. Two retained historical
+`insufficient-evidence:review:accept` shapes separate a proved settlement with
+a post-decision assessment receipt from an ambiguous acceptance without one.
+The latter must appear as one unreconciled logical question. The completed
+case passes both VMs at `20260925T225703-e5f5faa1`. Accounting, recording,
+reconsideration and the affected public/source/provider controls passed in a
+16-case selection, with the exact-input actionability result reused as skipped.
+Full formal regression remains deferred to the programme gate.
+
 ## Sparse-node graph development — 25 September 2026
 
 Coordinator review R1/R2 extends `durable_backlog_sparse_edge` with an actual

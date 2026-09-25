@@ -247,6 +247,13 @@ libraryreport: procedure = .ragcommandresult
   convergence_fields[25]=.ragresultfield("closing_actionable_debt","integer",debt[5])
   convergence_fields[26]=.ragresultfield("reconciliation_delta","integer",debt[6])
   convergence_fields[27]=.ragresultfield("unreconciled_logical_questions","integer",debt[8])
+  convergence_fields[28]=.ragresultfield("supported_retention_assessments","integer",sqlreadint(database,"SELECT count(DISTINCT d.task_id) FROM maintenance_decisions d JOIN maintenance_tasks t ON t.task_id=d.task_id WHERE t.subject_type<>'gap' AND d.disposition IN('retain:resolved','retain:review:accept')")+sqlreadint(database,"SELECT count(DISTINCT r.subject_id) FROM reviews r JOIN maintenance_agent_actions a ON a.action_id=json_extract(r.proposal_json,'$.action_id') JOIN maintenance_tasks t ON t.task_id=r.subject_id WHERE r.state='accepted' AND t.subject_type<>'gap' AND json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='retain'"))
+  convergence_fields[29]=.ragresultfield("justified_no_change_assessments","integer",sqlreadint(database,"SELECT count(DISTINCT task_id) FROM maintenance_decisions WHERE disposition IN('no-change:resolved','no-change:review:accept')")+sqlreadint(database,"SELECT count(DISTINCT r.subject_id) FROM reviews r JOIN maintenance_agent_actions a ON a.action_id=json_extract(r.proposal_json,'$.action_id') WHERE r.state='accepted' AND json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='no-change'"))
+  convergence_fields[30]=.ragresultfield("waiting_for_evidence","integer",sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE state='unresolved' AND escalation_origin='evidence-wait'"))
+  convergence_fields[31]=.ragresultfield("waiting_for_capability","integer",sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE state='unresolved' AND escalation_origin='capability-wait'"))
+  convergence_fields[32]=.ragresultfield("pending_correction_reviews","integer",sqlreadint(database,"SELECT count(*) FROM reviews r LEFT JOIN maintenance_decisions d ON d.decision_id=json_extract(r.proposal_json,'$.decision_id') LEFT JOIN maintenance_agent_actions a ON a.action_id=json_extract(r.proposal_json,'$.action_id') WHERE r.state='pending' AND coalesce(json_extract(d.response_json,'$.action'),json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')) IN('correct-note','resolve-gap','propose-relationship')"))
+  convergence_fields[33]=.ragresultfield("applied_note_corrections","integer",sqlreadint(database,"SELECT count(*) FROM maintenance_decisions WHERE applied_generation IS NOT NULL AND disposition IN('correct-note:review:accept','correct-note:resolved')")+sqlreadint(database,"SELECT count(*) FROM reviews r JOIN maintenance_agent_actions a ON a.action_id=json_extract(r.proposal_json,'$.action_id') WHERE r.state='accepted' AND json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='correct-note'"))
+  convergence_fields[34]=.ragresultfield("applied_gap_resolutions","integer",sqlreadint(database,"SELECT count(*) FROM maintenance_decisions WHERE applied_generation IS NOT NULL AND disposition IN('resolve-gap:review:accept','resolve-gap:resolved')")+sqlreadint(database,"SELECT count(*) FROM reviews r JOIN maintenance_agent_actions a ON a.action_id=json_extract(r.proposal_json,'$.action_id') WHERE r.state='accepted' AND json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='resolve-gap'"))
   records[records.0+1]=.ragresultrecord("convergence-census",convergence_fields)
 
   storage_issues = verification.issue_count() + repository_verification.issue_count()
@@ -483,8 +490,8 @@ _debtledger: procedure = .int[]
   /* A superseded task can retain a durable terminal decision. Current state
    * alone then hides a real settlement and the child's reopening. Count one
    * settlement per task version, never one per decision or provider call. */
-  settled_t="(t.state='resolved' OR EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.task_id=t.task_id AND " || _terminaldecision("d") || "))"
-  settled_p="(p.state='resolved' OR EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.task_id=p.task_id AND " || _terminaldecision("d") || "))"
+  settled_t=_settledtask("t")
+  settled_p=_settledtask("p")
   same_question="t.kind=p.kind AND t.subject_type=p.subject_type AND t.subject_id=p.subject_id AND t.workflow_id=p.workflow_id"
   changed_evidence="t.evidence_fingerprint<>p.evidence_fingerprint"
   values[1]=sqlreadint(database,"SELECT count(*) FROM (SELECT kind,subject_type,subject_id,workflow_id FROM maintenance_tasks GROUP BY kind,subject_type,subject_id,workflow_id)")
@@ -502,16 +509,27 @@ _debtledger: procedure = .int[]
   roots="sum(CASE WHEN NOT EXISTS(SELECT 1 FROM maintenance_tasks p WHERE p.task_id=t.parent_task_id AND " || same_question || ") THEN 1 ELSE 0 END)"
   missing_parent="sum(CASE WHEN t.parent_task_id<>'' AND NOT EXISTS(SELECT 1 FROM maintenance_tasks p WHERE p.task_id=t.parent_task_id) THEN 1 ELSE 0 END)"
   resolved_leaf="sum(CASE WHEN t.state='resolved' AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_type=t.subject_type AND c.subject_id=t.subject_id AND c.workflow_id=t.workflow_id) THEN 1 ELSE 0 END)"
+  ambiguous_history="sum(CASE WHEN t.state='superseded' AND t.escalation_origin NOT IN('evidence-wait','capability-wait') AND EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.task_id=t.task_id AND d.disposition='insufficient-evidence:review:accept') AND NOT " || settled_t || " THEN 1 ELSE 0 END)"
   balance="1+" || reopened_count || "-" || settled_count || "-" || parked_count || "-CASE WHEN " || open_count || ">0 THEN 1 ELSE 0 END"
-  values[8]=sqlreadint(database,"SELECT count(*) FROM (SELECT " || balance || " group_balance," || roots || " roots," || missing_parent || " missing_parent," || resolved_leaf || " resolved_leaf," || open_count || " open_versions," || parked_count || " parked FROM maintenance_tasks t GROUP BY t.kind,t.subject_type,t.subject_id,t.workflow_id) WHERE group_balance<>0 OR roots<>1 OR missing_parent<>0 OR (resolved_leaf=0 AND open_versions=0 AND parked=0)")
+  values[8]=sqlreadint(database,"SELECT count(*) FROM (SELECT " || balance || " group_balance," || roots || " roots," || missing_parent || " missing_parent," || resolved_leaf || " resolved_leaf," || open_count || " open_versions," || parked_count || " parked," || ambiguous_history || " ambiguous_history FROM maintenance_tasks t GROUP BY t.kind,t.subject_type,t.subject_id,t.workflow_id) WHERE group_balance<>0 OR roots<>1 OR missing_parent<>0 OR ambiguous_history>0 OR (resolved_leaf=0 AND open_versions=0 AND parked=0)")
   values[7]=values[6]=0 & values[8]=0
   return values
 
-/* Review acceptance settles the task except for defer, which the owning
- * review transition leaves unresolved for later reconsideration. */
+/* A reviewed evidence or capability wait remains open. Historical versions
+ * already in resolved state still count through the state branch above. */
 _terminaldecision: procedure = .string
   arg alias=.string
-  return "(" || alias || ".disposition LIKE '%:resolved' OR (" || alias || ".disposition LIKE '%:review:accept' AND " || alias || ".disposition<>'defer:review:accept'))"
+  return "(" || alias || ".disposition LIKE '%:resolved' OR (" || alias || ".disposition LIKE '%:review:accept' AND " || alias || ".disposition NOT IN('defer:review:accept','insufficient-evidence:review:accept','capability-wait:review:accept')))"
+
+/* A task-version settlement survives a later superseded state only when an
+ * actual decision, accepted review or post-decision assessment records it. */
+_settledtask: procedure = .string
+  arg alias=.string
+  decision="EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.task_id=" || alias || ".task_id AND " || _terminaldecision("d") || ")"
+  event="EXISTS(SELECT 1 FROM job_events e WHERE e.item_id IS NULL AND e.event_type='maintenance-assessed-context:'||" || alias || ".task_id AND CASE WHEN json_valid(e.message) THEN json_extract(e.message,'$.basis')='post-decision' AND json_extract(e.message,'$.task_id')=" || alias || ".task_id AND length(json_extract(e.message,'$.fingerprint'))=64 ELSE 0 END)"
+  reviewed="EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=" || alias || ".task_id AND r.state='accepted' AND ((r.review_type='maintenance-external' AND json_extract(r.decision_json,'$.task_state')='resolved') OR length(json_extract(r.decision_json,'$.assessed_context'))=64))"
+  replacement="EXISTS(SELECT 1 FROM reviews r WHERE r.state='accepted' AND json_extract(r.decision_json,'$.replacement_task_id')=" || alias || ".task_id AND length(json_extract(r.decision_json,'$.replacement_assessed_context'))=64)"
+  return "(" || alias || ".state='resolved' OR " || decision || " OR " || event || " OR " || reviewed || " OR " || replacement || ")"
 
 /* Current-state logical debt is separate from task-version throughput. The
  * interval opening balance is deliberately unavailable without a prior
@@ -541,7 +559,7 @@ _convergencecensus: procedure = .int[]
   counts[14]=sqlreadint(database,"SELECT count(*) FROM maintenance_workflows WHERE state IN('migrating','waiting')")
   counts[15]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id<>'' OR kind LIKE 'alias-follow-up:%'")
   counts[16]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE state='superseded'")
-  counts[17]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_tasks p ON p.task_id=t.parent_task_id WHERE t.kind=p.kind AND t.subject_type=p.subject_type AND t.subject_id=p.subject_id AND t.workflow_id=p.workflow_id AND t.evidence_fingerprint<>p.evidence_fingerprint AND (p.state='resolved' OR EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.task_id=p.task_id AND " || _terminaldecision("d") || "))")
+  counts[17]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_tasks p ON p.task_id=t.parent_task_id WHERE t.kind=p.kind AND t.subject_type=p.subject_type AND t.subject_id=p.subject_id AND t.workflow_id=p.workflow_id AND t.evidence_fingerprint<>p.evidence_fingerprint AND " || _settledtask("p"))
   return counts
 
 _pendingreviewkinds: procedure = .string

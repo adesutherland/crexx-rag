@@ -1331,3 +1331,181 @@ source case checks ordinary alias admission, first-pass exclusion, completion,
 repeat planning, no writes or provider calls during planning, guided/MCP parity
 and invalid selector combinations. See the current qualification results in
 [regression coverage](regression-coverage.md).
+## Actionable corrections and honest closure — 25 September 2026
+
+The Item 4 candidate starts from the coordinator-reviewed Item 3 commit
+`4e9eeb0d6f7e2f04d7b163b95f014e4d913de730` in the isolated
+`temp/item4-actionable-closure` worktree. Before product edits, `cmake --preset
+debug` and `cmake --build --preset debug` passed; `durable_backlog`,
+`durable_backlog_reconsideration`, `durable_backlog_sparse_edge`,
+`regression_prompt_inspection`, `regression_source_maintenance` and
+`native_surfaces` passed 6/6. The new `durable_backlog_actionability` first
+failed because correction actions were absent from the frozen Item 3 contract
+(receipt `20260925T204645-ec0b63d2`).
+
+`ragresolutioncontract` owns `/10` prompt, schema and action vocabulary, with
+`resolution_text` required for every new response and empty outside correction
+or capability wait. It reconstructs and verifies frozen `/7`, `/8` and `/9`
+bindings before queued work uses the current contract. `ragresolutionreferences`
+recognizes `/10`. `ragbacklog` remains the single validation, dispatch,
+review and apply owner. A grounded note correction creates a reviewed
+replacement observation with its own exact source link, and preserves the old
+note and associations as superseded history without copying unsupported links.
+A grounded answer closes an open query gap only
+after review. No-change and supported retention do not stage a graph
+generation. Evidence and capability waits retain an unresolved task and a
+specific reason while excluding unchanged packets from dispatch; material
+subject/source/linked-context change creates a linked successor. Existing
+review and external proposal paths carry the same effects and validation.
+`ragreportservice` projects the five distinct outcomes, pending corrective
+reviews and applied note/gap changes. No SQLite schema, policy default, corpus or
+native provider changes were made.
+
+The first repaired `durable_backlog_actionability` pass is
+`20260925T210346-febe6895`; after the additional retention, no-change and
+changed-wait assertions it passed again. `durable_backlog`,
+`durable_backlog_reconsideration` and `durable_backlog_sparse_edge` passed 4/4
+with that first repair; the sparse-edge case keeps a stable support identity
+across `/9` and `/10`. `regression_prompt_inspection` passed with an authentic
+independently captured `/9` prompt/schema hash and tampering control. The
+native `regression_prompt_contract` first refused the longer `/10` request at
+its two-worker fixture's 4,096-token per-call reservation; the synthetic
+aggregate allowance was raised to 16,384 without changing product limits.
+Its next run reached the expected intentional resolution hash mismatch; the
+other three provider contract pairs stayed byte-identical. The reviewed
+resolution pairs are retained in `provider-contracts.sha256`.
+
+The expanded focused case also passes public MCP task inspection and read-only
+overview interpretation, external note and gap plans with exact effect
+previews, mandatory pending reviews, accepted replacements and no fabricated
+provider usage. A selected unlimited identity cohort closes while its evidence-wait task
+stays unresolved and visible. The fast tier has 11 current passing receipts
+(CTest reused one exact-input pass as skipped). The affected backlog, sparse,
+reconsideration, public source and native surface cases pass; bounded loopback
+provider valid, malformed, correction and correction-failed cases pass with
+secret redaction retained. `regression_prompt_contract` passes with the
+reviewed `/10` pairs and unchanged extraction, answer and report captures.
+
+This is a local candidate for coordinator review. The full formal regression
+suite, hosted/platform checks, integrated long-running run,
+installation and publication remain for the final programme gate.
+
+The first-review linked image SHA-256 was
+`fd63b45b4a33e88dfac56ad10dbe4cff0268aedf97f298531129c23d3198e42a`;
+the native package is
+`a6a2531a44862545216d87473365dc3ee4177dbffabe7778c73b78ed446e3f70`.
+The final `durable_backlog_actionability` receipt is
+`20260925T214626-116ce92a`. `ctest --preset fast` passed 11/11 at that
+linked image. The 15 affected cases have current-input passes. The combined
+selection passed with that exact-input actionability receipt reused as a CTest
+skip; five sibling backlog cases were rerun after the shared scenario gained
+the external gap control. The selection included core backlog,
+reconsideration, sparse edge, budget, escalation, native surfaces, source
+maintenance, SQL performance, prompt contract, valid/malformed/correction
+loopback cases and the invalid-schema negative. `documentation_contract`
+passed after the record edits. The final QA ledger records 26 passed, 114
+not-run and no failed, disabled or interrupted case. `git diff --check` passed.
+These counts are a focused checkpoint, not the required full regression gate.
+
+The coordinator's first review found four bounded issues in that candidate.
+R1: `_terminaldecision` classified any accepted review other than `defer` as
+settled, even when the review owner retained an evidence or capability wait as
+unresolved. An authentic older pending `insufficient-evidence` worker review
+failed debt reconciliation first at `20260925T220827-1359d422`. The report
+predicate now excludes reviewed waits from settlements; a historically resolved
+task still counts through its state. Worker and external reviewed-wait controls
+keep both `reconciliation_delta` and `unreconciled_logical_questions` stable.
+
+R2: `reviewagentaction` could settle a wait but leave its blocking
+`escalation_origin` on the task, and `enqueuebacklogtask` copied it onto the
+changed successor. The external wait-to-supported-retain chain failed first at
+`20260925T221141-819220a9`. The shared `_clearfulfilledwait` transition now
+consumes only a fulfilled wait marker after worker, worker-review or external
+review resolution. Successor routing also refuses a stale wait tag retained by
+older resolved records. Decisions, review receipts, attempts and usage remain
+intact. The successor is selected and serviced; unchanged context stays quiet.
+
+R3: `_scansettled` missed unresolved waits outside their old source selectors,
+and a corrected observation had no assessed task of its own. The ordinary
+window route failed first at `20260925T221705-3c9d5403`. The existing paged
+census now compares unresolved waits, and note correction atomically records a
+settled assessment of the replacement's own source-only citation. A new
+independent source passage and linked context reopens the corrected observation
+and an identity wait outside the ordinary identity selector. An unchanged
+follow-up census creates no duplicate question or provider call. Missing
+capability availability alone has no automatic trigger; reviewed external
+resolution or explicit task reset remains the supported path.
+
+R4: the source-bound validator now has explicit wrong-subject, absent-grounding
+and misquotation refusals for both correction actions. Stale note and gap
+acceptance refuses after a changed note or cited source passage; safe
+reject/dismiss retains the
+original decision and exact provider usage without publication. The exact debt
+control also caught changed unfinished packets being superseded without a
+parent, despite aggregate delta zero (`20260925T222621-a8adc5b5`). The
+existing enqueue owner now links such successors within the same logical
+question. The final actionability case passed both VMs at
+`20260925T223502-dce8f7be`, with exact zero reconciliation delta and zero
+unreconciled logical questions, two applied worker/external note corrections,
+two gap resolutions, two supported retentions, two justified no-change
+assessments, and read-only report stability. The source passage is restored
+after the safe dismissal in the synthetic fixture. A selected 16-case affected
+selection passed; CTest reused the exact-input actionability pass as skipped.
+No protected corpus, hosted provider, schema, policy default or sibling CREXX change was
+made. Full formal regression and publication remain with the final programme
+gate. This repaired branch remains uncommitted for a second coordinator review.
+The repaired linked image SHA-256 is
+`941e5cabd03f43cbce512c56f2bbdc0a0aa70fc8aa1ae41c511a4ed7f63f47ec`;
+the native executable SHA-256 is
+`b6146cff76af565ed29eb7945ff6a621a6a400cded4231dc46a8cdc93a484218`.
+`ctest --preset fast` passed 11/11 after the documentation edit. The current
+QA ledger records 27 passing, 113 not-run, zero failed, disabled or
+interrupted cases. The private Item 4 handoff has the exact final receipt and
+the first-review findings mapped to code and controls.
+
+### Second coordinator review R5: retained settlement history
+
+The second review identified a precise gap in `_debtledger`: current resolved
+state and terminal worker decisions did not prove an accepted external
+resolution or a corrected-note assessment after that version was superseded.
+The settlement and its changed-evidence reopening could disappear together
+while the aggregate debt equation still balanced. The exact before/after
+assertions failed first at `durable_backlog_actionability/20260925T224625-9718e2ae`.
+
+`ragreportservice._settledtask` now supplies the common predicate to the
+ledger and the materially reopened census. It recognizes a retained terminal
+decision, accepted external resolution, accepted review assessment, or
+post-decision job assessment, and counts each task version once. A reviewed
+evidence or capability wait remains open. `ragbacklog` stores the corrected
+observation's assessed context on its accepted correction review, so an
+external correction without a job has an inspectable source-context receipt.
+It no longer associates that replacement assessment with an unrelated latest
+job. The same receipt lets the normal bounded census reopen the corrected
+observation when a newly cited passage changes its context.
+
+The actionability fixture independently requires the known synthetic totals
+17 new, 7 reopened, 10 settled and 14 open both before and after superseding
+the accepted external-resolution and corrected-observation predecessors.
+The no-job correction adds one further reopening and retains its settlement
+after supersession. Two synthetic retained old reviewed-resolution shapes
+exercise historical uncertainty: a post-decision assessment proves one past
+settlement and linked reopening, while the receipt-free counterpart is left
+unsettled and reported as one unreconciled logical question. These fixtures
+model old retained state; they do not claim execution of an old binary.
+The completed actionability case passed both VMs at
+`20260925T225703-e5f5faa1`. The selected 16-case affected run completed
+with 15 executions passed and the exact-input actionability pass reused as a
+CTest skip; it includes core backlog, recording, reconsideration, sparse edge,
+source maintenance, SQL performance, native surfaces, prompt contract and
+provider loopback positive/negative controls. Current source and artifact
+hashes and the final QA ledger are recorded in the private Item 4 handoff.
+No task reset, hosted call, protected corpus access, installation, commit or
+publication was made during R5 repair. Full formal qualification remains
+deferred. The third coordinator review (`04-REVIEW-03.md`) accepted R1-R5 for
+one local checkpoint commit on `temp/item4-actionable-closure` with parent
+`4e9eeb0d6f7e2f04d7b163b95f014e4d913de730`. It independently checked the
+fixed-count and no-job receipts and audited 27 current-input passes and 262
+distinct matching recorded hashes. No further implementation or broad QA was
+requested. The exact checkpoint SHA and final focused evidence belong in the
+private Item 4 handoff. Full regression, hosted/platform, long-running,
+installation and publication gates remain separate.

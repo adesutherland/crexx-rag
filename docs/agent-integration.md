@@ -416,8 +416,8 @@ The external resolution sequence is:
    composes the existing lifecycle engine in one transaction. A stale proposal
    must be rejected and replanned. Exact submission replay is a no-op.
 
-For a standalone `sparse-node` concept task, the `/9` response schema permits
-one `propose-relationship` action. Use the task concept as `object_id`, one
+For a standalone `sparse-node` concept task, the `/10` response schema retains
+the `/9` `propose-relationship` action. Use the task concept as `object_id`, one
 source-scoped catalogue target, a profile relationship type and one exact
 quotation containing resolved mentions of both endpoints. Carry source scope
 in `qualifiers_json` and supported dates in the effective fields. The impact
@@ -426,6 +426,31 @@ reviewer checks meaning, direction and qualification against the passage before
 acceptance. Acceptance uses the existing claim validator and atomic publisher;
 an identical support replay does not create another generation. A genuine
 isolate may instead resolve with `no-change`.
+
+The `/10` response also requires `resolution_text` (empty for unrelated
+actions). For an outdated active note, `correct-note` selects its note ID,
+supplies source-supported replacement text in `resolution_text`, and cites the
+exact correcting passage. For an open query gap, `resolve-gap` selects its gap
+ID, answers the original question in `resolution_text`, and cites the exact
+answering passage. A search hit alone does not answer a gap. Both actions have
+an effect preview, create a pending review on apply, and change the library
+only after review acceptance. A generic `retain` cannot resolve a gap.
+
+Interpret the other outcomes separately: `retain` affirms supported existing
+material, while `no-change` limits its conclusion to the evidence examined.
+`insufficient-evidence` leaves an unresolved question with a named evidence
+trigger; `capability-wait` retains a cited, specific correction and names the
+missing operation. Neither waiting state is due for another call on the same
+packet. A changed subject, source passage or linked graph context may create a
+linked successor; `rag_maintain_inspect` exposes the parent and wait reason.
+Ordinary bounded discovery includes those waits outside their original
+selectors. A capability becoming available without a packet or linked-context
+change needs reviewed external resolution or explicit `maintain reset TASK_ID`;
+there is no automatic capability registry trigger.
+Pending reviews and dependent workflows remain outstanding even when the
+assessment itself has finished. Inspect the separate wait and correction
+counts in status and `convergence-census` before claiming closure. An unlimited
+job can become quiet with these outstanding conditions still visible.
 
 Actor and model labels are self-reported external attribution. No worker item,
 provider run, usage or zero-cost model call is invented for the external agent.
