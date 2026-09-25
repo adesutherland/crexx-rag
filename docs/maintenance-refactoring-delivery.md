@@ -1,5 +1,84 @@
 # Maintenance refactoring delivery
 
+## Mechanical debt and termination reporting — 25 September 2026
+
+This coordinator-reviewed local item-2 checkpoint starts from reviewed item-1 commit
+`dfd39b7fbe20f8bd1ac51816ba27336ec04632c9`. Ownership stays in
+`ragreportservice` for the logical-question ledger and `ragbacklog` for window
+closure and status. CLI and MCP consume their existing shared report/status
+results; no schema, provider, prompt, scheduler or policy rule changes.
+
+Before product edits, `durable_backlog` passed 1/1 and the existing
+`native_surfaces` plus `regression_source_maintenance` passed 2/2. A new
+read-only report fixture then failed with zero reopenings and settlements for
+one superseded parent that retained a terminal decision and one changed-evidence
+child. A selected finish-workflow fixture failed with `complete:complete` despite
+a waiting workflow and linked pending review. The latter requires two bounded
+checkpoints: the first visits its workflow and the second closes the window.
+Coordinator review R1/R2 then found two further boundaries. An accepted
+`defer:review:accept` with state `unresolved` first reported one false settlement
+and delta -1; a changed-evidence successor would also invent a reopening.
+A public nonempty identity cohort with a fourteen-second `--until` window stopped
+for `deadline` before discovery, with zero selected tasks, zero completed
+selected scans and zero provider calls, but initially recorded `run_state=complete`.
+
+The repair counts a terminal decision once per task version after supersession,
+matches a reopening only to a settled predecessor of the same logical question
+with a changed evidence fingerprint,
+and leaves ambiguous/missing parent history unreconciled. The current open-task
+count and historical events remain separate; repeat provider decisions cannot
+inflate closures. Accepted `defer` is excluded from the shared terminal-decision
+predicate in both ledger and convergence census; the public review path retains
+the task as unresolved. The finish run checks selected workflows, selected review IDs,
+and reviews linked to selected tasks or workflow origins. Its summary distinguishes
+`termination`, `run_state`, `selected_work_resolved`, exact selected denominator,
+unseen-page cursor, pending consequences, processed items, admission deferrals,
+provider calls and applied change decisions. `complete` window state means no
+runnable work in that window; it does not prove selected or library resolution.
+For nonempty identity/graph cohorts, close-time resolution also requires the
+selected-kind and settled-question cursors completed for the current scan token.
+The `closed_for_no_runnable_work` flag and `closed_epoch` label the retained close-time
+observation; status does not run discovery.
+
+The synthetic mixed-state control independently checks seven question keys,
+four resolved task versions, one pending review, one waiting workflow and one
+failed task before asserting ledger values 7 new + 1 reopening - 4 settlements
+- 1 parked - 3 open = 0. It includes repeat resolution, an unfinished
+superseded predecessor, dependent work and a technical hold. The prior
+offsetting-negative malformed-history control still reports two unreconciled
+questions. A terminal superseded parent with no current successor also remains
+unreconciled when the global delta is zero. Repeated report calls leave a full
+SQLite dump identical. Focused
+`native_surfaces`, `regression_source_maintenance` and `durable_backlog` now
+pass. The accepted item-1 MCP `minutes:0` schema had left its captured
+`all` metadata digest stale; reversing that one field reproduces the old digest
+exactly, and the fixture was updated without changing the command catalogue.
+Full regression, hosted/platform and integrated long-running checks are the
+separate final gate. No real corpus or installed product was operated. The
+following hashes and 17-case report describe the pre-review candidate; updated
+R1/R2 receipts are recorded in the private item-2 handoff.
+At linked image SHA-256 `4404ccc1e7b32497e975b71702ab4687bce2c5cee1213fa83cfe9183cdc0c77d`
+and native executable SHA-256
+`d8e8e2140dcad9693dbe7582936a500c632e8f605c54e1f3ba6e10459a04fda4`,
+the final focused selection passed 6/6 and fast passed 11/11. The QA report
+records 17 current-input passing cases and 121 not run. After the final
+documentation edit, fast reran one changed documentation case and reused ten
+exact-input passes; the six focused cases retain their earlier current-input
+executions. No disabled, interrupted or failed case is counted as a pass. The two
+intentional fail-first runs and the earlier stale metadata digest failure are
+retained separately in the private task handoff.
+After R1/R2 correction, linked image SHA-256
+`b0dbe8bd684429996d500ae2725e535805fb8e83e92dbd3c1cf2d677fe7bbe3c`
+and native executable SHA-256
+`55aae07715cb1b2fb4ba36a21f85fe5f900b8dd15e3e5a3095e7311dbfeaaed0`
+passed the six focused cases in 37.54 seconds and all 11 fast cases in 5.56
+seconds on changed artifact inputs. The private `02-HANDOFF.md` has exact case
+receipt paths, fixture hashes and the coordinator-review fail-first evidence.
+The coordinator independently audited all 17 current-input passes and 249
+recorded input/artifact hashes, then accepted R1/R2 for one local checkpoint
+commit. Full regression, hosted/platform and long-running acceptance remain
+outside this checkpoint.
+
 ## Advanced response schema and terminal error — 24 September 2026
 
 The clean source baseline is `a58ec95b7cfe30b1cb885846a6535bb10a0a2aff`.

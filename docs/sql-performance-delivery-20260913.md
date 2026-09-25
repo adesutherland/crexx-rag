@@ -1,5 +1,20 @@
 # SQL performance repair delivery — 13 September 2026
 
+## Logical debt and finish status — 25 September 2026, coordinator-reviewed local checkpoint
+
+`ragreportservice` reads terminal decision existence through the existing
+`maintenance_decisions(task_id)` path while grouping task versions by logical
+question. It uses no per-question application loop and writes nothing.
+`ragbacklog` checks selected workflow IDs, pending reviews and task ownership
+only at window closure, then projects status with bounded cohort JSON and
+existing job/event indexes. The nonempty identity/graph closure guard reads two
+rows by the existing unique `maintenance_scan_cursors(kind)` key and compares
+their current scan token; status performs no discovery writes. Accepted defer
+uses the same indexed decision-existence lookup as terminal review decisions.
+The source-state and repeated-read controls in
+`native_surfaces`, plus `regression_source_maintenance`, are the focused SQL
+evidence; corpus-scale timing and full regression remain in the final gate.
+
 ## rxvector consolidation — 19 September 2026
 
 The provider replacement preserves all projections, indexes, transaction owners

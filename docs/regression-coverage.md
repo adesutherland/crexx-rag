@@ -71,6 +71,45 @@ ledger accounts for 138/138 passing cases. An unrelated local-model load
 timeout under full-suite contention passed unchanged in isolation before the
 final exact-input selection; hosted and real-provider checks remain pending.
 
+## Mechanical debt and termination reporting — 25 September 2026
+
+On exact base `dfd39b7fbe20f8bd1ac51816ba27336ec04632c9`, the existing
+`native_surfaces`, `regression_source_maintenance` and `durable_backlog`
+controls passed before extension. New `native_surfaces` source/event controls
+first failed because a superseded settled parent reported zero settlements and
+reopenings. The mixed independent fixture covers repeat resolution, an
+unfinished superseded version, dependent workflow debt, pending review,
+failed work and an active waiver; offsetting malformed lineage remains
+unreconciled. A zero-delta terminal decision with no current successor also
+remains unreconciled. Repeated read-only reports preserve the complete SQLite dump.
+Coordinator R1 adds current and superseded accepted-defer controls beside a
+terminal accepted review. The current defer first produced one false settlement
+and delta -1; the shared terminal predicate now keeps it open, while the
+supervised review component asserts the actual unresolved state and retained
+`defer:review:accept` disposition. R2 adds a public nonempty identity cohort
+whose fourteen-second deadline closes before scan with zero selected tasks and
+provider calls; it first reported `deadline:complete` and now remains
+`deadline:incomplete`. A separate nonempty selected cohort with unchanged
+resolved evidence completes both scan cursors and closes quiescent. Status
+reports `closed_epoch` and `closed_for_no_runnable_work` as retained close-time facts.
+The selected finish-workflow control first returned `complete:complete` with a
+waiting workflow and required review; it now returns `complete:incomplete` and
+checks the frozen denominator, cursor, pending review/workflow and distinct
+calls, deferrals, processed items and applied changes. The pre-review integration
+and component selection passed locally. Its final current-input selection passed
+6/6 focused and 11/11 fast; the QA report records 17 current-input passes and
+121 not-run required cases. The last fast invocation executed its changed
+documentation case and reused ten exact-input passes; no disabled case counts
+as passed. Full
+regression, hosted/platform and integrated long-running qualification remain
+for the agreed final gate.
+After R1/R2 correction and rebuild, the six focused cases passed 6/6 and the
+fast tier passed 11/11 on changed artifact inputs. Exact current receipt paths,
+fixture hashes and fail-first runs are in the private item-2 handoff. Full
+regression remains for the final qualification task. The coordinator audited
+all 17 current-input passes and 249 recorded hashes and accepted this local
+checkpoint; that review does not qualify a release.
+
 ## Combined convergence and evidence-bound candidate — 23 September 2026
 
 The current implementation is still a local candidate. `regression_source_maintenance`

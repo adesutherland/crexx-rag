@@ -355,7 +355,17 @@ cohort to prevent unrelated higher-priority work from displacing it. Its note
 census retains recommendation annotations without a next action as read-only
 context. `ragreportservice` reports a separate logical-debt ledger and marks
 retained history unreconciled when either the global or per-question balance
-fails. These projections do not treat task traffic as evidence of quality.
+fails. A terminal decision remains a settlement event after its task version is
+superseded; a linked successor is a material reopening only when that predecessor
+had settled and its evidence fingerprint changed. Accepted `defer` leaves the
+task unresolved and contributes neither a settlement nor a reopening trigger.
+Missing or ambiguous lineage remains unreconciled. `ragbacklog` keeps
+window termination separate from selected run completion and includes pending
+reviews and workflows in the selected finish phase. A nonempty identity or graph
+cohort must also have a completed selected-kind and settled-question scan for
+the closing evidence snapshot before the run can claim selected resolution.
+These projections do not
+treat task traffic as evidence of quality.
 
 Codex's required preflight reads current account allowance before new work.
 Durable receipts settle actual usage. There is no additional account refresh

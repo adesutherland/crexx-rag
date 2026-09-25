@@ -1292,7 +1292,15 @@ _closewindow: procedure = .int
   if _n(policy,"initial_extraction_only")=1 then task_scope=task_scope || " AND " || _firstreviewmissing("maintenance_tasks.subject_id")
   if _s(policy,"enrichment") \= "" then task_scope = " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
   open_work="EXISTS(SELECT 1 FROM maintenance_tasks WHERE state IN('pending','dispatched','unresolved','review','failed')" || task_scope || ")"
-  if _s(policy,"phase")="finish" then open_work=open_work || " OR EXISTS(SELECT 1 FROM reviews WHERE state='pending' AND review_id IN(SELECT value FROM json_each(" || _q(policy.node_get(policy.member(policy.root(),"phase_cohort"))) || ")))"
+  open_work=open_work || " OR EXISTS(SELECT 1 FROM reviews r WHERE r.state='pending' AND EXISTS(SELECT 1 FROM maintenance_tasks WHERE maintenance_tasks.task_id=r.subject_id" || task_scope || "))"
+  if _s(policy,"phase")="finish" then do
+    cohort=_q(policy.node_get(policy.member(policy.root(),"phase_cohort")))
+    open_work=open_work || " OR EXISTS(SELECT 1 FROM maintenance_workflows f WHERE f.state<>'complete' AND f.workflow_id IN(SELECT value FROM json_each(" || cohort || ")))"
+    open_work=open_work || " OR EXISTS(SELECT 1 FROM reviews WHERE state='pending' AND review_id IN(SELECT value FROM json_each(" || cohort || ")))"
+    open_work=open_work || " OR EXISTS(SELECT 1 FROM reviews r JOIN maintenance_workflows f ON f.origin_task_id=r.subject_id WHERE r.state='pending' AND f.workflow_id IN(SELECT value FROM json_each(" || cohort || ")))"
+  end
+  else if _s(policy,"phase")="" & _s(policy,"source_id")="" & _n(policy,"embeddings_only")=0 then open_work=open_work || " OR EXISTS(SELECT 1 FROM maintenance_workflows WHERE state<>'complete') OR EXISTS(SELECT 1 FROM reviews WHERE state='pending')"
+  if _phasecensuscomplete(database,job_id,policy)=0 then open_work=open_work || " OR 1=1"
   sql = "UPDATE maintenance_runs SET state=CASE WHEN " || open_work || " THEN 'incomplete' ELSE 'complete' END,completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=(SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")"
   if _n(policy,"embeddings_only") = 1 then do
     missing = _embeddingmissing(database,policy)
@@ -1303,6 +1311,18 @@ _closewindow: procedure = .int
   if sqliteexec(database,sql) \= 0 then do; error = "cannot checkpoint maintenance report"; return -1; end
   if refreshlifecyclejob(database,job_id) \= 0 then do; error = "cannot checkpoint maintenance job"; return -1; end
   return _reconsidertaskretries(database,job_id,error)
+
+/* A nonempty identity/graph cohort is only resolved after its selected kind
+ * and settled-question pass finished for the latest evidence snapshot. A
+ * deadline or budget can close a window before either cursor exists. */
+_phasecensuscomplete: procedure = .int
+  arg database=.binary,job_id=.string,policy=.jsondocument
+  phase=_s(policy,"phase")
+  if _n(policy,"phase_denominator")=0 | (phase<>"identity" & phase<>"graph") then return 1
+  kind="identity-review";if phase="graph" then kind="sparse-node"
+  window_id=_text(database,"SELECT window_id FROM maintenance_windows WHERE job_id=" || _q(job_id))
+  token=window_id || ":" || _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1") || ":" || _number(database,"SELECT count(*) FROM provider_runs")
+  return _number(database,"SELECT count(*) FROM maintenance_scan_cursors WHERE kind IN(" || _q(kind) || ",'settled-questions') AND scan_token=" || _q(token) || " AND completed=1")=2
 
 _embeddingmissing: procedure = .int
   arg database = .binary, policy = .jsondocument
@@ -2197,11 +2217,14 @@ backlogsummary: procedure = .string
   if jobusagevalues(database,job_id,usage)<>0 then return ""
   policy = .jsondocument(_text(database,"SELECT policy_json FROM maintenance_windows WHERE job_id=" || _q(job_id)))
   scope="";chunk_scope="";workflow_count="(SELECT count(*) FROM maintenance_workflows WHERE state<>'complete')"
+  if _s(policy,"phase")<>"" then scope=_taskscope(policy)
   if _s(policy,"source_id")<>"" then do
     scope=_taskscope(policy);chunk_scope=" AND revision_chunk_id IN(" || currentsourcechunks(_s(policy,"source_id")) || ")";workflow_count="0"
   end
   if _n(policy,"initial_extraction_only")=1 then scope=scope || " AND " || _firstreviewmissing("maintenance_tasks.subject_id")
-  summary = _text(database,"SELECT json_object('window_id',w.window_id,'run_id',w.run_id,'job_id',w.job_id,'state',CASE WHEN w.state='complete' AND json_extract(w.policy_json,'$.embeddings_only')=1 THEN r.state ELSE w.state END,'deadline_epoch',w.deadline_epoch,'timing',json_extract(w.policy_json,'$.timing'),'provider_time_budget_ms',coalesce(json_extract(w.policy_json,'$.provider_time_budget_ms'),json_extract(w.policy_json,'$.window_seconds')*1000),'provider_time_used_ms'," || usage[5] || ",'pending',t.pending,'dispatched',t.dispatched,'resolved',t.resolved,'unresolved',t.unresolved,'review',t.review,'failed',t.failed,'workflows'," || workflow_count || ",'decisions',(SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=w.window_id),'provider_calls'," || usage[1] || ",'cost_microunits'," || usage[4] || ") FROM maintenance_windows w JOIN maintenance_runs r ON r.run_id=w.run_id CROSS JOIN (SELECT coalesce(sum(state='pending'),0) pending,coalesce(sum(state='dispatched'),0) dispatched,coalesce(sum(state='resolved'),0) resolved,coalesce(sum(state='unresolved'),0) unresolved,coalesce(sum(state='review'),0) review,coalesce(sum(state='failed'),0) failed FROM maintenance_tasks WHERE 1=1" || scope || ") t WHERE w.job_id=" || _q(job_id))
+  if _s(policy,"phase")="finish" then workflow_count="(SELECT count(*) FROM maintenance_workflows WHERE state<>'complete' AND workflow_id IN(SELECT value FROM json_each(" || _q(policy.node_get(policy.member(policy.root(),"phase_cohort"))) || ")))"
+  else if _s(policy,"phase")<>"" then workflow_count="0"
+  summary = _text(database,"SELECT json_object('window_id',w.window_id,'run_id',w.run_id,'job_id',w.job_id,'state',CASE WHEN w.state='complete' AND json_extract(w.policy_json,'$.embeddings_only')=1 THEN r.state ELSE w.state END,'deadline_epoch',w.deadline_epoch,'closed_epoch',w.closed_epoch,'timing',json_extract(w.policy_json,'$.timing'),'provider_time_budget_ms',coalesce(json_extract(w.policy_json,'$.provider_time_budget_ms'),json_extract(w.policy_json,'$.window_seconds')*1000),'provider_time_used_ms'," || usage[5] || ",'pending',t.pending,'dispatched',t.dispatched,'resolved',t.resolved,'unresolved',t.unresolved,'review',t.review,'failed',t.failed,'workflows'," || workflow_count || ",'decisions',(SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=w.window_id),'provider_calls'," || usage[1] || ",'cost_microunits'," || usage[4] || ") FROM maintenance_windows w JOIN maintenance_runs r ON r.run_id=w.run_id CROSS JOIN (SELECT coalesce(sum(state='pending'),0) pending,coalesce(sum(state='dispatched'),0) dispatched,coalesce(sum(state='resolved'),0) resolved,coalesce(sum(state='unresolved'),0) unresolved,coalesce(sum(state='review'),0) review,coalesce(sum(state='failed'),0) failed FROM maintenance_tasks WHERE 1=1" || scope || ") t WHERE w.job_id=" || _q(job_id))
 
   if summary = "" then return summary
   if _s(policy,"source_id")<>"" then summary=_text(database,"SELECT json_set(" || _q(summary) || ",'$.source_id'," || _q(_s(policy,"source_id")) || ")")
@@ -2215,7 +2238,24 @@ backlogsummary: procedure = .string
   waived=0
   if _s(policy,"source_id")<>"" then waived=_number(database,"SELECT count(*) FROM maintenance_tasks WHERE " || taskwaived("maintenance_tasks.task_id") || scope)
   else waived=taskwaivercount(database)
-  return _text(database,"SELECT json_set(" || _q(summary) || ",'$.embeddings_only'," || _n(policy,"embeddings_only") || ",'$.initial_extraction_only'," || _n(policy,"initial_extraction_only") || ",'$.embedding_missing'," || _embeddingmissing(database,policy) || ",'$.embedding_total',(SELECT count(*) FROM revision_chunks WHERE visible_to_generation IS NULL" || chunk_scope || "),'$.waived_tasks'," || waived || ")")
+  summary=_text(database,"SELECT json_set(" || _q(summary) || ",'$.embeddings_only'," || _n(policy,"embeddings_only") || ",'$.initial_extraction_only'," || _n(policy,"initial_extraction_only") || ",'$.embedding_missing'," || _embeddingmissing(database,policy) || ",'$.embedding_total',(SELECT count(*) FROM revision_chunks WHERE visible_to_generation IS NULL" || chunk_scope || "),'$.waived_tasks'," || waived || ")")
+  if summary="" then return ""
+  window_state=_text(database,"SELECT state FROM maintenance_windows WHERE job_id=" || _q(job_id))
+  run_state=_text(database,"SELECT state FROM maintenance_runs WHERE run_id=(SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")")
+  termination="running";if window_state="complete" then termination="no-runnable-work";else if window_state<>"active" then termination="stopped:" || window_state
+  phase=_s(policy,"phase");next_cursor=_s(policy,"phase_next_cursor")
+  selected_reviews=_number(database,"SELECT count(*) FROM reviews r WHERE r.state='pending' AND EXISTS(SELECT 1 FROM maintenance_tasks WHERE maintenance_tasks.task_id=r.subject_id" || _taskscope(policy) || ")")
+  if phase="" & _s(policy,"source_id")="" & _n(policy,"embeddings_only")=0 then selected_reviews=_number(database,"SELECT count(*) FROM reviews WHERE state='pending'")
+  if phase="finish" then do
+    cohort=_q(policy.node_get(policy.member(policy.root(),"phase_cohort")))
+    selected_reviews=_number(database,"SELECT count(*) FROM reviews r WHERE r.state='pending' AND (r.review_id IN(SELECT value FROM json_each(" || cohort || ")) OR r.subject_id IN(SELECT task_id FROM maintenance_tasks WHERE workflow_id IN(SELECT value FROM json_each(" || cohort || "))) OR r.subject_id IN(SELECT origin_task_id FROM maintenance_workflows WHERE workflow_id IN(SELECT value FROM json_each(" || cohort || "))))")
+  end
+  processed=_number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id) || " AND state='processed'")
+  admission_deferrals=_number(database,"SELECT count(*) FROM job_events WHERE job_id=" || _q(job_id) || " AND event_type='provider-deferred'")
+  no_runnable="false";if window_state="complete" then no_runnable="true"
+  selected_resolved="false";if run_state="complete" then selected_resolved="true"
+  unseen="false";if next_cursor<>"" then unseen="true"
+  return _text(database,"SELECT json_set(" || _q(summary) || ",'$.run_state'," || _q(run_state) || ",'$.termination'," || _q(termination) || ",'$.closed_for_no_runnable_work',json('" || no_runnable || "'),'$.selected_work_resolved',json('" || selected_resolved || "'),'$.processed_items'," || processed || ",'$.admission_deferrals'," || admission_deferrals || ",'$.selected_pending_reviews'," || selected_reviews || ",'$.phase'," || _q(phase) || ",'$.phase_denominator'," || _n(policy,"phase_denominator") || ",'$.phase_next_cursor'," || _q(next_cursor) || ",'$.phase_unseen_remainder',json('" || unseen || "'))")
 
 _backlogimpact: procedure = .int
   arg database = .binary, parent = .string, generation = .int, expose types = .string[], expose ids = .string[], expose error = .string

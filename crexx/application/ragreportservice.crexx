@@ -480,22 +480,38 @@ reportoperationaldigest: procedure = .string
 _debtledger: procedure = .int[]
   arg database=.binary,closing=.int
   values=.int[]
+  /* A superseded task can retain a durable terminal decision. Current state
+   * alone then hides a real settlement and the child's reopening. Count one
+   * settlement per task version, never one per decision or provider call. */
+  settled_t="(t.state='resolved' OR EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.task_id=t.task_id AND " || _terminaldecision("d") || "))"
+  settled_p="(p.state='resolved' OR EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.task_id=p.task_id AND " || _terminaldecision("d") || "))"
+  same_question="t.kind=p.kind AND t.subject_type=p.subject_type AND t.subject_id=p.subject_id AND t.workflow_id=p.workflow_id"
+  changed_evidence="t.evidence_fingerprint<>p.evidence_fingerprint"
   values[1]=sqlreadint(database,"SELECT count(*) FROM (SELECT kind,subject_type,subject_id,workflow_id FROM maintenance_tasks GROUP BY kind,subject_type,subject_id,workflow_id)")
-  values[2]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_tasks p ON p.task_id=t.parent_task_id WHERE p.state='resolved' AND t.kind=p.kind AND t.subject_type=p.subject_type AND t.subject_id=p.subject_id AND t.workflow_id=p.workflow_id")
-  values[3]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE state='resolved'")
+  values[2]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_tasks p ON p.task_id=t.parent_task_id WHERE " || settled_p || " AND " || same_question || " AND " || changed_evidence)
+  values[3]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t WHERE " || settled_t)
   waived=taskwaived("t.task_id")
-  values[4]=sqlreadint(database,"SELECT count(*) FROM (SELECT t.kind,t.subject_type,t.subject_id,t.workflow_id FROM maintenance_tasks t GROUP BY t.kind,t.subject_type,t.subject_id,t.workflow_id HAVING sum(CASE WHEN " || waived || " THEN 1 ELSE 0 END)>0 AND sum(CASE WHEN t.state IN('pending','dispatched','unresolved','review','failed') AND NOT " || waived || " THEN 1 ELSE 0 END)=0 AND sum(t.state='resolved')=0)")
+  values[4]=sqlreadint(database,"SELECT count(*) FROM (SELECT t.kind,t.subject_type,t.subject_id,t.workflow_id FROM maintenance_tasks t GROUP BY t.kind,t.subject_type,t.subject_id,t.workflow_id HAVING sum(CASE WHEN t.state IN('pending','dispatched','unresolved','review','failed') AND " || waived || " THEN 1 ELSE 0 END)>0 AND sum(CASE WHEN t.state IN('pending','dispatched','unresolved','review','failed') AND NOT " || waived || " THEN 1 ELSE 0 END)=0)")
   values[5]=closing
   values[6]=values[1]+values[2]-values[3]-values[4]-values[5]
   open_condition="t.state IN('pending','dispatched','unresolved','review','failed') AND NOT " || waived
   open_count="sum(CASE WHEN " || open_condition || " THEN 1 ELSE 0 END)"
-  settled_count="sum(t.state='resolved')"
-  reopened_count="sum(CASE WHEN EXISTS(SELECT 1 FROM maintenance_tasks p WHERE p.task_id=t.parent_task_id AND p.state='resolved' AND p.kind=t.kind AND p.subject_type=t.subject_type AND p.subject_id=t.subject_id AND p.workflow_id=t.workflow_id) THEN 1 ELSE 0 END)"
-  parked_count="CASE WHEN sum(CASE WHEN " || waived || " THEN 1 ELSE 0 END)>0 AND " || open_count || "=0 AND " || settled_count || "=0 THEN 1 ELSE 0 END"
+  settled_count="sum(CASE WHEN " || settled_t || " THEN 1 ELSE 0 END)"
+  reopened_count="sum(CASE WHEN EXISTS(SELECT 1 FROM maintenance_tasks p WHERE p.task_id=t.parent_task_id AND " || settled_p || " AND " || same_question || " AND " || changed_evidence || ") THEN 1 ELSE 0 END)"
+  parked_count="CASE WHEN sum(CASE WHEN t.state IN('pending','dispatched','unresolved','review','failed') AND " || waived || " THEN 1 ELSE 0 END)>0 AND " || open_count || "=0 THEN 1 ELSE 0 END"
+  roots="sum(CASE WHEN NOT EXISTS(SELECT 1 FROM maintenance_tasks p WHERE p.task_id=t.parent_task_id AND " || same_question || ") THEN 1 ELSE 0 END)"
+  missing_parent="sum(CASE WHEN t.parent_task_id<>'' AND NOT EXISTS(SELECT 1 FROM maintenance_tasks p WHERE p.task_id=t.parent_task_id) THEN 1 ELSE 0 END)"
+  resolved_leaf="sum(CASE WHEN t.state='resolved' AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_type=t.subject_type AND c.subject_id=t.subject_id AND c.workflow_id=t.workflow_id) THEN 1 ELSE 0 END)"
   balance="1+" || reopened_count || "-" || settled_count || "-" || parked_count || "-CASE WHEN " || open_count || ">0 THEN 1 ELSE 0 END"
-  values[8]=sqlreadint(database,"SELECT count(*) FROM (SELECT " || balance || " group_balance FROM maintenance_tasks t GROUP BY t.kind,t.subject_type,t.subject_id,t.workflow_id) WHERE group_balance<>0")
+  values[8]=sqlreadint(database,"SELECT count(*) FROM (SELECT " || balance || " group_balance," || roots || " roots," || missing_parent || " missing_parent," || resolved_leaf || " resolved_leaf," || open_count || " open_versions," || parked_count || " parked FROM maintenance_tasks t GROUP BY t.kind,t.subject_type,t.subject_id,t.workflow_id) WHERE group_balance<>0 OR roots<>1 OR missing_parent<>0 OR (resolved_leaf=0 AND open_versions=0 AND parked=0)")
   values[7]=values[6]=0 & values[8]=0
   return values
+
+/* Review acceptance settles the task except for defer, which the owning
+ * review transition leaves unresolved for later reconsideration. */
+_terminaldecision: procedure = .string
+  arg alias=.string
+  return "(" || alias || ".disposition LIKE '%:resolved' OR (" || alias || ".disposition LIKE '%:review:accept' AND " || alias || ".disposition<>'defer:review:accept'))"
 
 /* Current-state logical debt is separate from task-version throughput. The
  * interval opening balance is deliberately unavailable without a prior
@@ -525,7 +541,7 @@ _convergencecensus: procedure = .int[]
   counts[14]=sqlreadint(database,"SELECT count(*) FROM maintenance_workflows WHERE state IN('migrating','waiting')")
   counts[15]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id<>'' OR kind LIKE 'alias-follow-up:%'")
   counts[16]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE state='superseded'")
-  counts[17]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_tasks p ON p.task_id=t.parent_task_id WHERE t.kind=p.kind AND t.subject_type=p.subject_type AND t.subject_id=p.subject_id AND t.workflow_id=p.workflow_id")
+  counts[17]=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_tasks p ON p.task_id=t.parent_task_id WHERE t.kind=p.kind AND t.subject_type=p.subject_type AND t.subject_id=p.subject_id AND t.workflow_id=p.workflow_id AND t.evidence_fingerprint<>p.evidence_fingerprint AND (p.state='resolved' OR EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.task_id=p.task_id AND " || _terminaldecision("d") || "))")
   return counts
 
 _pendingreviewkinds: procedure = .string

@@ -1367,6 +1367,15 @@ main: procedure = .int
   errors = errors + check(runresolution(store,job_id,investigation_task,responsejson("investigate","","[]","[]","","Which source distinguishes the two Platform meanings?"),error) = 0, "record supervised investigation")
   review_id = scalartext(database,"SELECT review_id FROM reviews WHERE subject_id='" || investigation_task || "' AND state='pending'")
   errors = errors + check(reviewbacklogdecision(store,review_id,"accept",genericprofile(),error) = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id='" || investigation_task || "' AND kind='follow-up' AND question='Which source distinguishes the two Platform meanings?'") = 1, "reviewed investigation creates its focused durable follow-up " || error)
+  defer_supervised = changestr("retain investigate",supervised,"retain investigate defer")
+  defer_supervised = scalartext(database,"SELECT json_set(" || _testquote(defer_supervised) || ",'$.evidence_expected',1)")
+  defer_policy = .jsondocument(defer_supervised)
+  defer_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"defer-review-test","concept",child,"","",999999,defer_policy,defer_task,error) = 0 & nextwindow(store,defer_supervised,job_id,error) = 0, "queue supervised defer")
+  until_text = scalartext(database,"SELECT strftime('%Y-%m-%dT%H:%M:%SZ','now','+6 months')")
+  errors = errors + check(runresolution(store,job_id,defer_task,responsejson("defer","","[]","[]","","Await scheduled source release","{}",until_text),error) = 0, "record supervised defer " || error)
+  review_id = scalartext(database,"SELECT review_id FROM reviews WHERE subject_id='" || defer_task || "' AND state='pending'")
+  errors = errors + check(review_id<>"" & reviewbacklogdecision(store,review_id,"accept",genericprofile(),error) = 0 & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || defer_task || "'") = "unresolved" & scalarint(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id='" || defer_task || "' AND disposition='defer:review:accept' AND json_extract(response_json,'$.action')='defer'") = 1, "accepted defer retains unresolved task and exact decision " || error)
 
   errors = errors + check(sqliteexec(database,"UPDATE maintenance_windows SET deadline_epoch=unixepoch() WHERE job_id='" || job_id || "'") = 0 & tickbacklogwindow(store,job_id,error) = 1, "deadline closes window")
   errors = errors + check(scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") = "deadline" & scalarint(database,"SELECT count(*) FROM job_items WHERE job_id='" || job_id || "' AND state='queued'") = 0, "deadline checkpoints unstarted work")

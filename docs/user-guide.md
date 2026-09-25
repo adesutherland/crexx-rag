@@ -1230,6 +1230,19 @@ includes pending reviews and unfinished workflows in its selected cohort.
 Reviews still use `review list`, `review decide` and their existing authority;
 workflow consequences use `maintain reconcile` and the retained task/review
 controls. A finish window with a selected pending review reports incomplete.
+Its `backlog` detail reports `termination` (`running`, `no-runnable-work`, or
+`stopped:REASON`), `closed_epoch`, `closed_for_no_runnable_work`, `run_state`,
+`selected_work_resolved`, selected pending reviews
+and workflows, the frozen `phase_denominator`, and `phase_next_cursor` with
+`phase_unseen_remainder`. A complete window can therefore have no runnable
+work while its selected review or migration remains unresolved. The cursor
+identifies another cohort page; completing one worker job or selected page is
+not a whole-library convergence result. `termination` and
+`closed_for_no_runnable_work` describe the retained close reason, recorded at
+`closed_epoch`; status does not re-run discovery. A nonempty identity or graph
+cohort stopped before its selected scan completed remains incomplete even if no
+task was materialised. Provider calls, admission deferrals,
+processed items and applied change decisions have separate counters.
 Plan calls are read-only; iterate all cohort pages for a complete dry-run
 preview before claiming the selected phase is quiet.
 
@@ -1464,7 +1477,12 @@ migrations and dependent task versions. The retained task-history ledger reports
 opening actionable debt (zero at task-ledger creation), new questions, linked
 reopenings, settlements, parked exceptions and closing actionable debt. The
 ledger is reconciled only when both its global delta and each logical question's
-balance are zero. Missing or inconsistent legacy lineage is counted separately
+balance are zero. A durable terminal decision remains a settlement when its
+task version later becomes superseded; a linked successor with changed evidence
+after settlement is a reopening. An accepted `defer` keeps its question open;
+it is not counted as a settlement or as a trigger for a later reopening.
+Repeat decisions on one task version do not create extra logical
+closures. Missing or inconsistent legacy lineage is counted separately
 as unreconciled logical questions. Parked exceptions remain
 unresolved quality debt, and neither current-state counts nor this ledger alone
 measure answer quality. A resolved origin task

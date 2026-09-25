@@ -311,6 +311,154 @@ if(NOT debt_legacy_report_rc EQUAL 0 OR NOT debt_legacy_out MATCHES "\"reconcili
    NOT debt_legacy_out MATCHES "\"debt_reconciliation_available\":false")
     message(FATAL_ERROR "Offsetting lineage gaps must not be reported as reconciled: ${debt_legacy_out}${debt_legacy_report_err}")
 endif()
+# A settled assessment may later be superseded. Its durable decision is the
+# historical settlement; the child is the reopening, not a new question.
+# Check those facts from the source tables before inspecting the report.
+file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/debt-history")
+file(COPY "${CPRAG_WORK_DIR}/library" DESTINATION "${CPRAG_WORK_DIR}/debt-history")
+set(history_library "${CPRAG_WORK_DIR}/debt-history/library")
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" -bail "${history_library}/library.sqlite"
+    "INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,parent_task_id) VALUES('history-parent','fixture','note','history','old','fixture','{}','Old assessment','superseded',1,1,2,''),('history-child','fixture','note','history','changed','fixture','{}','Changed evidence','pending',1,2,2,'history-parent'); INSERT INTO maintenance_decisions(decision_id,task_id,item_id,provider_run_id,response_json,grounding_json,disposition,created_epoch) SELECT 'history-settlement','history-parent',(SELECT item_id FROM job_items ORDER BY item_id LIMIT 1),provider_run_id,'{\"action\":\"retain\"}','{}','retain:resolved',1 FROM provider_runs ORDER BY provider_run_id LIMIT 1;"
+    RESULT_VARIABLE history_seed_rc ERROR_VARIABLE history_seed_err)
+if(NOT history_seed_rc EQUAL 0)
+    message(FATAL_ERROR "Could not seed superseded settlement fixture: ${history_seed_err}")
+endif()
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${history_library}/library.sqlite"
+    "SELECT (SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND parent_task_id='history-parent')||':'||(SELECT count(*) FROM maintenance_decisions WHERE task_id='history-parent' AND disposition='retain:resolved')||':'||(SELECT count(*) FROM maintenance_tasks WHERE state='resolved' AND subject_id='history');"
+    OUTPUT_VARIABLE history_facts OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT history_facts STREQUAL "1:1:0")
+    message(FATAL_ERROR "Superseded-settlement source control is invalid: ${history_facts}")
+endif()
+# Accepted defer leaves its task unresolved. It is neither a settlement in the
+# current version nor a settlement/reopening after a changed-evidence successor.
+file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/debt-defer")
+file(COPY "${CPRAG_WORK_DIR}/library" DESTINATION "${CPRAG_WORK_DIR}/debt-defer")
+set(defer_library "${CPRAG_WORK_DIR}/debt-defer/library")
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" -bail "${defer_library}/library.sqlite"
+    "INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,parent_task_id) VALUES('defer-parent','fixture','note','defer','old','fixture','{}','Deferred assessment','unresolved',1,1,1,''); INSERT INTO maintenance_decisions(decision_id,task_id,item_id,provider_run_id,response_json,grounding_json,disposition,created_epoch) SELECT 'defer-accepted','defer-parent',(SELECT item_id FROM job_items ORDER BY item_id LIMIT 1),provider_run_id,'{\"action\":\"defer\"}','{}','defer:review:accept',1 FROM provider_runs ORDER BY provider_run_id LIMIT 1;"
+    RESULT_VARIABLE defer_seed_rc ERROR_VARIABLE defer_seed_err)
+if(NOT defer_seed_rc EQUAL 0)
+    message(FATAL_ERROR "Could not seed accepted-defer fixture: ${defer_seed_err}")
+endif()
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${defer_library}/library.sqlite"
+    "SELECT state||':'||(SELECT disposition FROM maintenance_decisions WHERE task_id='defer-parent')||':'||(SELECT json_extract(response_json,'$.action') FROM maintenance_decisions WHERE task_id='defer-parent') FROM maintenance_tasks WHERE task_id='defer-parent';"
+    OUTPUT_VARIABLE defer_facts OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT defer_facts STREQUAL "unresolved:defer:review:accept:defer")
+    message(FATAL_ERROR "Accepted-defer source control is invalid: ${defer_facts}")
+endif()
+execute_process(COMMAND ${cli} --library "${defer_library}" --format json --access read library report --narrative off
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE defer_out ERROR_VARIABLE defer_err RESULT_VARIABLE defer_rc TIMEOUT 30)
+if(NOT defer_rc EQUAL 0 OR NOT defer_out MATCHES "\"new_logical_questions\":1" OR
+   NOT defer_out MATCHES "\"materially_reopened_questions\":0" OR
+   NOT defer_out MATCHES "\"durable_settlements\":0" OR
+   NOT defer_out MATCHES "\"closing_actionable_debt\":1" OR
+   NOT defer_out MATCHES "\"reconciliation_delta\":0" OR
+   NOT defer_out MATCHES "\"debt_reconciliation_available\":true")
+    message(FATAL_ERROR "Accepted defer was counted as a settlement: ${defer_out}${defer_err}")
+endif()
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" -bail "${defer_library}/library.sqlite"
+    "UPDATE maintenance_tasks SET state='superseded' WHERE task_id='defer-parent'; INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,parent_task_id) VALUES('defer-child','fixture','note','defer','changed','fixture','{}','Changed evidence','pending',1,2,2,'defer-parent');"
+    RESULT_VARIABLE defer_child_rc ERROR_VARIABLE defer_child_err)
+if(NOT defer_child_rc EQUAL 0)
+    message(FATAL_ERROR "Could not seed deferred successor: ${defer_child_err}")
+endif()
+execute_process(COMMAND ${cli} --library "${defer_library}" --format json --access read library report --narrative off
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE defer_child_out ERROR_VARIABLE defer_child_err RESULT_VARIABLE defer_child_report_rc TIMEOUT 30)
+if(NOT defer_child_report_rc EQUAL 0 OR NOT defer_child_out MATCHES "\"new_logical_questions\":1" OR
+   NOT defer_child_out MATCHES "\"materially_reopened_questions\":0" OR
+   NOT defer_child_out MATCHES "\"materially_reopened_task_versions\":0" OR
+   NOT defer_child_out MATCHES "\"durable_settlements\":0" OR
+   NOT defer_child_out MATCHES "\"closing_actionable_debt\":1" OR
+   NOT defer_child_out MATCHES "\"reconciliation_delta\":0" OR
+   NOT defer_child_out MATCHES "\"debt_reconciliation_available\":true")
+    message(FATAL_ERROR "Deferred predecessor fabricated a reopening: ${defer_child_out}${defer_child_err}")
+endif()
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" -bail "${defer_library}/library.sqlite"
+    "INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,parent_task_id) VALUES('review-parent','fixture','note','reviewed','old','fixture','{}','Reviewed assessment','superseded',1,1,2,''),('review-child','fixture','note','reviewed','changed','fixture','{}','Changed evidence','pending',1,2,2,'review-parent'); INSERT INTO maintenance_decisions(decision_id,task_id,item_id,provider_run_id,response_json,grounding_json,disposition,created_epoch) SELECT 'review-accepted','review-parent',(SELECT item_id FROM job_items ORDER BY item_id LIMIT 1 OFFSET 1),provider_run_id,'{\"action\":\"retain\"}','{}','retain:review:accept',1 FROM provider_runs ORDER BY provider_run_id LIMIT 1;"
+    RESULT_VARIABLE review_seed_rc ERROR_VARIABLE review_seed_err)
+if(NOT review_seed_rc EQUAL 0)
+    message(FATAL_ERROR "Could not seed terminal accepted-review control: ${review_seed_err}")
+endif()
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${defer_library}/library.sqlite"
+    "SELECT (SELECT count(*) FROM maintenance_tasks WHERE task_id='review-parent' AND state='superseded')||':'||(SELECT count(*) FROM maintenance_decisions WHERE task_id='review-parent' AND disposition='retain:review:accept' AND json_extract(response_json,'$.action')='retain')||':'||(SELECT count(*) FROM maintenance_tasks WHERE task_id='review-child' AND state='pending' AND parent_task_id='review-parent');"
+    OUTPUT_VARIABLE review_facts OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT review_facts STREQUAL "1:1:1")
+    message(FATAL_ERROR "Terminal accepted-review source control is invalid: ${review_facts}")
+endif()
+execute_process(COMMAND ${cli} --library "${defer_library}" --format json --access read library report --narrative off
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE review_out ERROR_VARIABLE review_err RESULT_VARIABLE review_rc TIMEOUT 30)
+if(NOT review_rc EQUAL 0 OR NOT review_out MATCHES "\"new_logical_questions\":2" OR
+   NOT review_out MATCHES "\"materially_reopened_questions\":1" OR
+   NOT review_out MATCHES "\"materially_reopened_task_versions\":1" OR
+   NOT review_out MATCHES "\"durable_settlements\":1" OR
+   NOT review_out MATCHES "\"closing_actionable_debt\":2" OR
+   NOT review_out MATCHES "\"reconciliation_delta\":0" OR
+   NOT review_out MATCHES "\"debt_reconciliation_available\":true")
+    message(FATAL_ERROR "Terminal accepted review did not balance beside deferred review: ${review_out}${review_err}")
+endif()
+execute_process(COMMAND ${cli} --library "${history_library}" --format json --access read library report --narrative off
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE history_out ERROR_VARIABLE history_err RESULT_VARIABLE history_rc TIMEOUT 30)
+if(NOT history_rc EQUAL 0 OR NOT history_out MATCHES "\"new_logical_questions\":1" OR
+   NOT history_out MATCHES "\"materially_reopened_questions\":1" OR
+   NOT history_out MATCHES "\"durable_settlements\":1" OR
+   NOT history_out MATCHES "\"closing_actionable_debt\":1" OR
+   NOT history_out MATCHES "\"reconciliation_delta\":0" OR
+   NOT history_out MATCHES "\"unreconciled_logical_questions\":0")
+    message(FATAL_ERROR "Superseded settlement and changed-evidence reopening did not reconcile: ${history_out}${history_err}")
+endif()
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${history_library}/library.sqlite" ".dump"
+    OUTPUT_VARIABLE history_before)
+execute_process(COMMAND ${cli} --library "${history_library}" --format json --access read library report --narrative off
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE history_repeat ERROR_VARIABLE history_repeat_err RESULT_VARIABLE history_repeat_rc TIMEOUT 30)
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${history_library}/library.sqlite" ".dump"
+    OUTPUT_VARIABLE history_after)
+if(NOT history_repeat_rc EQUAL 0 OR NOT history_repeat STREQUAL history_out OR NOT history_before STREQUAL history_after)
+    message(FATAL_ERROR "Repeated read-only logical-debt reporting changed state or results: ${history_repeat_err}")
+endif()
+# A retained settlement without a current leaf is incomplete history even if
+# the arithmetic happens to cancel to zero.
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" -bail "${history_library}/library.sqlite"
+    "DELETE FROM maintenance_tasks WHERE task_id='history-child';"
+    RESULT_VARIABLE missing_leaf_rc ERROR_VARIABLE missing_leaf_err)
+if(NOT missing_leaf_rc EQUAL 0)
+    message(FATAL_ERROR "Could not seed missing-successor history: ${missing_leaf_err}")
+endif()
+execute_process(COMMAND ${cli} --library "${history_library}" --format json --access read library report --narrative off
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE missing_leaf_out ERROR_VARIABLE missing_leaf_report_err RESULT_VARIABLE missing_leaf_report_rc TIMEOUT 30)
+if(NOT missing_leaf_report_rc EQUAL 0 OR NOT missing_leaf_out MATCHES "\"reconciliation_delta\":0" OR
+   NOT missing_leaf_out MATCHES "\"unreconciled_logical_questions\":1" OR
+   NOT missing_leaf_out MATCHES "\"debt_reconciliation_available\":false")
+    message(FATAL_ERROR "Missing current successor must remain unreconciled despite zero global delta: ${missing_leaf_out}${missing_leaf_report_err}")
+endif()
+file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/debt-mixed")
+file(COPY "${CPRAG_WORK_DIR}/library" DESTINATION "${CPRAG_WORK_DIR}/debt-mixed")
+set(mixed_library "${CPRAG_WORK_DIR}/debt-mixed/library")
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" -bail "${mixed_library}/library.sqlite"
+    "INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,parent_task_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch) VALUES('repeat-old','fixture','note','repeat','','','old','fixture','{}','Repeat old','resolved',1,1,1),('repeat-new','fixture','note','repeat','','repeat-old','new','fixture','{}','Repeat new','resolved',1,2,2),('superseded-old','fixture','note','superseded','','','old','fixture','{}','Old version','superseded',1,1,1),('superseded-new','fixture','note','superseded','','superseded-old','new','fixture','{}','New version','resolved',1,2,2),('dependent-origin','fixture','note','origin','','','origin','fixture','{}','Origin','resolved',1,1,1),('dependent-open','fixture','note','dependent','workflow:debt','','dependent','fixture','{}','Dependency','pending',1,2,2),('review-open','fixture','note','review','','','review','fixture','{}','Review','review',1,1,1),('failed-open','fixture','note','failed','','','failed','fixture','{}','Failed','failed',1,1,1),('waived-open','fixture','note','waived','','','waived','fixture','{}','Waived','pending',1,1,1); INSERT INTO maintenance_workflows(workflow_id,origin_task_id,kind,parent_concept_id,successors_json,state,created_generation,created_epoch,updated_epoch) SELECT 'workflow:debt','dependent-origin','split',concept_id,'[]','waiting',(SELECT published_generation FROM library_meta),1,1 FROM concepts LIMIT 1; INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES('review-debt','maintenance-change','review-open','pending','{}','fixture'); INSERT INTO maintenance_task_waivers(waiver_id,task_id,reason,state,created_epoch) VALUES('waiver-debt','waived-open','Retain exception','active',1);"
+    RESULT_VARIABLE mixed_seed_rc ERROR_VARIABLE mixed_seed_err)
+if(NOT mixed_seed_rc EQUAL 0)
+    message(FATAL_ERROR "Could not seed task-version and consequence controls: ${mixed_seed_err}")
+endif()
+execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${mixed_library}/library.sqlite"
+    "SELECT (SELECT count(DISTINCT kind||':'||subject_id||':'||workflow_id) FROM maintenance_tasks)||':'||(SELECT count(*) FROM maintenance_tasks WHERE state='resolved')||':'||(SELECT count(*) FROM reviews WHERE state='pending')||':'||(SELECT count(*) FROM maintenance_workflows WHERE state<>'complete')||':'||(SELECT count(*) FROM maintenance_tasks WHERE state='failed');"
+    OUTPUT_VARIABLE mixed_facts OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT mixed_facts STREQUAL "7:4:1:1:1")
+    message(FATAL_ERROR "Mixed source-state control is invalid: ${mixed_facts}")
+endif()
+execute_process(COMMAND ${cli} --library "${mixed_library}" --format json --access read library report --narrative off
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE mixed_out ERROR_VARIABLE mixed_err RESULT_VARIABLE mixed_rc TIMEOUT 30)
+if(NOT mixed_rc EQUAL 0 OR NOT mixed_out MATCHES "\"new_logical_questions\":7" OR
+   NOT mixed_out MATCHES "\"materially_reopened_questions\":1" OR
+   NOT mixed_out MATCHES "\"durable_settlements\":4" OR
+   NOT mixed_out MATCHES "\"parked_exceptions\":1" OR
+   NOT mixed_out MATCHES "\"closing_actionable_debt\":3" OR
+   NOT mixed_out MATCHES "\"unfinished_migrations\":1" OR
+   NOT mixed_out MATCHES "\"pending_maintenance_reviews\":1" OR
+   NOT mixed_out MATCHES "\"technically_held_or_failed_questions\":1" OR
+   NOT mixed_out MATCHES "\"reconciliation_delta\":0" OR
+   NOT mixed_out MATCHES "\"unreconciled_logical_questions\":0")
+    message(FATAL_ERROR "Task versions, dependent work, review and technical holds did not reconcile: ${mixed_out}${mixed_err}")
+endif()
 execute_process(COMMAND "${CPRAG_GAP_SQLITE}" "${CPRAG_WORK_DIR}/library/library.sqlite"
     "SELECT count(*) FROM query_gaps;" OUTPUT_VARIABLE gaps_before OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND ${cli} --format json query evidence "unsupported quantum algorithm" --mode lexical --record-gaps false

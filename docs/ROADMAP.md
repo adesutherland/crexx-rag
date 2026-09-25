@@ -58,6 +58,17 @@ platform functional qualification remain separate.
 [Ownership and evidence](maintenance-refactoring-delivery.md#advanced-response-schema-and-terminal-error--24-september-2026)
 and [coverage](regression-coverage.md#advanced-resolution-schema-and-terminal-error--24-september-2026).
 
+Mechanical debt and termination reporting (25 September): **coordinator-reviewed
+local item-2 checkpoint; focused and fast QA only, not installed, published or
+full-regression qualified**. `ragreportservice` now counts a retained
+terminal decision on a superseded task version and its linked reopening while
+keeping accepted defer open and malformed lineage unreconciled. `ragbacklog`
+reports retained close-time stop/no-work separately from selected completion,
+checks selected finish workflows and reviews, and requires completed discovery
+for nonempty identity/graph cohorts. Synthetic fail-first cases and focused receipts
+are in [delivery evidence](maintenance-refactoring-delivery.md#mechanical-debt-and-termination-reporting--25-september-2026)
+and the [coverage matrix](regression-coverage.md#mechanical-debt-and-termination-reporting--25-september-2026).
+
 Combined convergence and evidence-bound candidate (23 September): **local
 implementation in progress; not installed, published or corpus-qualified**.
 The first-pass predicate now requires a validated successful extraction receipt;
