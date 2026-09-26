@@ -12,12 +12,12 @@ import provider_contract
 /* Resolution prompt, schema and allowed actions share one subject/workflow
  * vocabulary. ragbacklog owns evidence validation and transactional decisions. */
 resolutioncontractversion: procedure = .string
-  return "crexx-rag.resolution-contract/10"
+  return "crexx-rag.resolution-contract/12"
 
 resolutionprompt: procedure = .string
   arg objective=.string,subject_type=""
   if subject_type="provenance-chunk" then return enrichmentprompt() || "0A"x || quotationcontract()
-  return objective || "0A"x || quotationcontract() || " Return exactly the requested fields. Cite evidence_id values and contiguous quotations from the packet. Use empty strings and arrays for unused fields; qualifiers_json is a JSON object string. Always return dispositions: [] when no lifecycle impact is proposed. Only split, merge and retire may supply nonempty dispositions, and each must cover every current owned alias, mention, claim and note with an explicit reviewed outcome. For split, introduce successors; for merge, first establish source-supported equivalence and distinguish homonyms, editions and narrower roles, then select an active target_concept_id from the supplied catalogue and leave successors empty. Explain the survivor choice in reason; internal IDs never establish real-world identity. Retire an invalid source artefact by retracting its owned impact; never invent a survivor. The engine rechecks impact at publication. Retain connections for a split/merge follow-up workflow; do not guess their assignment. For move/retract/qualify, cite every affected support. A retirement may cite no passages only when the impact census is empty. For distinct, provide both a nonempty canonical_label and a permitted concept_type. For reuse, choose an active supplied candidate; migration parents are evidence, not eligible identities; for move, choose a supplied successor." || " " || _splitinstructions() || " " || _lifecycleinstructions() || " " || _fieldinstructions() || " " || _relationshipinstructions() || " " || _actionabilityinstructions()
+  return objective || "0A"x || quotationcontract() || " Return exactly the requested fields. Cite evidence_id values and contiguous quotations from the packet. Use empty strings and arrays for unused fields; qualifiers_json is a JSON object string. Always return dispositions: [] when no lifecycle impact is proposed. Only split, merge and retire may supply nonempty dispositions, and each must cover every current owned alias, mention, claim and note with an explicit reviewed outcome. For split, introduce successors; for merge, first establish source-supported equivalence and distinguish homonyms, editions and narrower roles, then select an active target_concept_id from the supplied catalogue and leave successors empty. Explain the survivor choice in reason; internal IDs never establish real-world identity. Retire an invalid source artefact by retracting its owned impact; never invent a survivor. The engine rechecks impact at publication. Retain connections for a split/merge follow-up workflow; do not guess their assignment. For move/retract/qualify, cite every affected support. A retirement may cite no passages only when the impact census is empty. For distinct, provide both a nonempty canonical_label and a permitted concept_type. For reuse, choose an active supplied candidate; migration parents are evidence, not eligible identities; for move, choose a supplied successor." || " " || _splitinstructions() || " " || _lifecycleinstructions() || " " || _fieldinstructions() || " " || _relationshipinstructions() || " " || _actionabilityinstructions() || " " || _acquisitioninstructions()
 
 resolutionmessages: procedure = .providermessage[]
   arg profile=.ragprofile,input_json=.string,objective=.string,subject_type=""
@@ -41,7 +41,7 @@ resolutionresponseschema: procedure = .string
   schema=changestr('"question","dispositions"]',schema,'"question","dispositions","relationship_type","resolution_text"]')
   return changestr('"properties":{"action"',schema,'"properties":{"resolution_text":{"type":"string"},"relationship_type":{"type":"string"},"action"')
 
-/* Exact v7/v8/v9 frozen bindings may run a new attempt through the current
+/* Exact v7/v8/v9/v10 frozen bindings may run a new attempt through the current
  * contract. Reconstruct known prior bytes for verification; no old schema is
  * submitted. The durable item, digest, history and usage stay unchanged, and
  * normal explicit retry/admission still owns any new call. */
@@ -49,10 +49,16 @@ resolutionlegacybinding: procedure = .int
   arg input_json=.string,objective=.string,subject_type=.string,workflow=.int,frozen_prompt=.string,frozen_schema=.string
   document=.jsondocument(input_json)
   version=_jsonstring(document,document.root(),"resolution_contract")
-  if document.valid()<>1 | wordpos(version,"crexx-rag.resolution-contract/7 crexx-rag.resolution-contract/8 crexx-rag.resolution-contract/9")=0 | frozen_prompt="" | frozen_schema="" then return 0
+  if document.valid()<>1 | wordpos(version,"crexx-rag.resolution-contract/7 crexx-rag.resolution-contract/8 crexx-rag.resolution-contract/9 crexx-rag.resolution-contract/10 crexx-rag.resolution-contract/11")=0 | frozen_prompt="" | frozen_schema="" then return 0
   prior=resolutioninputprompt(input_json,objective,subject_type)
-  prior=changestr(" " || _actionabilityinstructions(),prior,"")
+  prior=changestr(" " || _acquisitionwaitinstructions(),prior,"")
   schema=resolutionresponseschema(subject_type,workflow)
+  schema=changestr(',"acquisition-wait"',schema,'')
+  if version="crexx-rag.resolution-contract/11" then return frozen_prompt=rxhash..sha256hex(prior as .binary) & frozen_schema=rxhash..sha256hex(schema as .binary)
+  prior=changestr(" " || _acquisitioninstructions(),prior,"")
+  schema=changestr(',"inspect"',schema,'')
+  if version="crexx-rag.resolution-contract/10" then return frozen_prompt=rxhash..sha256hex(prior as .binary) & frozen_schema=rxhash..sha256hex(schema as .binary)
+  prior=changestr(" " || _actionabilityinstructions(),prior,"")
   schema=changestr('"relationship_type","resolution_text"]',schema,'"relationship_type"]')
   schema=changestr('"properties":{"resolution_text":{"type":"string"},"relationship_type"',schema,'"properties":{"relationship_type"')
   schema=changestr(',"correct-note"',schema,'')
@@ -74,8 +80,8 @@ resolutionlegacybinding: procedure = .int
 
 resolutionactions: procedure = .string
   arg subject_type = .string, workflow = .int
-  if subject_type = "" then return "no-change insufficient-evidence defer search read extract unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate escalate propose-relationship capability-wait correct-note resolve-gap"
-  actions = "no-change insufficient-evidence defer search read unresolved retain investigate escalate capability-wait"
+  if subject_type = "" then return "no-change insufficient-evidence defer search read inspect extract unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate escalate propose-relationship capability-wait correct-note resolve-gap acquisition-wait"
+  actions = "no-change insufficient-evidence defer search read inspect unresolved retain investigate escalate capability-wait acquisition-wait"
   if subject_type = "chunk" then actions = actions || " extract"
   if subject_type = "alias-issue" then actions = actions || " reuse distinct"
   if subject_type = "concept" | (subject_type = "note" & workflow = 0) then actions = actions || " split merge synonym type-correction retire restore"
@@ -152,6 +158,9 @@ resolutioninputprompt: procedure = .string
   expected = 0; ignored = document.node_int(document.member(root,"evidence_expected"),expected)
   if expected = 1 then result = result || " Deferral is exceptional: action defer requires a realistic expected source of new evidence and why it matters in question, a reason, and a future timezone-qualified timestamp in effective_from. It cannot repeat on unchanged evidence."
   else result = result || " No additional relevant ingestion is expected: defer is forbidden. Conclude from available evidence; do not invent facts to force a change."
+  evidence=document.member(root,"evidence")
+  if document.node_get(document.member(evidence,"evidence_complete"))="false" then result=result || " This packet is explicitly incomplete. Earlier generic final-call guidance does not authorize retain, no-change or insufficient-evidence for the whole subject from uninspected passages or candidates. Acquire exact evidence within the remaining allowance; a hard acquisition or request bound is a technical hold, not source absence."
+  result=result || " " || _acquisitionwaitinstructions()
   return result
 
 
@@ -182,3 +191,9 @@ _relationshipinstructions: procedure = .string
 
 _actionabilityinstructions: procedure = .string
   return 'Current outcome contract: always include resolution_text (empty for other actions). Retain affirms a source-supported subject without mutation; a genuine isolate may be sound. No-change means only that the examined evidence does not justify a change; it does not validate the graph. Insufficient-evidence leaves the question waiting for the specific new evidence named in question. If a justified correction cannot be expressed by an available operation, use capability-wait with the exact outstanding correction in resolution_text, the required capability in question, and cited evidence; never call that repair complete. For correct-note set object_id to the active note ID, resolution_text to its source-supported replacement text, and cite the correcting passage. For resolve-gap set object_id to the open gap ID, resolution_text to the evidence-backed answer to its original question, and cite the answering passage. Both changes require human review before application. A search hit alone never resolves a gap. For these actions use empty unrelated mutation fields, successors and dispositions: [], and relationship_type: "". Example fields: {"action":"correct-note","object_id":"<note-id>","resolution_text":"<corrected text>","evidence":[{"evidence_id":"<selected-span>","quote":"<exact source quotation>"}]}; {"action":"capability-wait","object_id":"","resolution_text":"<specific correction>","question":"<missing operation>"}. Replace placeholders and supply every required schema field. This guidance supersedes earlier fallback wording that suggested no-change for a known correction without an operation.'
+
+_acquisitioninstructions: procedure = .string
+  return 'When evidence_complete is false, omitted passages and catalogue entries are uninspected, not absent. Do not conclude whole-subject retain, no-change or insufficient-evidence from that packet. Use inspect with question passages or catalogue and object_id as the prior page next_cursor (empty for first page). Each returned page has explicit coverage and a next cursor. Use inspect with question catalogue-target and object_id as an exact previously inspected concept_id to bind that candidate to the task packet. Then read the exact citation for any required source quotation. Search can find a targeted source lead. resolution_history_total and resolution_history_omitted disclose when only the latest 32 decisions fit the prompt; omitted decisions remain in task history and are not negative evidence. Never infer uniqueness from a partial catalogue page, a label, or a search hit. A hard context or acquisition limit is a technical hold, not source evidence of absence.'
+
+_acquisitionwaitinstructions: procedure = .string
+  return 'For an incomplete packet at the last reasoning call or with no evidence reads left, acquisition-wait retains a technical hold without changing the graph. Use it when the inspected subset supports no positive action and uninspected passages or candidates remain. Name the inspected scope in resolution_text, the outstanding acquisition in question, and the limitation in reason. Leave object_id, target_concept_id, mutation fields and evidence empty. It does not affirm whole-subject no-change, source absence or a justified correction. This specific rule supersedes generic final-call guidance.'

@@ -1295,3 +1295,92 @@ The [delivery record](beta-delivery-20260920.md) retains fail-first evidence,
 receipt reuse, two live Gemini calls, 200 successful Scottish-copy calls and
 installed smoke checks. The historical-timeout beta exception remains outstanding;
 this bounded acceptance does not close wider quality/endurance/platform gates.
+
+## 26 September bounded large evidence, item 5
+
+The item-5 baseline ran `durable_backlog`, `durable_backlog_actionability`,
+`durable_backlog_reconsideration` and `durable_backlog_sparse_edge` 4/4 before
+implementation. The strengthened core case first failed on the former
+catalogue overflow: the task was held in review and an incomplete packet could
+be accepted as whole-subject no-change. The positive small-packet controls
+continued to pass. The new synthetic `durable_backlog_large_evidence` case
+places an exact decisive passage beyond the first passage page and an active
+target beyond the first catalogue page among more than 500 passage entries and
+100 candidate concepts. Native inspect, targeted binding and exact read lead to
+a grounded directional relationship proposal pending mandatory human review,
+with no graph write. A distinct source-absent subject reaches an explicit
+evidence wait, without a guessed edge. The core case also checks complete
+reviewed refresh, scoped technical-hold successor, stale digest rejection,
+unchanged-envelope refusal, lineage and independent generation/attempt/usage/
+receipt preservation.
+
+`durable_backlog_provider_correction-limit` measures the entire serialized
+request, including the schema, inputs and correction messages. In its synthetic
+loopback case, a 21,311-byte correction exceeds the selected 21,000-byte input
+bound while the old content-only estimate was 20,414 bytes. The fourth call is
+not sent; three prior requests and their receipts remain, reservations are
+zero, and the task has a measured `request-capability` hold. The positive
+`correction` case continues through successful correction. Prompt inspection
+checks an authentic frozen `/10` binding and tamper refusal; prompt/schema
+goldens and command metadata were updated for `/11` and the public refresh
+description. Malformed, rejected, failed-correction, correction-budget,
+advanced, sparse-edge, actionability, reconsideration, native-surface and
+provider durability controls remain in the affected selection.
+
+After the final product edit, the six direct cases and eleven adjacent cases
+passed. The strengthened core preservation assertion and four sibling backlog
+cases passed again. Fast accounted for 11/11; the edited documentation check
+executed and ten exact-input passes were reused as CTest skips. The first item-5 QA
+ledger reported 27 current-input passes, 115 cases not run, zero failed or
+disabled; that is focused acceptance, not the formal regression gate. No hosted
+or protected-corpus call was made. The selected synthetic fixture does not
+qualify model quality, arbitrary long histories, scale performance or an
+installed package.
+
+Coordinator review R1–R4 added four focused boundaries. A loopback extraction
+correction first reproduced a 14,712-byte serialized request sent past its
+13,500-byte selected bound; the repaired case retains only its 11,799-byte
+first request and 4,000:4 usage receipt, settles reservations, and the fitting
+`citation-feedback` control still completes. Normal `concept:` plus 64-hex
+catalogue IDs first reproduced the 8,192-byte page refusal. The repaired
+native case checks every current catalogue row appears once across byte-bounded
+pages, with the decisive target beyond page one; one 9,000-character record
+produces a bounded `inspect:unresolved` technical hold. Prompt inspection
+round-trips a candidate also present in `subject.competing_identities` as a C
+reference, while raw cursors/targets and unknown/wrong-kind controls remain.
+The native ordinary and advanced partial-isolate cases bind one passage,
+retain omitted inventory debt, record `acquisition-wait:unresolved` at the
+configured read boundary, and do not redispatch unchanged work. The external
+proposal boundary refuses that worker-only action with a supported next step. A separate
+Gemini loopback executes two real application-provider requests against a
+finite budget: bounded inspection followed by scoped acquisition wait. These
+are synthetic functional controls, not full regression or corpus acceptance.
+The post-review QA ledger reports 26 current-input passes, 118 not-run and
+zero failed, disabled or interrupted cases. The fast preset accounts for 11/11;
+`regression_prompt_contract` passes against the reviewed `/12` hashes.
+
+R5 extends the native `durable_backlog_large_evidence` case from actual
+`acquisition-wait:unresolved` and `inspect:unresolved` worker decisions. Both
+plan/apply a changed, still incomplete scoped envelope through the public
+owner, preserve exact predecessor evidence/decision/attempt/usage history,
+and refuse the unchanged current envelope plus a repeat on the superseded
+source. Advanced changed-context controls
+prove quiet unchanged rediscovery, one linked eligible successor when the
+source bound disappears, a still-blocked successor when it does not, and a
+retained resolution followed by a settled successor without revived hold.
+A second native inspect hold checks that adding a smaller preceding catalogue
+row leaves the exact oversized record held, while repairing that record
+releases a linked successor.
+The fail-first receipt is `20260926T083932-a57ff2cd`; the final positive
+receipt is in the private item-5 handoff. The affected 15-case selection and
+fast 11-case preset pass. Full regression remains unrun for this review turn.
+
+The third review extends the same native fixture through both advanced and
+ordinary `pending:evidence-limit` descendants of actual worker waits. The
+fail-first `20260926T092014-3b1d973d` receipt shows both descendants falling
+back to complete packaging. The passing control checks unchanged-envelope
+refusal, changed incomplete scoped plan/apply, pending-review and active-item
+guards, child and original-worker lineage, evidence, decisions, attempts,
+receipts and usage. The pending held children are never dispatched; only their
+reviewed refreshed successors can continue. This is focused acceptance, not
+the full local regression gate.

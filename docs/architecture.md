@@ -50,7 +50,7 @@ and subsequent owners. Operator settings still enter through `crexxrag.conf`.
 | --- | --- |
 | `ragpromptdefaults` | Compatibility role objectives for older config formats; consumed by `ragconfigfile`. Explicit operator objectives remain config data. |
 | `ragextractioncontract` | Effective extraction messages, profile-shaped schema and optional assessment extension; consumed by `ragapplicationprovider` and prompt inspection. |
-| `ragresolutioncontract` | Effective resolution messages, selected-span context, action field examples, shared initial/correction ordinary/final-route controls, bounded search/read/extraction requests, schema and subject/workflow action vocabulary. Both `ragapplicationprovider` and `ragbacklog` validation consume this vocabulary. |
+| `ragresolutioncontract` | Effective resolution messages, selected-span context, action field examples, shared initial/correction ordinary/final-route controls, bounded inspect/search/read/extraction requests, schema and subject/workflow action vocabulary. Both `ragapplicationprovider` and `ragbacklog` validation consume this vocabulary. |
 | `ragresolutionreferences` | Versioned model-facing subject/concept/evidence references from one frozen resolution input. The message builder projects IDs; the provider boundary retains the map and expands response fields before normal backlog validation. |
 | `ragquotationcontract` | Shared literal-quotation instructions and bounded correction feedback; normal `raggrounding` validation remains independent and authoritative. |
 | `raganswercontract` / `raganswerreferences` / `ragreportcontract` | Answer and advisory-report message/schema pairs; answer references project a bounded context and restore canonical citations. Consumed by `ragqueryprovider` and `ragqueryservice`; token/byte ceilings remain in `ragquerypolicy`. |
@@ -83,9 +83,34 @@ An unsupported or altered binding is refused with an evidence-refresh action.
 recovery, secret redaction and extraction decoding/validation. `ragbacklog`
 retains shared eligibility/order, durable deferral and evidence handoff, task
 evidence validation and transactional lifecycle application. Its search/read
-steps compose `ragretrieval` and `ragevidence`; the coordinator retains worker
+steps compose `ragretrieval` and `ragevidence`; bounded `inspect` pages the
+existing current evidence inventory and binds only an explicitly inspected
+catalogue target. Incomplete packets retain exact omitted counts and inventory
+identity; whole-subject conclusions require complete scope. The provider owner
+checks the exact serialized model request, including correction messages and
+schema, against the selected per-request bound and records a technical task
+hold before an oversized uncalled attempt settles. The coordinator retains worker
 fences and immutable receipts. Queue/status and public controls delegate to the
 same owner. `raglifecycle` owns total and capability-specific reset baselines.
+
+The serialized-body check also applies to fresh extraction citation corrections;
+these settle as uncalled extraction failures without a maintenance task. A
+catalogue inspection page is bounded by both row count and 8,192 serialized
+bytes. `catalogue-target` reverses a supplied concept reference to its exact
+identity, while passage/catalogue cursors remain native IDs. On an incomplete
+packet, `/12` `acquisition-wait` records the inspected scope and remaining
+acquisition question when calls or reads are exhausted. It preserves the
+uninspected debt and enters `unresolved:evidence-limit` without a graph write.
+The existing reviewed refresh owner accepts a changed scoped envelope from
+that unresolved technical hold and from a pending successor that still carries
+`evidence-limit`. Such a pending successor remains outside worker selection;
+planning and applying refresh keep the existing review, ownership, freshness
+and exact-plan checks. Discovery of changed evidence follows the
+original worker decision: a partial-acquisition hold clears only when the new
+packet is complete, and a single-record inspection hold clears only when its
+exact offending record fits or leaves the current inventory. Still-blocked successors retain the hold;
+fulfilled and settled successors do not revive an obsolete origin. The original
+decision, receipts and usage remain on the predecessor.
 `ragmaintain.validatetypechange` owns the nonempty/different-type rule shared by
 backlog response validation and transactional lifecycle application. The latter
 also checks profile permission and lifecycle state. Backlog concept/note subject

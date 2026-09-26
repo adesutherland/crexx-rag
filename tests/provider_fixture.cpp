@@ -137,6 +137,7 @@ int main(int argc, char** argv)
     std::string paired_response;
     int barrier_pairs = 0;
     int first_pass_extractions = 0;
+    int large_acquisition_steps = 0;
     std::unordered_map<std::string, int> retry_attempts;
     std::string embedding_retry_target;
     for (int index = 0; index < requests; ++index) {
@@ -260,7 +261,7 @@ int main(int argc, char** argv)
                     http_status = 400;
                     body = R"({"error":{"message":"Invalid schema for response_format codex_output_schema: Missing dispositions.","type":"invalid_request_error","code":"invalid_json_schema","param":"text.format.schema"}})";
                 } else if (!valid_auth || !valid_structured || (!correcting && request.find("maintenance-resolution") == std::string::npos)
-                    || (scenario != "product-backlog-advanced" && scenario != "product-backlog-correction-advanced" && scenario != "product-backlog-upgrade" && scenario != "product-first-pass" && request.find("fixture-resolution-prompt") == std::string::npos)
+                    || (scenario != "product-backlog-advanced" && scenario != "product-backlog-correction-advanced" && scenario != "product-backlog-upgrade" && scenario != "product-backlog-large-acquisition" && scenario != "product-first-pass" && request.find("fixture-resolution-prompt") == std::string::npos)
                     || (!correcting && request.find("Reference contract:") == std::string::npos)) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini resolution request shape mismatch"}})";
@@ -270,6 +271,12 @@ int main(int argc, char** argv)
                         : scenario == "product-backlog-rejected"
                         ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":"","resolution_text":""})"
                         : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"","dispositions":[],"relationship_type":"","resolution_text":""})";
+                    if (scenario == "product-backlog-large-acquisition") {
+                        ++large_acquisition_steps;
+                        resolution = large_acquisition_steps == 1
+                            ? R"({"action":"inspect","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"Inspect catalogue.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"catalogue","dispositions":[],"relationship_type":"","resolution_text":""})"
+                            : R"({"action":"acquisition-wait","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The inspected catalogue prefix does not justify a change across the remaining subject.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"Inspect remaining catalogue candidates and source passages","dispositions":[],"relationship_type":"","resolution_text":"Only the first catalogue page was inspected; no full-subject assessment was made."})";
+                    }
                     if (scenario == "product-backlog-advanced" || scenario == "product-backlog-upgrade"
                         || scenario == "product-first-pass") {
                         if (request.find("Resolve the maintenance question using validated source evidence") == std::string::npos

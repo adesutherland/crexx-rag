@@ -29,17 +29,19 @@ The ordinary-maintenance file is one line: pass its complete text as the value o
 - Preserve quotation context that justifies the decision and overlaps the selected occurrence. Reassess the decision when correcting evidence.
 - Return a supported permitted decision or focused `escalate` handoff, rather than repeatedly returning unresolved work.
 
-**Advanced resolution** retains evidence-based final decisions, bounded search/read, affirmative `retain`, and reasoned `no-change`. It adds explicit control-field rules so generic S/C/E reference instructions do not cause actions to select an object when prohibited:
+**Advanced resolution** retains evidence-based final decisions, bounded inspect/search/read, affirmative `retain`, and reasoned `no-change`. It adds explicit control-field rules so generic S/C/E reference instructions do not cause actions to select an object when prohibited:
 
 | Control | `object_id` | `question` | Additional condition |
 | --- | --- | --- | --- |
 | `extract` | Empty | Empty | Advanced chunk only; another call remains |
 | `search` | Empty | New lexical query, at most 256 characters | Evidence/call allowances permit follow-up |
+| `inspect` | Empty or prior page `next_cursor`; exact concept ID for `catalogue-target` | `passages`, `catalogue` or `catalogue-target` | Pages current inventory or binds a previously inspected candidate |
 | `read` | Exact corpus citation from search | Empty | Not an S/C/E reference; allowance permits follow-up |
+| `acquisition-wait` | Empty | Specific remaining acquisition | Incomplete packet with exhausted call/read allowance; describe inspected scope in `resolution_text` |
 | `no-change` | Empty | Empty | Explain why evidence does not justify a change |
 | `insufficient-evidence` | Empty | Specific material reopening trigger | Explain current uncertainty without affirming the graph |
 
-For these controls, keep `target_concept_id`, `canonical_label`, `concept_type`, `effective_from` and `effective_to` empty, `successors` as `[]`, and `qualifiers_json` as the string `"{}"`. Evidence is optional for these controls, but any supplied citation must ground its selected occurrence. The advanced file includes a complete `extract` example. `defer` has separate policy/date requirements and is forbidden when `evidence_expected` is false. The final available call must conclude. A valid `extract` or evidence step is an intermediate decision, not completed maintenance. Incomplete task packets expose omitted counts and `maintain.evidence-index` for bounded continuation; omitted evidence cannot support a definitive negative finding.
+For these controls, keep `target_concept_id`, `canonical_label`, `concept_type`, `effective_from` and `effective_to` empty, `successors` as `[]`, and `qualifiers_json` as the string `"{}"`. Evidence is optional for these controls, but any supplied citation must ground its selected occurrence. The advanced file includes a complete `extract` example. `defer` has separate policy/date requirements and is forbidden when `evidence_expected` is false. A valid `extract` or evidence step is an intermediate decision, not completed maintenance. Incomplete task packets expose omitted counts and `maintain.evidence-index` for bounded continuation; omitted evidence cannot support a whole-subject negative or affirmative retention finding. The prompt exposes how many earlier decisions are absent from the bounded history projection; use task inspection for their retained records.
 
 ## Adapt and select
 

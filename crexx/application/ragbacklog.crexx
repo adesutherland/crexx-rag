@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose backlogselection deferbacklogtask resetbacklogtasks setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy freezephasecohort startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary firstreviewmissing planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh resolutionoperationalinput
+namespace ragbacklog expose backlogselection deferbacklogtask resetbacklogtasks setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy freezephasecohort startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim holdbacklogrequest reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary firstreviewmissing planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh resolutionoperationalinput
 
 import rxfnsb
 import rxjson
@@ -517,6 +517,37 @@ buildbacklogevidence: procedure = .int
   fingerprint = _hash(output)
   return 0
 
+/* An oversized source inventory is still a question. Keep its full identity
+ * and counts, but make the uninspected portion explicit. Search, inventory
+ * pages and exact citation reads can then acquire evidence under the normal
+ * worker/review controls. Workflow impact and extraction require their
+ * complete specialized packets and retain the technical hold. */
+_boundedbacklogevidence: procedure = .int
+  arg database=.binary,subject_type=.string,subject_id=.string,workflow_id=.string,maximum_bytes=.int,expose output=.string,expose fingerprint=.string,expose error=.string,maximum_concepts=100,include_settled=0,alias_context=0
+  status=buildbacklogevidence(database,subject_type,subject_id,workflow_id,maximum_bytes,output,fingerprint,error,maximum_concepts,include_settled,alias_context)
+  if status<>2 | workflow_id<>"" | wordpos(subject_type,"chunk provenance-chunk")>0 then return status
+  issue=error;identity=""
+  if _inventoryidentity(database,subject_type,subject_id,workflow_id,identity,error)<>0 then return -1
+  selection=_passagequery(database,subject_type,subject_id)
+  passages=0;catalogue=0
+  if selection<>"" then do
+    passages=_number(database,"SELECT count(*) FROM (" || selection || ")")
+    catalogue=_number(database,"SELECT count(*) FROM (" || _cataloguequery("SELECT revision_chunk_id FROM (" || selection || ")") || ")")
+  end
+  if passages<0 | catalogue<0 then do;error="cannot count incomplete resolution inventory";return -1;end
+  subject=_subject(database,subject_type,subject_id,include_settled)
+  if subject="" then return 1
+  summary=0
+  if binlength(subject as .binary)>4096 then do
+    subject='{"type":' || jsonquote(subject_type) || ',"id":' || jsonquote(subject_id) || '}'
+    summary=1
+  end
+  summary_json="false";if summary=1 then summary_json="true"
+  output='{"subject":' || subject || ',"successors":[],"catalogue":[],"passages":[],"limit_exceeded":true,"evidence_complete":false,"subject_summary":' || summary_json || ',"omitted_passages":' || passages || ',"omitted_catalogue":' || catalogue || ',"inventory_tool":"maintain.evidence-index","inventory_fingerprint":' || jsonquote(identity) || '}'
+  if binlength(output as .binary)>maximum_bytes then do;error="incomplete evidence inventory metadata exceeds its byte ceiling";return 2;end
+  fingerprint=_hash(output);error=""
+  return 0
+
 /* Stream local connection context into the existing packet ceiling. */
 _contextrows: procedure = .int
   arg database=.binary,sql=.string,maximum_bytes=.int,expose output=.string,expose error=.string
@@ -559,7 +590,7 @@ enqueuebacklogtask: procedure = .int
     held=_text(database,"SELECT t.task_id FROM maintenance_tasks t WHERE " || group_filter || " AND t.state<>'superseded' AND (" || taskwaived("t.task_id") || " OR EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=t.task_id AND r.state='pending') OR EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=t.task_id AND i.state IN('queued','running','cancel_requested'))) ORDER BY t.created_epoch DESC,t.task_id LIMIT 1")
     if held<>"" then do;task_id=held;error="";return 0;end
     settled=_text(database,"SELECT t.task_id FROM maintenance_tasks t WHERE " || group_filter || " AND t.state='resolved' AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_type=t.subject_type AND c.subject_id=t.subject_id AND c.workflow_id=t.workflow_id) ORDER BY t.updated_epoch DESC,t.task_id LIMIT 1")
-    waiting=_text(database,"SELECT t.task_id FROM maintenance_tasks t WHERE " || group_filter || " AND t.state='unresolved' AND t.escalation_origin IN('evidence-wait','capability-wait') AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_type=t.subject_type AND c.subject_id=t.subject_id AND c.workflow_id=t.workflow_id) ORDER BY t.updated_epoch DESC,t.task_id LIMIT 1")
+    waiting=_text(database,"SELECT t.task_id FROM maintenance_tasks t WHERE " || group_filter || " AND t.state='unresolved' AND t.escalation_origin IN('evidence-wait','capability-wait','evidence-limit') AND NOT EXISTS(SELECT 1 FROM maintenance_tasks c WHERE c.parent_task_id=t.task_id AND c.kind=t.kind AND c.subject_type=t.subject_type AND c.subject_id=t.subject_id AND c.workflow_id=t.workflow_id) ORDER BY t.updated_epoch DESC,t.task_id LIMIT 1")
   end
   /* A hard earliest date survives rediscovery and routine route edits. */
   deferred = _text(database,"SELECT task_id FROM maintenance_tasks WHERE kind=" || _q(kind) || " AND subject_type=" || _q(subject_type) || " AND subject_id=" || _q(subject_id) || " AND workflow_id=" || _q(workflow_id) || " AND state IN('pending','unresolved','review','failed') AND not_before_epoch>unixepoch() ORDER BY not_before_epoch DESC,created_epoch,task_id LIMIT 1")
@@ -572,7 +603,7 @@ enqueuebacklogtask: procedure = .int
       if fingerprint = _text(database,"SELECT evidence_fingerprint FROM maintenance_tasks WHERE task_id=" || _q(refreshed)) then do; task_id = refreshed; return 0; end
     end
   end
-  status = buildbacklogevidence(database, subject_type, subject_id, workflow_id, _n(policy,"maximum_evidence_bytes"), evidence, fingerprint, error,100,settled<>"",kind="alias-follow-up:chunk")
+  status = _boundedbacklogevidence(database, subject_type, subject_id, workflow_id, _n(policy,"maximum_evidence_bytes"), evidence, fingerprint, error,100,settled<>"",kind="alias-follow-up:chunk")
   if status = 1 then return 0
   state = "pending"
   if status = 2 then do
@@ -595,7 +626,12 @@ enqueuebacklogtask: procedure = .int
   if waiting<>"" & state="pending" then do
     previous=_reviewcontext(database,_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(waiting)))
     context=_reviewcontext(database,evidence)
-    if previous=context then do;task_id=waiting;error="";return 0;end
+    if previous=context then do
+      if _text(database,"SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(waiting))<>"evidence-limit" | fingerprint=_text(database,"SELECT evidence_fingerprint FROM maintenance_tasks WHERE task_id=" || _q(waiting)) then do;task_id=waiting;error="";return 0;end
+      released=_technicalholdreleased(database,waiting,evidence,policy,error)
+      if released<0 then return -1
+      if released=0 then do;task_id=waiting;error="";return 0;end
+    end
     if parent_task_id="" then parent_task_id=waiting
     reopen_reason="material evidence or linked graph context changed for a waiting correction"
   end
@@ -636,12 +672,29 @@ enqueuebacklogtask: procedure = .int
     sql="UPDATE maintenance_tasks SET state='superseded',last_error=" || _q("coalesced into " || task_id) || ",updated_epoch=unixepoch() WHERE subject_type='chunk' AND subject_id=" || _q(subject_id) || " AND kind LIKE 'alias-follow-up:%' AND kind<>'alias-follow-up:chunk' AND state='pending' AND required_capability='standard' AND NOT " || taskwaived("maintenance_tasks.task_id") || " AND NOT EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=maintenance_tasks.task_id AND r.state='pending') AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('queued','running','cancel_requested'))"
     if sqliteexec(database,sql)<>0 then do;error="cannot coalesce pending per-issue alias follow-ups";return -1;end
   end
+  /* A changed packet may retire the specific worker limit. Otherwise carry
+   * that limit to the child, including ordinary-route successors. */
+  if parent_task_id<>"" & state="pending" & _text(database,"SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(parent_task_id) || " AND state IN('pending','unresolved','review','failed')")="evidence-limit" then do
+    released=_technicalholdreleased(database,parent_task_id,evidence,policy,error)
+    if released<0 then return -1
+    if released=0 then do
+      sql="UPDATE maintenance_tasks SET escalation_origin='evidence-limit',escalation_reason=(SELECT escalation_reason FROM maintenance_tasks WHERE task_id=" || _q(parent_task_id) || ") WHERE task_id=" || _q(task_id) || " AND attempt_count=0"
+      if sqliteexec(database,sql)<>0 then do;error="cannot retain current technical evidence hold";return -1;end
+    end
+  end
   if settled<>"" & parent_task_id=settled then do
-    if sqliteexec(database,"UPDATE maintenance_tasks SET required_capability=(SELECT required_capability FROM maintenance_tasks WHERE task_id=" || _q(settled) || "),escalation_origin=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") IN('evidence-wait','capability-wait') THEN '' ELSE (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") END,escalation_reason=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") IN('evidence-wait','capability-wait') THEN '' ELSE (SELECT escalation_reason FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") END,not_before_epoch=(SELECT not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") WHERE task_id=" || _q(task_id) || " AND attempt_count=0")<>0 then do;error="cannot retain settled successor routing";return -1;end
+    if sqliteexec(database,"UPDATE maintenance_tasks SET required_capability=(SELECT required_capability FROM maintenance_tasks WHERE task_id=" || _q(settled) || "),escalation_origin=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") IN('evidence-wait','capability-wait','evidence-limit') THEN '' ELSE (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") END,escalation_reason=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") IN('evidence-wait','capability-wait','evidence-limit') THEN '' ELSE (SELECT escalation_reason FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") END,not_before_epoch=(SELECT not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(settled) || ") WHERE task_id=" || _q(task_id) || " AND attempt_count=0")<>0 then do;error="cannot retain settled successor routing";return -1;end
   end
   predecessor = _text(database,"SELECT task_id FROM maintenance_tasks WHERE kind=" || _q(kind) || " AND subject_type=" || _q(subject_type) || " AND subject_id=" || _q(subject_id) || " AND workflow_id=" || _q(workflow_id) || " AND task_id<>" || _q(task_id) || " AND required_capability='advanced-reasoning' AND state IN('pending','unresolved','review','failed') ORDER BY not_before_epoch DESC,updated_epoch DESC,task_id LIMIT 1")
   if predecessor<>"" then do
-    sql="UPDATE maintenance_tasks SET required_capability='advanced-reasoning',not_before_epoch=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") IN('evidence-wait','capability-wait') THEN 0 ELSE max(not_before_epoch,(SELECT not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ")) END,escalation_origin=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") IN('evidence-wait','capability-wait') THEN '' ELSE (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") END,escalation_reason=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") IN('evidence-wait','capability-wait') THEN '' ELSE (SELECT escalation_reason FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") END,parent_task_id=CASE WHEN parent_task_id='' THEN " || _q(predecessor) || " ELSE parent_task_id END WHERE task_id=" || _q(task_id) || " AND attempt_count=0 AND state IN('pending','review')"
+    released=0
+    if _text(database,"SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor))="evidence-limit" then do
+      released=_technicalholdreleased(database,predecessor,evidence,policy,error)
+      if released<0 then return -1
+    end
+    cleared="'evidence-wait','capability-wait'"
+    if released=1 then cleared=cleared || ",'evidence-limit'"
+    sql="UPDATE maintenance_tasks SET required_capability='advanced-reasoning',not_before_epoch=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") IN(" || cleared || ") THEN 0 ELSE max(not_before_epoch,(SELECT not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ")) END,escalation_origin=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") IN(" || cleared || ") THEN '' ELSE (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") END,escalation_reason=CASE WHEN (SELECT escalation_origin FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") IN(" || cleared || ") THEN '' ELSE (SELECT escalation_reason FROM maintenance_tasks WHERE task_id=" || _q(predecessor) || ") END,parent_task_id=CASE WHEN parent_task_id='' THEN " || _q(predecessor) || " ELSE parent_task_id END WHERE task_id=" || _q(task_id) || " AND attempt_count=0 AND state IN('pending','review')"
     if sqliteexec(database,sql)<>0 then do;error="cannot preserve evidence successor handoff";return -1;end
   end
   /* Changed evidence supersedes waiting interpretations, never running work. */
@@ -649,6 +702,49 @@ enqueuebacklogtask: procedure = .int
   if sqliteexec(database, sql) \= 0 then do; error = "cannot supersede stale maintenance question"; return -1; end
   error = ""
   return 0
+
+/* Check the actual worker outcome that introduced an evidence-limit. An
+ * acquisition wait needs a complete current packet; a record-size hold needs
+ * its original inspect page to fit now. Inherited holds follow parent lineage. */
+_technicalholdreleased: procedure = .int
+  arg database=.binary,task_id=.string,packet=.string,policy=.jsondocument,expose error=.string
+  source=task_id;decision=""
+  do depth=1 to 32
+    decision=_text(database,"SELECT json_object('disposition',disposition,'response',response_json,'grounding',grounding_json) FROM maintenance_decisions WHERE task_id=" || _q(source) || " AND disposition IN('acquisition-wait:unresolved','inspect:unresolved') ORDER BY rowid DESC LIMIT 1")
+    if decision<>"" then leave
+    source=_text(database,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _q(source))
+    if source="" then return 0
+  end
+  if decision="" then return 0
+  held=.jsondocument(decision)
+  if _s(held,"disposition")="acquisition-wait:unresolved" then do
+    current=.jsondocument(packet)
+    if current.node_get(current.member(current.root(),"evidence_complete"))="false" | current.node_get(current.member(current.root(),"limit_exceeded"))="true" then return 0
+    return 1
+  end
+  if _text(database,"SELECT json_extract(" || _q(_s(held,"grounding")) || ",'$[0].status')")<>"record-too-large" then return 0
+  record_hash=_text(database,"SELECT json_extract(" || _q(_s(held,"grounding")) || ",'$[0].record_sha256')")
+  response=.jsondocument(_s(held,"response")); kind=_s(response,"question")
+  inventory_sql=backlogindexquery(database,source,kind,"current")
+  if inventory_sql="" | record_hash="" then do;error="cannot locate held inspection record";return -1;end
+  prepared=.binary
+  if sqliteprepare(database,"SELECT id FROM (" || inventory_sql || ") ORDER BY id",prepared)<>0 then do;error="cannot inspect current held inventory";return -1;end
+  prior="";found=0
+  do forever
+    step=sqlitestep(prepared);if step=101 then leave
+    id=""
+    if step<>100 | sqlitecolumntext(prepared,0,id)<>0 then do;call sqlitefinalize prepared;error="cannot read current held inventory";return -1;end
+    if _hash(id)=record_hash then do;found=1;leave;end
+    prior=id
+  end
+  call sqlitefinalize prepared
+  if found=0 then return 1
+  /* Recheck the exact offending row even if new smaller rows now precede it. */
+  retry=_text(database,"SELECT json_set(" || _q(_s(held,"response")) || ",'$.object_id'," || _q(prior) || ")")
+  grounds=""
+  if _resolverinspect(database,source,.jsondocument(retry),policy,grounds,error)<>0 then return -1
+  if _text(database,"SELECT json_extract(" || _q(grounds) || ",'$[0].status')")="record-too-large" then return 0
+  return 1
 
 /* The comparison is deliberately smaller than a model packet: incidental
  * catalogue/history versions do not invalidate an assessed local question. */
@@ -899,6 +995,10 @@ _inventoryidentity: procedure = .int
   if selection = "" then return 0
   queries = .string[]; queries[1] = "SELECT json_array(evidence_id,revision_chunk_id,text,span_start,span_end) FROM (" || selection || ") ORDER BY evidence_id"
   queries[2] = "SELECT detail FROM (" || _cataloguequery(selection) || ")"
+  if kind="concept" & workflow="" then do
+    queries[3]="SELECT " || _claimobject("c") || " FROM claims c WHERE (c.source_concept_id=" || _q(id) || " OR c.target_concept_id=" || _q(id) || ") AND c.visible_to_generation IS NULL ORDER BY c.claim_id"
+    queries[4]="SELECT json_object('id',s.support_id,'claim_id',s.claim_id,'revision_chunk_id',s.revision_chunk_id,'span_start',s.span_start,'span_end',s.span_end,'polarity',s.polarity,'stance',s.stance,'directness',s.directness,'attribution',s.attribution,'lineage_group',s.lineage_group) FROM claim_support s JOIN claims c ON c.claim_id=s.claim_id WHERE (c.source_concept_id=" || _q(id) || " OR c.target_concept_id=" || _q(id) || ") AND c.visible_to_generation IS NULL AND s.visible_to_generation IS NULL ORDER BY s.support_id"
+  end
   do i = 1 to queries.0
     prepared = .binary
     if sqliteprepare(database,queries[i],prepared) \= 0 then do; error = "cannot fingerprint complete evidence inventory"; return -1; end
@@ -916,10 +1016,11 @@ _refreshpacket: procedure = .int
   arg database = .binary, task = .jsondocument, metadata = .string, expose packet = .string, expose fingerprint = .string, expose error = .string
   refresh = .jsondocument(metadata); maximum_bytes = _n(refresh,"maximum_bytes"); maximum_concepts = _n(refresh,"maximum_concepts")
   if maximum_bytes<1024 | maximum_bytes>8388608 | maximum_concepts<1 | maximum_concepts>1000 then do; error = "external refresh envelope is unsupported"; return -1; end
-  status = buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes-binlength(metadata as .binary)-32,packet,fingerprint,error,maximum_concepts,0,_s(task,"kind")="alias-follow-up:chunk")
+  if _n(refresh,"scoped")=1 then status = _boundedbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes-binlength(metadata as .binary)-32,packet,fingerprint,error,maximum_concepts,0,_s(task,"kind")="alias-follow-up:chunk")
+  else status = buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes-binlength(metadata as .binary)-32,packet,fingerprint,error,maximum_concepts,0,_s(task,"kind")="alias-follow-up:chunk")
   if status \= 0 then return status
   packet = left(packet,length(packet)-1) || ',"external_refresh":' || metadata || '}'
-  if binlength(packet as .binary)>maximum_bytes then do; error = "complete refreshed evidence exceeds its byte ceiling"; return 2; end
+  if binlength(packet as .binary)>maximum_bytes then do; error = "refreshed evidence exceeds its byte ceiling"; return 2; end
   fingerprint = _hash(packet)
   return 0
 
@@ -972,13 +1073,13 @@ resetbacklogtasks: procedure = .int
   error="";return 0
 
 _freshbacklogtask: procedure = .int
-  arg database = .binary, task_id = .string, maximum_bytes = .int, expose packet = .string, expose fingerprint = .string, expose error = .string, additional_citation = ""
+  arg database = .binary, task_id = .string, maximum_bytes = .int, expose packet = .string, expose fingerprint = .string, expose error = .string, additional_citation = "", additional_concept = ""
   task = .jsondocument(_agenttaskstamp(database,task_id))
   metadata = _text(database,"SELECT coalesce(json_extract(evidence_json,'$.external_refresh'),'') FROM maintenance_tasks WHERE task_id=" || _q(task_id))
   if metadata \= "" then status = _refreshpacket(database,task,metadata,packet,fingerprint,error)
   else do
     include_settled=wordpos(_s(task,"subject_type"),"note gap")>0
-    status = buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes,packet,fingerprint,error,100,include_settled,_s(task,"kind")="alias-follow-up:chunk")
+    status = _boundedbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes,packet,fingerprint,error,100,include_settled,_s(task,"kind")="alias-follow-up:chunk")
   end
   if status <> 0 then return status
   reads = _text(database,"SELECT coalesce(json_extract(evidence_json,'$.resolver_reads'),'[]') FROM maintenance_tasks WHERE task_id=" || _q(task_id))
@@ -986,6 +1087,12 @@ _freshbacklogtask: procedure = .int
   if reads <> "[]" then do
     if _appendresolverreads(database,reads,maximum_bytes,packet,error) <> 0 then return -1
     fingerprint = _hash(packet)
+  end
+  concepts = _text(database,"SELECT coalesce(json_extract(evidence_json,'$.resolver_catalogue'),'[]') FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+  if additional_concept<>"" then concepts=_text(database,"SELECT json_insert(" || _q(concepts) || ",'$[#]'," || _q(additional_concept) || ")")
+  if concepts<>"[]" then do
+    if _appendresolvercatalogue(database,concepts,maximum_bytes,packet,error)<>0 then return -1
+    fingerprint=_hash(packet)
   end
   return 0
 
@@ -1004,6 +1111,8 @@ _resolverpassage: procedure = .string
 _appendresolverreads: procedure = .int
   arg database = .binary, reads = .string, maximum_bytes = .int, expose packet = .string, expose error = .string
   selected = .jsondocument(reads)
+  evidence=.jsondocument(packet)
+  partial=evidence.node_get(evidence.member(evidence.root(),"evidence_complete"))="false"
   if selected.valid()<>1 | selected.node_type(selected.root())<>"array" | selected.node_count(selected.root())>16 then do; error="retained evidence read list is invalid"; return -1; end
   unavailable="[]"
   do i = 1 to selected.node_count(selected.root())
@@ -1015,20 +1124,41 @@ _appendresolverreads: procedure = .int
       error=""; iterate
     end
     packet = _text(database,"SELECT json_insert(" || _q(packet) || ",'$.passages[#]',json(" || _q(passage) || "))")
-    detail = .jsondocument(passage)
-    catalogue = _text(database,"SELECT coalesce(json_group_array(json(detail)),'[]') FROM (" || _cataloguequery("SELECT " || _q(_s(detail,"revision_chunk_id")) || " revision_chunk_id") || ")")
-    packet = _text(database,"SELECT json_set(" || _q(packet) || ",'$.catalogue',json((SELECT json_group_array(json(value)) FROM (SELECT value FROM json_each(" || _q(packet) || ",'$.catalogue') UNION ALL SELECT value FROM json_each(" || _q(catalogue) || ") n WHERE NOT EXISTS(SELECT 1 FROM json_each(" || _q(packet) || ",'$.catalogue') o WHERE json_extract(o.value,'$.concept_id')=json_extract(n.value,'$.concept_id'))))))")
-    if packet="" then do; error="cannot bind read evidence and catalogue"; return -1; end
-    if _number(database,"SELECT json_array_length(" || _q(packet) || ",'$.catalogue')")>1000 then do; error="selected evidence exceeds the 1000-concept inventory limit"; return -1; end
+    if partial=0 then do
+      detail = .jsondocument(passage)
+      catalogue = _text(database,"SELECT coalesce(json_group_array(json(detail)),'[]') FROM (" || _cataloguequery("SELECT " || _q(_s(detail,"revision_chunk_id")) || " revision_chunk_id") || ")")
+      packet = _text(database,"SELECT json_set(" || _q(packet) || ",'$.catalogue',json((SELECT json_group_array(json(value)) FROM (SELECT value FROM json_each(" || _q(packet) || ",'$.catalogue') UNION ALL SELECT value FROM json_each(" || _q(catalogue) || ") n WHERE NOT EXISTS(SELECT 1 FROM json_each(" || _q(packet) || ",'$.catalogue') o WHERE json_extract(o.value,'$.concept_id')=json_extract(n.value,'$.concept_id'))))))")
+      if packet="" then do; error="cannot bind read evidence and catalogue"; return -1; end
+      if _number(database,"SELECT json_array_length(" || _q(packet) || ",'$.catalogue')")>1000 then do; error="selected evidence exceeds the 1000-concept inventory limit"; return -1; end
+    end
   end
   packet = _text(database,"SELECT json_set(" || _q(packet) || ",'$.resolver_reads',json(" || _q(reads) || "))")
   if unavailable<>"[]" then packet=_text(database,"SELECT json_set(" || _q(packet) || ",'$.unavailable_resolver_reads',json(" || _q(unavailable) || "))")
   if binlength(packet as .binary)>maximum_bytes then do; error="additional evidence exceeds the byte limit; choose a smaller citation or explicitly refresh the task envelope"; return -1; end
   return 0
 
+_appendresolvercatalogue: procedure = .int
+  arg database=.binary,selected_json=.string,maximum_bytes=.int,expose packet=.string,expose error=.string
+  selected=.jsondocument(selected_json)
+  if selected.valid()<>1 | selected.node_type(selected.root())<>"array" | selected.node_count(selected.root())>16 then do;error="retained targeted catalogue list is invalid";return -1;end
+  subject=.jsondocument(_text(database,"SELECT json_extract(" || _q(packet) || ",'$.subject')"))
+  selection=_passagequery(database,_s(subject,"type"),_s(subject,"id"))
+  if selection="" then do;error="source-scoped catalogue is unavailable";return -1;end
+  catalogue_query=_cataloguequery(selection)
+  do i=1 to selected.node_count(selected.root())
+    id="";ignored=selected.node_string(selected.element(selected.root(),i),id)
+    detail=_text(database,"SELECT detail FROM (" || catalogue_query || ") WHERE id=" || _q(id))
+    if detail="" then do;error="targeted concept is absent from the current source catalogue";return -1;end
+    if _number(database,"SELECT count(*) FROM json_each(" || _q(packet) || ",'$.catalogue') WHERE json_extract(value,'$.concept_id')=" || _q(id))=0 then packet=_text(database,"SELECT json_insert(" || _q(packet) || ",'$.catalogue[#]',json(" || _q(detail) || "))")
+  end
+  packet=_text(database,"SELECT json_set(" || _q(packet) || ",'$.resolver_catalogue',json(" || _q(selected_json) || "),'$.omitted_catalogue',max(0,json_extract(" || _q(packet) || ",'$.omitted_catalogue')-json_array_length(" || _q(selected_json) || ")))")
+  if packet="" | binlength(packet as .binary)>maximum_bytes then do;error="targeted catalogue exceeds the evidence byte limit";return -1;end
+  return 0
+
 _resolverstep: procedure = .int
   arg store = .ragstorehandle, task_id = .string, result = .jsondocument, profile = .ragprofile, policy = .jsondocument, expose grounds = .string, expose error = .string
   database = store.database(); grounds = "["
+  if _s(result,"action")="inspect" then return _resolverinspect(database,task_id,result,policy,grounds,error)
   if _s(result,"action") = "search" then do
     read_options = .ragretrievaloptions("maintenance-read-v1","",''x as .binary,24,1,1,0,8,0,0)
     retrieved = .ragretrievalresult
@@ -1047,6 +1177,52 @@ _resolverstep: procedure = .int
   if _freshbacklogtask(database,task_id,_n(policy,"maximum_evidence_bytes"),packet,fingerprint,error,_s(result,"object_id")) <> 0 then return -1
   if sqliteexec(database,"UPDATE maintenance_tasks SET evidence_json=" || _q(packet) || ",evidence_fingerprint=" || _q(fingerprint) || " WHERE task_id=" || _q(task_id)) <> 0 then do; error="cannot checkpoint selected source evidence"; return -1; end
   grounds = '[{"evidence_id":' || jsonquote("resolver:" || _hash(_s(result,"object_id"))) || ',"citation":' || jsonquote(_s(result,"object_id")) || ',"status":"bound in task evidence"}]'
+  return 0
+
+_resolverinspect: procedure = .int
+  arg database=.binary,task_id=.string,result=.jsondocument,policy=.jsondocument,expose grounds=.string,expose error=.string
+  kind=_s(result,"question");cursor=_s(result,"object_id")
+  if kind="catalogue-target" then do
+    held=.jsondocument(_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id)))
+    if held.node_get(held.member(held.root(),"evidence_complete"))<>"false" then do;error="targeted catalogue binding requires an incomplete task packet";return -1;end
+    if _number(database,"SELECT count(*) FROM maintenance_decisions d,json_each(d.grounding_json,'$[0].items') entry WHERE d.task_id=" || _q(task_id) || " AND d.disposition='inspect:pending' AND json_extract(d.response_json,'$.question')='catalogue' AND json_extract(entry.value,'$.concept_id')=" || _q(cursor))=0 then do;error="targeted catalogue identity was not in a previously inspected page";return -1;end
+    packet="";fingerprint=""
+    if _freshbacklogtask(database,task_id,_n(policy,"maximum_evidence_bytes"),packet,fingerprint,error,"",cursor)<>0 then return -1
+    if sqliteexec(database,"UPDATE maintenance_tasks SET evidence_json=" || _q(packet) || ",evidence_fingerprint=" || _q(fingerprint) || " WHERE task_id=" || _q(task_id))<>0 then do;error="cannot bind targeted source catalogue";return -1;end
+    grounds='[{"kind":"catalogue-target","concept_id":' || jsonquote(cursor) || ',"status":"bound in task evidence"}]'
+    return 0
+  end
+  inventory_sql=backlogindexquery(database,task_id,kind,"current")
+  if inventory_sql="" then do;error="current evidence inventory is unavailable";return -1;end
+  page_limit=8;if kind="catalogue" then page_limit=48
+  sql="SELECT id,detail FROM (" || inventory_sql || ") WHERE id>" || _q(cursor) || " ORDER BY id LIMIT " || (page_limit+1)
+  prepared=.binary
+  if sqliteprepare(database,sql,prepared)<>0 then do;error="cannot prepare bounded evidence inventory page";return -1;end
+  rows="[";count=0;last="";more=0
+  packet=.jsondocument(_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id)))
+  fingerprint=_s(packet,"inventory_fingerprint")
+  do forever
+    step=sqlitestep(prepared);if step=101 then leave
+    id="";detail=""
+    if step<>100 | sqlitecolumntext(prepared,0,id)<>0 | sqlitecolumntext(prepared,1,detail)<>0 then do;call sqlitefinalize prepared;error="cannot read evidence inventory page";return -1;end
+    if count=page_limit then do;more=1;leave;end
+    candidate=rows;if count>0 then candidate=candidate || ","
+    candidate=candidate || detail
+    candidate_grounds='[{"kind":' || jsonquote(kind) || ',"scope":"current","after":' || jsonquote(cursor) || ',"items":' || candidate || '],"next_cursor":' || jsonquote(id) || ',"page_complete":false,"inventory_fingerprint":' || jsonquote(fingerprint) || '}]'
+    if binlength(candidate_grounds as .binary)>8192 then do
+      if count=0 then do
+        call sqlitefinalize prepared
+        grounds='[{"kind":' || jsonquote(kind) || ',"scope":"current","after":' || jsonquote(cursor) || ',"items":[],"next_cursor":' || jsonquote(cursor) || ',"page_complete":false,"inventory_fingerprint":' || jsonquote(fingerprint) || ',"status":"record-too-large","record_sha256":' || jsonquote(_hash(id)) || '}]'
+        return 0
+      end
+      more=1;leave
+    end
+    rows=candidate;last=id;count=count+1
+  end
+  call sqlitefinalize prepared
+  rows=rows || "]";next="";if more=1 then next=last
+  complete="true";if more=1 then complete="false"
+  grounds='[{"kind":' || jsonquote(kind) || ',"scope":"current","after":' || jsonquote(cursor) || ',"items":' || rows || ',"next_cursor":' || jsonquote(next) || ',"page_complete":' || complete || ',"inventory_fingerprint":' || jsonquote(fingerprint) || '}]'
   return 0
 
 _scan: procedure = .int
@@ -1417,7 +1593,7 @@ _eligiblebacklog: procedure = .string
   advanced = .jsondocument(policy.node_get(policy.member(policy.root(),"advanced_route")))
   advanced_enabled = _s(advanced,"provider_id") <> ""
   if advanced.member(advanced.root(),"allowed")>0 & _n(advanced,"allowed")=0 then advanced_enabled=0
-  return "((state='pending' AND required_capability='standard') OR (" || advanced_enabled || "=1 AND required_capability='advanced-reasoning' AND state IN('pending','unresolved','review','failed'))) AND escalation_origin NOT IN('evidence-wait','capability-wait') AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskdispatchscope(policy) || _taskdispatchsafe() || " AND not_before_epoch<=unixepoch() AND (" || _routecallcount("maintenance_tasks.task_id") || "<" || _routeattemptlimit(policy) || " OR " || _recoverablecount("maintenance_tasks.task_id") || ">0)"
+  return "((state='pending' AND required_capability='standard') OR (" || advanced_enabled || "=1 AND required_capability='advanced-reasoning' AND state IN('pending','unresolved','review','failed'))) AND escalation_origin NOT IN('evidence-wait','capability-wait','request-capability','evidence-limit') AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskdispatchscope(policy) || _taskdispatchsafe() || " AND not_before_epoch<=unixepoch() AND (" || _routecallcount("maintenance_tasks.task_id") || "<" || _routeattemptlimit(policy) || " OR " || _recoverablecount("maintenance_tasks.task_id") || ">0)"
 
 _backlogorder: procedure = .string
   arg policy = .jsondocument
@@ -1577,10 +1753,18 @@ _dispatch: procedure = .int
       if wordpos(_s(task,"subject_type"),"alias-issue concept")>0 then family = _s(policy,"identity_prompt")
       if _s(task,"workflow_id")<>"" then family = _s(policy,"connection_prompt")
       if family<>"" then input = input || ',"family_instruction":' || jsonquote(family)
-      history = _text(database,"SELECT coalesce(json_group_array(json_object('action',json_extract(response_json,'$.action'),'reason',json_extract(response_json,'$.reason'),'question',json_extract(response_json,'$.question'),'result',json(grounding_json))),'[]') FROM (SELECT response_json,grounding_json FROM maintenance_decisions WHERE task_id IN(" || _q(id) || ",coalesce((SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _q(id) || "),'')) ORDER BY created_epoch,decision_id LIMIT 32)")
-      input = input || ',"resolution_contract":' || jsonquote(resolutioncontractversion()) || ',"evidence_expected":' || _n(policy,"evidence_expected") || ',"search_reads":' || _n(policy,"search_reads") || ',"resolution_history":' || history
+      history_scope="task_id IN(" || _q(id) || ",coalesce((SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _q(id) || "),''))"
+      history_total=_number(database,"SELECT count(*) FROM maintenance_decisions WHERE " || history_scope)
+      history = _text(database,"SELECT coalesce(json_group_array(json_object('action',json_extract(response_json,'$.action'),'reason',json_extract(response_json,'$.reason'),'question',json_extract(response_json,'$.question'),'result',json(grounding_json))),'[]') FROM (SELECT response_json,grounding_json FROM (SELECT response_json,grounding_json,created_epoch,decision_id FROM maintenance_decisions WHERE " || history_scope || " ORDER BY created_epoch DESC,decision_id DESC LIMIT 32) ORDER BY created_epoch,decision_id)")
+      input = input || ',"resolution_contract":' || jsonquote(resolutioncontractversion()) || ',"evidence_expected":' || _n(policy,"evidence_expected") || ',"search_reads":' || _n(policy,"search_reads") || ',"resolution_history":' || history || ',"resolution_history_total":' || history_total || ',"resolution_history_omitted":' || max(0,history_total-32)
       remaining_calls=_number(database,"SELECT " || _routeattemptlimit(policy) || "-" || _routecallcount(_q(id)) || " FROM maintenance_tasks WHERE task_id=" || _q(id))
-      remaining_reads=max(0,_n(policy,"search_reads")-_number(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _q(id) || " AND disposition IN('search:pending','read:pending')"))
+      remaining_reads=max(0,_n(policy,"search_reads")-_number(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _q(id) || " AND disposition IN('search:pending','read:pending','inspect:pending')"))
+      evidence=.jsondocument(_s(task,"evidence_json"))
+      if _s(task,"required_capability")="advanced-reasoning" & evidence.node_get(evidence.member(evidence.root(),"evidence_complete"))="false" & evidence.node_count(evidence.member(evidence.root(),"passages"))=0 & (remaining_calls<=1 | remaining_reads<=0) then do
+        reason="incomplete evidence remains uninspected, but no bounded acquisition and concluding call are available; inspect the retained task and plan a scoped context refresh"
+        if sqliteexec(database,"UPDATE maintenance_tasks SET state='review',escalation_origin='request-capability',escalation_reason=" || _q(reason) || ",last_error=" || _q(reason) || ",updated_epoch=unixepoch() WHERE task_id=" || _q(id))<>0 then do;error="cannot retain evidence acquisition capability hold";return -1;end
+        iterate
+      end
       input=input || ',"maximum_attempts":' || _attemptlimit(policy) || ',"advanced_attempts":' || _n(policy,"advanced_attempts") || ',"remaining_calls_including_this":' || remaining_calls || ',"remaining_evidence_reads":' || remaining_reads || ',"workflow_id":' || jsonquote(_s(task,"workflow_id"))
     end
     input = input || '}'
@@ -1596,7 +1780,7 @@ _dispatch: procedure = .int
       end
     end
     /* The byte bound is conservative for the model's input token envelope. */
-    if binlength(input as .binary) > input_bound * 3 then do
+    if operation<>"maintenance-resolution" & binlength(input as .binary) > input_bound * 3 then do
       if sqliteexec(database,"UPDATE maintenance_tasks SET state='review',required_capability='advanced-reasoning',escalation_origin='evidence-limit',escalation_reason='Resolution input exceeds configured token envelope',last_error='resolution input exceeds configured token envelope',updated_epoch=unixepoch() WHERE task_id=" || _q(id)) \= 0 then do; error = "cannot record oversized maintenance task"; return -1; end
       iterate
     end
@@ -1748,10 +1932,10 @@ validatebacklogresponse: procedure = .int
   resolution_text=_s(result,"resolution_text")
   if resolution_text_node>0 & result.node_type(resolution_text_node)<>"string" then do;error="resolution text must be a string";return -1;end
   if length(resolution_text)>2048 then do;error="resolution text exceeds its bound";return -1;end
-  if wordpos(action,"correct-note resolve-gap capability-wait")>0 then do
+  if wordpos(action,"correct-note resolve-gap capability-wait acquisition-wait")>0 then do
     if resolution_text_node=0 | strip(resolution_text)="" | result.member(result.root(),"relationship_type")=0 | result.member(result.root(),"dispositions")=0 then do;error="actionable correction requires the current response fields and specific resolution text";return -1;end
   end
-  else if resolution_text<>"" then do;error="only a correction or capability wait may set resolution_text";return -1;end
+  else if resolution_text<>"" then do;error="only a correction or wait may set resolution_text";return -1;end
   relationship_node=result.member(result.root(),"relationship_type")
   relationship_type=_s(result,"relationship_type")
   if relationship_node>0 & result.node_type(relationship_node)<>"string" then do;error="resolution relationship type must be a string";return -1;end
@@ -1804,6 +1988,14 @@ validatebacklogresponse: procedure = .int
   task_evidence = _text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id))
   packet = .jsondocument(task_evidence); passages = packet.member(packet.root(),"passages")
   if packet.valid() \= 1 | packet.node_type(passages) \= "array" then do; error = "durable resolution evidence is unavailable"; return -1; end
+  if packet.node_get(packet.member(packet.root(),"evidence_complete"))="false" & wordpos(action,"no-change retain insufficient-evidence")>0 then do
+    error="incomplete evidence inventory cannot support a whole-subject conclusion; inspect or read remaining evidence, or retain an explicit technical hold"
+    return -1
+  end
+  if action="acquisition-wait" then do
+    if packet.node_get(packet.member(packet.root(),"evidence_complete"))<>"false" | (_n(packet,"omitted_passages")+_n(packet,"omitted_catalogue"))<1 then do;error="acquisition wait requires a genuinely incomplete evidence inventory";return -1;end
+    if strip(_s(result,"question"))="" | strip(resolution_text)="" | _s(result,"object_id")<>"" | _s(result,"target_concept_id")<>"" | _s(result,"canonical_label")<>"" | _s(result,"concept_type")<>"" | result.node_count(successor_node)<>0 | result.node_count(evidence_node)<>0 | _s(result,"effective_from")<>"" | _s(result,"effective_to")<>"" | _s(result,"qualifiers_json")<>"{}" | relationship_type<>"" | result.node_count(dispositions_node)<>0 then do;error="acquisition wait requires scoped assessment and acquisition question without mutation or evidence fields";return -1;end
+  end
   subject_type = _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id))
   workflow = _text(database,"SELECT workflow_id FROM maintenance_tasks WHERE task_id=" || _q(task_id)) \= ""
   if wordpos(action,resolutionactions(subject_type,workflow)) = 0 then do; error = "resolution action is not applicable to its subject"; return -1; end
@@ -1835,10 +2027,10 @@ validatebacklogresponse: procedure = .int
     old_type = _text(database,"SELECT concept_type FROM concepts WHERE concept_id=" || _q(parent) || " AND visible_to_generation IS NULL")
     if validatetypechange(old_type,_s(result,"concept_type"),error) <> 0 then return -1
   end
-  if wordpos(action,"unresolved investigate escalate retire no-change insufficient-evidence defer search read extract") = 0 & result.node_count(evidence_node) = 0 then do; error = "resolution decision requires source evidence"; return -1; end
-  if wordpos(action,"no-change insufficient-evidence defer search read extract") > 0 then do
+  if wordpos(action,"unresolved investigate escalate retire no-change insufficient-evidence defer search read inspect extract acquisition-wait") = 0 & result.node_count(evidence_node) = 0 then do; error = "resolution decision requires source evidence"; return -1; end
+  if wordpos(action,"no-change insufficient-evidence defer search read inspect extract") > 0 then do
     if _s(result,"target_concept_id") <> "" | _s(result,"canonical_label") <> "" | _s(result,"concept_type") <> "" | result.node_count(successor_node) <> 0 | _s(result,"effective_to") <> "" | _s(result,"qualifiers_json") <> "{}" then do; error = "resolution control must leave mutation fields empty"; return -1; end
-    if action <> "read" & _s(result,"object_id") <> "" then do; error = "only a read request may select an object in a resolution control"; return -1; end
+    if wordpos(action,"read inspect")=0 & _s(result,"object_id") <> "" then do; error = "only a read or inventory request may select an object in a resolution control"; return -1; end
     if action = "defer" then do
       if _s(result,"question") = "" | _timestampvalid(database,_s(result,"effective_from")) <> 1 then do; error = "deferral requires expected evidence and a timezone-qualified date"; return -1; end
     end
@@ -1846,6 +2038,9 @@ validatebacklogresponse: procedure = .int
     if action = "search" & strip(_s(result,"question")) = "" then do; error = "search requires a question"; return -1; end
     if action = "insufficient-evidence" & strip(_s(result,"question")) = "" then do; error = "insufficient evidence requires a specific material reopening trigger in question"; return -1; end
     if action = "read" & _s(result,"object_id") = "" then do; error = "read requires an exact corpus citation"; return -1; end
+    if action = "inspect" then do
+      if wordpos(_s(result,"question"),"passages catalogue catalogue-target")=0 | length(_s(result,"object_id"))>512 | (_s(result,"question")="catalogue-target" & _s(result,"object_id")="") then do;error="inspect requires passages, catalogue or an exact catalogue-target identity and bounded cursor";return -1;end
+    end
   end
   grounds = "["; seen = .string[]
   do i = 1 to result.node_count(evidence_node)
@@ -1923,6 +2118,20 @@ _relationshipproposal: procedure = .int
   ignored=proposalidentities(proposal,claim_policy,claim_id,support_id)
   return 0
 
+/* The provider boundary has the exact serialized bytes and selected context
+ * ceiling. Retain a deterministic technical hold in the task owner before the
+ * uncalled attempt settles; later checkpoints must not retry the same body. */
+holdbacklogrequest: procedure = .int
+  arg store=.ragstorehandle,task_id=.string,item_id=.string,request_bytes=.int,bound_bytes=.int,expose error=.string
+  database=store.database();error=""
+  if task_id="" | item_id="" | request_bytes<=bound_bytes then do;error="request hold inputs are invalid";return -1;end
+  if sqliteexec(database,"BEGIN IMMEDIATE")<>0 then do;error="cannot begin request capability hold";return -3;end
+  reason="serialized resolution request " || request_bytes || " bytes exceeds the selected " || bound_bytes || "-byte input bound; inspect request/history and use a scoped evidence refresh after a relevant context change"
+  sql="UPDATE maintenance_tasks SET state='review',escalation_origin='request-capability',escalation_reason=" || _q(reason) || ",last_error=" || _q(reason) || ",updated_epoch=unixepoch() WHERE task_id=" || _q(task_id) || " AND state='dispatched' AND evidence_fingerprint=(SELECT json_extract(i.input_json,'$.evidence_fingerprint') FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.item_id=" || _q(item_id) || ")"
+  if sqliteexec(database,sql)<>0 | _number(database,"SELECT changes()")<>1 then return _rollback(database,"request hold lost its current task binding",error)
+  if sqliteexec(database,"COMMIT")<>0 then return _rollback(database,"cannot commit request capability hold",error)
+  return 0
+
 checkbacklogclaim: procedure = .int
   arg store = .ragstorehandle, job_id = .string, item_id = .string, attempt_id = .string, worker_id = .string, fence = .int, expose error = .string
   database = store.database(); error = ""
@@ -1952,6 +2161,12 @@ _validateoutcome: procedure = .int
   arg database = .binary, task_id = .string, result = .jsondocument, policy = .jsondocument, expose error = .string
   action = _s(result,"action")
   capability = _text(database,"SELECT required_capability FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+  if action="acquisition-wait" then do
+    reads=_number(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _q(task_id) || " AND disposition IN('search:pending','read:pending','inspect:pending')")
+    calls=_number(database,"SELECT " || _routecallcount(_q(task_id)))
+    ceiling=_number(database,"SELECT " || _routeattemptlimit(policy) || " FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+    if reads<_n(policy,"search_reads") & calls<ceiling then do;error="evidence acquisition remains available; inspect or read before a technical wait";return -1;end
+  end
   if capability = "advanced-reasoning" & wordpos(action,"unresolved investigate escalate") > 0 then do; error = "final reasoning must conclude a supported change or no-change; defer only for permitted expected evidence"; return -1; end
   if action="extract" then do
     if capability<>"advanced-reasoning" | _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id))<>"chunk" then do; error="explicit extraction is available only to an advanced chunk decision"; return -1; end
@@ -1959,8 +2174,8 @@ _validateoutcome: procedure = .int
     ceiling=_number(database,"SELECT " || _routeattemptlimit(policy) || " FROM maintenance_tasks WHERE task_id=" || _q(task_id))
     if calls>=ceiling then do; error="no reasoning call remains for extraction; conclude final no-change or inspect/reset the task"; return -1; end
   end
-  if action = "search" | action = "read" then do
-    reads = _number(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _q(task_id) || " AND disposition IN('search:pending','read:pending')")
+  if wordpos(action,"search read inspect")>0 then do
+    reads = _number(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _q(task_id) || " AND disposition IN('search:pending','read:pending','inspect:pending')")
     if reads >= _n(policy,"search_reads") then do; error="evidence read allowance is exhausted; conclude or escalate"; return -1; end
     calls = _number(database,"SELECT " || _routecallcount(_q(task_id)))
     ceiling = _number(database,"SELECT " || _routeattemptlimit(policy) || " FROM maintenance_tasks WHERE task_id=" || _q(task_id))
@@ -1990,7 +2205,7 @@ _applydeferral: procedure = .int
 _clearfulfilledwait: procedure = .int
   arg database=.binary,task_id=.string,state=.string,expose error=.string
   if state<>"resolved" then return 0
-  if sqliteexec(database,"UPDATE maintenance_tasks SET escalation_origin='',escalation_reason='' WHERE task_id=" || _q(task_id) || " AND state='resolved' AND escalation_origin IN('evidence-wait','capability-wait')")<>0 then do;error="cannot consume fulfilled maintenance wait";return -1;end
+  if sqliteexec(database,"UPDATE maintenance_tasks SET escalation_origin='',escalation_reason='' WHERE task_id=" || _q(task_id) || " AND state='resolved' AND escalation_origin IN('evidence-wait','capability-wait','evidence-limit')")<>0 then do;error="cannot consume fulfilled maintenance wait";return -1;end
   return 0
 
 completebacklogdecision: procedure = .int
@@ -2008,11 +2223,11 @@ completebacklogdecision: procedure = .int
   if action = "investigate" then decision_state = "unresolved"
   if action = "defer" then decision_state = "unresolved"
   if action \= "unresolved" & (_s(policy,"mode") \= "automatic" | wordpos(action,_s(policy,"automatic_actions")) = 0) then decision_state = "review"
-  if wordpos(action,"insufficient-evidence capability-wait")>0 then decision_state="unresolved"
+  if wordpos(action,"insufficient-evidence capability-wait acquisition-wait")>0 then decision_state="unresolved"
   if wordpos(action,"correct-note resolve-gap")>0 then decision_state="review"
   if action="propose-relationship" then decision_state="review"
   if action = "escalate" then decision_state = "unresolved"
-  if wordpos(action,"search read extract")>0 then decision_state = "pending"
+  if wordpos(action,"search read inspect extract")>0 then decision_state = "pending"
   if action = "assess-provenance" & _s(policy,"enrichment") \= "" & _s(policy,"mode") = "automatic" then decision_state = "resolved"
   if action = "assess-provenance" then if _number(database,"SELECT count(*) FROM json_each(" || _q(grounds) || ") WHERE json_extract(value,'$.assessment.description.assessment')='review-required'")>0 | _number(database,"SELECT count(*) FROM json_each(" || _q(response) || ",'$.assessments') WHERE json_extract(value,'$.confidence_millionths')<500000")>0 then decision_state="review"
   if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot record resolution decision"; return -3; end
@@ -2050,8 +2265,9 @@ completebacklogdecision: procedure = .int
     if _applydecision(store,task_id,task,result,profile,job_id,current,generation,policy,error) \= 0 then return _rollback(database,error,error)
   end
   if decision_state="resolved" & action="investigate" then if _applydecision(store,task_id,task,result,profile,job_id,current,0,policy,error)<>0 then return _rollback(database,error,error)
-  if decision_state = "pending" & wordpos(action,"search read") > 0 then do
+  if decision_state = "pending" & wordpos(action,"search read inspect") > 0 then do
     if _resolverstep(store,task_id,result,profile,policy,grounds,error) <> 0 then return _rollback(database,error,error)
+    if action="inspect" & pos('"status":"record-too-large"',grounds)>0 then decision_state="unresolved"
   end
   decision_id = "decision-maintenance:" || _hash(item_id || "00"x || response)
   generation_sql = "NULL"; if generation > 0 then generation_sql = generation || ""
@@ -2059,9 +2275,13 @@ completebacklogdecision: procedure = .int
   if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot retain maintenance decision provenance",error)
   sql = "UPDATE maintenance_tasks SET state=" || _q(decision_state) || ",last_error=" || _q(_s(result,"reason")) || ",updated_epoch=unixepoch() WHERE task_id=" || _q(task_id)
   if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot checkpoint maintenance decision",error)
-  if decision_state="unresolved" & wordpos(action,"insufficient-evidence capability-wait")>0 then do
+  if decision_state="unresolved" & wordpos(action,"insufficient-evidence capability-wait acquisition-wait")>0 then do
     waiting="evidence-wait";if action="capability-wait" then waiting="capability-wait"
+    if action="acquisition-wait" then waiting="evidence-limit"
     if sqliteexec(database,"UPDATE maintenance_tasks SET escalation_origin=" || _q(waiting) || ",escalation_reason=" || _q(_s(result,"question")) || " WHERE task_id=" || _q(task_id))<>0 then return _rollback(database,"cannot retain explicit maintenance wait",error)
+  end
+  if decision_state="unresolved" & action="inspect" then do
+    if sqliteexec(database,"UPDATE maintenance_tasks SET escalation_origin='evidence-limit',escalation_reason='one inventory record exceeds the bounded inspection result; plan a scoped evidence refresh' WHERE task_id=" || _q(task_id))<>0 then return _rollback(database,"cannot retain oversized inventory hold",error)
   end
   if _clearfulfilledwait(database,task_id,decision_state,error)<>0 then return _rollback(database,error,error)
   if decision_state="resolved" then if _rememberassessment(database,task_id,job_id,_n(policy,"maximum_evidence_bytes"),error)<>0 then return _rollback(database,error,error)
@@ -2530,7 +2750,7 @@ planagentaction: procedure = .int
       proposed_claim_id=claim_id;proposed_support_id=support_id
     end
     if action = "escalate" then do; error = "use an escalation plan to flag advanced reasoning"; return -1; end
-    if wordpos(action,"search read extract")>0 then do; error="external agents use query inspect, citation show and existing extraction plans, then propose a grounded decision"; return -1; end
+    if wordpos(action,"search read inspect extract acquisition-wait")>0 then do; error="external agents use query inspect, citation show and reviewed refresh controls; worker acquisition waits are recorded through a bounded run"; return -1; end
     types = profile.concept_types(); selected_type = _s(result,"concept_type"); successors = result.member(result.root(),"successors")
     if selected_type \= "" & _agenttype(types,selected_type) \= 1 then do; error = "resolution concept type is outside the active profile"; return -1; end
     do i = 1 to result.node_count(successors)
@@ -2601,8 +2821,8 @@ _agenttaskstamp: procedure = .string
   arg database = .binary, id = .string
   return _text(database,"SELECT json_object('subject_type',subject_type,'subject_id',subject_id,'workflow_id',workflow_id,'parent_task_id',parent_task_id,'priority',priority,'kind',kind,'state',state,'evidence_fingerprint',evidence_fingerprint,'policy_fingerprint',policy_fingerprint,'question',question,'attempts',attempt_count,'updated_epoch',updated_epoch,'required_capability',required_capability,'escalation_origin',escalation_origin,'escalation_reason',escalation_reason,'semantic_failures',semantic_failures) FROM maintenance_tasks WHERE task_id=" || _q(id))
 
-/* Refresh is an operational handoff with a complete packet, never a selective
- * rewrite of evidence. The old task and every prior decision remain intact. */
+/* Refresh is an operational handoff. Technical holds can choose a bounded
+ * incomplete packet; the old task and every prior decision remain intact. */
 planbacklogrefresh: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, task_id = .string, maximum_bytes = .int, maximum_concepts = .int, reason = .string, actor = .string, model = .string, expose canonical = .string, expose error = .string
   canonical = ""; error = ""
@@ -2611,7 +2831,18 @@ planbacklogrefresh: procedure = .int
   if planagentaction(store,config,profile,task_id,"escalation","",reason,actor,model,binding,error) \= 0 then return -1
   context = .jsondocument(binding); database = store.database(); task = .jsondocument(_agenttaskstamp(database,task_id))
   if _s(task,"subject_type")="provenance-chunk" then do; error = "provenance enrichment uses its separate complete-support assessment envelope; generic refresh is not applicable"; return -1; end
+  scoped=0
+  if (_s(task,"state")="review" & wordpos(_s(task,"escalation_origin"),"request-capability evidence-limit")>0) | (wordpos(_s(task,"state"),"pending unresolved")>0 & _s(task,"escalation_origin")="evidence-limit") then scoped=1
+  if scoped=1 then do
+    prior_bytes=_number(database,"SELECT json_extract(evidence_json,'$.external_refresh.maximum_bytes') FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+    prior_concepts=_number(database,"SELECT json_extract(evidence_json,'$.external_refresh.maximum_concepts') FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+    if prior_bytes<=0 then prior_bytes=config.maintenance().maximum_evidence_bytes()
+    if prior_concepts<=0 then prior_concepts=100
+    prior_config=_text(database,"SELECT json_extract(i.input_json,'$.config_snapshot_id') FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=" || _q(task_id) || " ORDER BY i.created_at DESC,i.item_id DESC LIMIT 1")
+    if maximum_bytes=prior_bytes & maximum_concepts=prior_concepts & (prior_config="" | prior_config=_s(context,"config_snapshot_id")) then do;error="technical hold needs a changed reviewed evidence envelope or current configuration before refresh";return -1;end
+  end
   metadata = '{"schema":"crexx-rag.task-refresh/1","source_task_id":' || jsonquote(task_id) || ',"source_task_stamp":' || jsonquote(_s(context,"task_stamp")) || ',"source_parent_task_id":' || jsonquote(_s(task,"parent_task_id")) || ',"maximum_bytes":' || maximum_bytes || ',"maximum_concepts":' || maximum_concepts || ',"generation":' || _n(context,"generation") || ',"config_snapshot_id":' || jsonquote(_s(context,"config_snapshot_id")) || ',"profile_hash":' || jsonquote(_s(context,"profile_hash")) || ',"reason":' || jsonquote(reason) || ',"actor":' || jsonquote(actor) || ',"model":' || jsonquote(model) || '}'
+  if scoped=1 then metadata=left(metadata,length(metadata)-1) || ',"scoped":1}'
   packet = ""; fingerprint = ""
   status = _refreshpacket(database,task,metadata,packet,fingerprint,error)
   if status \= 0 then do
@@ -2627,7 +2858,8 @@ planbacklogrefresh: procedure = .int
 _refreshcanonical: procedure = .string
   arg library_id = .string, task_id = .string, successor = .string, metadata = .string, packet = .string
   evidence=.jsondocument(packet); passages=evidence.node_count(evidence.member(evidence.root(),"passages")); catalogue=evidence.node_count(evidence.member(evidence.root(),"catalogue"))
-  return '{"schema":"crexx-rag.task-refresh-plan/1","library_id":' || jsonquote(library_id) || ',"source_task_id":' || jsonquote(task_id) || ',"successor_task_id":' || jsonquote(successor) || ',"metadata":' || metadata || ',"evidence_fingerprint":' || jsonquote(_hash(packet)) || ',"evidence_bytes":' || binlength(packet as .binary) || ',"passages":' || passages || ',"catalogue":' || catalogue || ',"complete":true,"resolution_response_max_bytes":131072,"resolution_evidence_entry_limit":1000}'
+  complete="true";if evidence.node_get(evidence.member(evidence.root(),"evidence_complete"))="false" then complete="false"
+  return '{"schema":"crexx-rag.task-refresh-plan/1","library_id":' || jsonquote(library_id) || ',"source_task_id":' || jsonquote(task_id) || ',"successor_task_id":' || jsonquote(successor) || ',"metadata":' || metadata || ',"evidence_fingerprint":' || jsonquote(_hash(packet)) || ',"evidence_bytes":' || binlength(packet as .binary) || ',"passages":' || passages || ',"catalogue":' || catalogue || ',"complete":' || complete || ',"resolution_response_max_bytes":131072,"resolution_evidence_entry_limit":1000}'
 
 applybacklogrefresh: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, canonical = .string, digest = .string, expose successor = .string, expose error = .string
@@ -2649,7 +2881,7 @@ applybacklogrefresh: procedure = .int
   if fresh\=canonical then return _rollback(database,"refresh plan is stale; inspect current evidence and re-plan",error)
   task = .jsondocument(_agenttaskstamp(database,task_id)); packet = ""; fingerprint = ""
   if _refreshpacket(database,task,metadata,packet,fingerprint,error)\=0 | fingerprint\=_s(plan,"evidence_fingerprint") then return _rollback(database,"refresh evidence changed",error)
-  sql = "INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,parent_task_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,last_error,required_capability,escalation_origin,escalation_reason,not_before_epoch) SELECT " || _q(successor) || ",kind,subject_type,subject_id,workflow_id,task_id," || _q(fingerprint) || ",policy_fingerprint," || _q(packet) || ",question,'unresolved',priority,unixepoch(),unixepoch(),'complete evidence refreshed for external review','advanced-reasoning','evidence-refresh'," || _q(_s(refresh,"reason")) || ",not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(task_id)
+  sql = "INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,parent_task_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch,last_error,required_capability,escalation_origin,escalation_reason,not_before_epoch) SELECT " || _q(successor) || ",kind,subject_type,subject_id,workflow_id,task_id," || _q(fingerprint) || ",policy_fingerprint," || _q(packet) || ",question,'unresolved',priority,unixepoch(),unixepoch(),'reviewed evidence envelope refreshed','advanced-reasoning','evidence-refresh'," || _q(_s(refresh,"reason")) || ",not_before_epoch FROM maintenance_tasks WHERE task_id=" || _q(task_id)
   if sqliteexec(database,sql)\=0 then return _rollback(database,"cannot retain refreshed task",error)
   if sqliteexec(database,"UPDATE maintenance_tasks SET state='superseded',last_error=" || _q("evidence refreshed as " || successor) || ",updated_epoch=unixepoch() WHERE task_id=" || _q(task_id))\=0 then return _rollback(database,"cannot supersede the prior evidence task",error)
   if sqliteexec(database,"COMMIT")\=0 then return _rollback(database,"cannot commit evidence refresh",error)

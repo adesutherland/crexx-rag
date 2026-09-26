@@ -23,7 +23,7 @@ ragresolutionreferences: class
     if _document.valid()<>1 then return
     root=_document.root();packet=_document.member(root,"evidence");subject=_document.member(packet,"subject")
     version=_text(_document,root,"resolution_contract")
-    if wordpos(version,"crexx-rag.resolution-contract/5 crexx-rag.resolution-contract/6 crexx-rag.resolution-contract/7 crexx-rag.resolution-contract/8 crexx-rag.resolution-contract/9 crexx-rag.resolution-contract/10")=0 | _text(_document,subject,"type")="provenance-chunk" then return
+    if wordpos(version,"crexx-rag.resolution-contract/5 crexx-rag.resolution-contract/6 crexx-rag.resolution-contract/7 crexx-rag.resolution-contract/8 crexx-rag.resolution-contract/9 crexx-rag.resolution-contract/10 crexx-rag.resolution-contract/11 crexx-rag.resolution-contract/12")=0 | _text(_document,subject,"type")="provenance-chunk" then return
     _enabled=1
     return
 
@@ -66,6 +66,7 @@ ragresolutionreferences: class
     document=.jsondocument(content)
     if document.valid()<>1 | document.node_type(document.root())<>"object" then do;error="resolution response is not an object";return "";end
     action=_text(document,document.root(),"action")
+    if action="inspect" & _text(document,document.root(),"question")="catalogue-target" then action="inspect:catalogue-target"
     return _walk(document,document.root(),1,0,action,error)
 
   _add: method = .void
@@ -121,7 +122,17 @@ ragresolutionreferences: class
       if wordpos(name,"concept_id source_concept_id target_concept_id")>0 then kinds="C"
       if reverse=0 & name="id" then kinds="S"
       if name="object_id" then kinds="SC"
-      if reverse=1 & action="read" & name="object_id" then kinds=""
+      if reverse=1 & name="object_id" then do
+        if action="read" | action="inspect" then kinds=""
+        if action="inspect:catalogue-target" then do
+          kinds=""
+          raw=0
+          do i=1 to _ids.0
+            if _ids[i]=value & left(_refs[i],1)="C" then raw=1
+          end
+          if raw=0 & length(value)>1 & pos(left(value,1),"CSE")>0 & verify(substr(value,2),"0123456789")=0 then kinds="C"
+        end
+      end
       if kinds<>"" then do
         if reverse=1 then value=_reverse(value,kinds,name,error)
         else value=_forward(value,kinds)

@@ -485,12 +485,17 @@ refreshchecks: procedure = .int
   config=architecturelocalconfig(); profile=genericprofile()
   current=scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
   calls=scalarint(database,"SELECT count(*) FROM provider_runs"); sources=scalarint(database,"SELECT count(*) FROM source_revisions")
+  usage=scalarint(database,"SELECT coalesce(sum(input_tokens+output_tokens),0) FROM provider_runs")
+  attempts=scalarint(database,"SELECT count(*) FROM attempts")
   errors=errors+check(sqliteexec(database,"WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<105) INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) SELECT 'refresh-concept-'||i,'Platform','concept','active'," || current || " FROM n")=0,"seed expanded catalogue")
   errors=errors+check(sqliteexec(database,"INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'refresh-mention-'||concept_id,concept_id,'chunk-lifecycle',0,8," || current || " FROM concepts WHERE concept_id LIKE 'refresh-concept-%'")=0,"seed expanded catalogue evidence")
   task_id=""; canonical=""; successor=""; replay=""
   errors=errors+check(enqueuebacklogtask(database,"external-refresh","concept","refresh-concept-1","","",12345,policy,task_id,error)=0,"bounded task discovery " || error)
   old_packet=scalartext(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id='" || task_id || "'")
   errors=errors+check(pos('"limit_exceeded":true',old_packet)>0,"oversized catalogue records explicit sentinel")
+  errors=errors+check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(task_id))="pending","catalogue overflow remains eligible for native bounded acquisition")
+  grounds=""; refusal=""
+  errors=errors+check(validatebacklogresponse(database,task_id,responsejson("no-change"),grounds,refusal,policy_json)<>0 & pos("incomplete",refusal)>0,"unseen catalogue cannot justify whole-subject no-change")
   inventory_sql=backlogindexquery(database,task_id,"catalogue","current")
   count=scalarint(database,"SELECT count(*) FROM (" || inventory_sql || ")")
   errors=errors+check(count>100,"inventory exposes catalogue beyond worker ceiling")
@@ -543,7 +548,213 @@ refreshchecks: procedure = .int
   digest=rxhash..sha256hex(canonical as .binary)
   errors=errors+check(sqliteexec(database,"UPDATE mentions SET span_end=7 WHERE mention_id='refresh-extra-99'")=0 & applybacklogrefresh(store,config,profile,canonical,digest,replay,error)\=0,"changed evidence invalidates refresh apply")
   errors=errors+check(enqueuebacklogtask(database,"external-refresh","concept","refresh-concept-2","","",12345,policy,replay,error)=0 & replay\=byte_task,"sentinel fingerprints evidence beyond cutoff")
-  errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=current & scalarint(database,"SELECT count(*) FROM provider_runs")=calls & scalarint(database,"SELECT count(*) FROM source_revisions")=sources,"accepted retention changes no generation; source and provider receipts preserved")
+  held=replay;held_packet=scalartext(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(held))
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET state='review',escalation_origin='request-capability',escalation_reason='serialized request exceeds selected bound' WHERE task_id=" || _testquote(held))=0,"seed retained request capability hold")
+  scoped="";scoped_successor=""
+  errors=errors+check(planbacklogrefresh(store,config,profile,held,8192,100,"smaller reviewed envelope","fixture-agent","fixture",scoped,error)=0 & pos('"complete":false',scoped)>0,"technical hold plans an explicitly incomplete scoped successor " || error)
+  if scoped<>"" then errors=errors+check(applybacklogrefresh(store,config,profile,scoped,rxhash..sha256hex(scoped as .binary),scoped_successor,error)=0,"apply scoped successor with exact plan " || error)
+  errors=errors+check(scoped_successor<>"" & scalartext(database,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _testquote(scoped_successor))=held & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(held))="superseded" & scalartext(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(held))=held_packet & scalarint(database,"SELECT json_extract(evidence_json,'$.evidence_complete') FROM maintenance_tasks WHERE task_id=" || _testquote(scoped_successor))=0,"scoped refresh retains immutable predecessor and explicit incomplete coverage")
+  if scoped_successor<>"" then do
+    rows=scalarint(database,"SELECT count(*) FROM maintenance_tasks")
+    errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET state='review',escalation_origin='request-capability' WHERE task_id=" || _testquote(scoped_successor))=0,"seed unchanged repeat hold")
+    errors=errors+check(planbacklogrefresh(store,config,profile,scoped_successor,8192,100,"repeat unchanged envelope","fixture-agent","fixture",canonical,error)<>0 & pos("changed reviewed evidence envelope",error)>0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks")=rows,"unchanged scoped envelope cannot spawn another task")
+    errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET state='unresolved',escalation_origin='evidence-refresh' WHERE task_id=" || _testquote(scoped_successor))=0,"restore scoped fixture state")
+  end
+  errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=current & scalarint(database,"SELECT count(*) FROM provider_runs")=calls & scalarint(database,"SELECT coalesce(sum(input_tokens+output_tokens),0) FROM provider_runs")=usage & scalarint(database,"SELECT count(*) FROM attempts")=attempts & scalarint(database,"SELECT count(*) FROM source_revisions")=sources,"accepted retention changes no generation, attempts, usage, source or provider receipts")
+  return errors
+
+largeevidencechecks: procedure = .int
+  arg store=.ragstorehandle,base=.string
+  db=store.database();errors=0;error="";task="";job="";grounds="";refusal=""
+  raw=changestr('"maximum_attempts":3',base,'"maximum_attempts":9')
+  raw=changestr('"batch_items":100',raw,'"batch_items":1')
+  raw=left(raw,length(raw)-1) || ',"search_reads":7,"advanced_attempts":9}'
+  policy=.jsondocument(raw);current=scalarint(db,"SELECT published_generation FROM library_meta")
+  source_id="source-sha256:" || copies("e",64);revision_id="revision-sha256:" || copies("f",64)
+  sql="INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('large-artifact','large-raw','text/plain','utf-8',NULL,'fixture://large','fixture');"
+  sql=sql || "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('large-text','large-digest','Platform mentions Azure.','fixture','utf8-v1','fixture');"
+  sql=sql || "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES(" || _testquote(source_id) || ",'fixture','large'," || _testquote(revision_id) || ",'active','fixture://large','Late decisive source'," || current || ");"
+  sql=sql || "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES(" || _testquote(revision_id) || "," || _testquote(source_id) || ",'large-envelope','large-artifact','large-text','large-meta','fixture'," || current || ");"
+  sql=sql || "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('large-content','large-content-digest','Platform mentions Azure.','large-input');"
+  sql=sql || "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('large-chunk'," || _testquote(revision_id) || ",1,0,24,'large-content','large-continuity','fixture','direct'," || current || ");"
+  sql=sql || "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('zz-target','Azure','concept','active'," || current || ");"
+  sql=sql || "INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('zz-late-subject','concept-parent','large-chunk',0,8," || current || "),('zz-late-target','zz-target','large-chunk',18,23," || current || ");"
+  sql=sql || "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<105) INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) SELECT 'concept:'||printf('%064x',i),'Platform','concept','active'," || current || " FROM n;"
+  sql=sql || "INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'large-mention-'||concept_id,concept_id,'chunk-lifecycle',0,8," || current || " FROM concepts WHERE concept_id LIKE 'concept:%';"
+  sql=sql || "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<12) INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'm-subject-'||printf('%03d',i),'concept-parent','chunk-lifecycle',0,8," || current || " FROM n"
+  errors=errors+check(sqliteexec(db,sql)=0,"seed late cited evidence and heavy source catalogue")
+  errors=errors+check(sqliteexec(db,"WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<500) INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'zzzz-byte-mention-'||i,'concept-parent','chunk-lifecycle',0,8," || current || " FROM n")=0,"seed byte-heavy source passage inventory")
+  errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept","concept-parent","","",999999,policy,task,error)=0 & task<>"","enqueue native large-evidence question " || error)
+  packet=scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(task))
+  errors=errors+check(scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(task))="pending" & pos('"evidence_complete":false',packet)>0 & scalarint(db,"SELECT json_extract(evidence_json,'$.omitted_catalogue') FROM maintenance_tasks WHERE task_id=" || _testquote(task))>100 & scalarint(db,"SELECT json_extract(evidence_json,'$.omitted_passages') FROM maintenance_tasks WHERE task_id=" || _testquote(task))>500,"byte-heavy passages and oversized catalogue remain runnable with explicit omitted inventory")
+  errors=errors+check(validatebacklogresponse(db,task,responsejson("no-change"),grounds,refusal,raw)<>0 & pos("incomplete",refusal)>0,"unseen candidates cannot authorize final no-change")
+  errors=errors+check(nextwindow(store,raw,job,error)=0,"dispatch native bounded acquisition " || error)
+  cursor="";citation="";page_count=0
+  do until citation<>"" | page_count>=4
+    errors=errors+check(runresolution(store,job,task,responsejson("inspect","","[]","[]",cursor,"passages"),error)=0,"inspect bounded passage page " || error)
+    page_count=page_count+1
+    citation=scalartext(db,"SELECT json_extract(value,'$.context_citation') FROM maintenance_decisions d,json_each(d.grounding_json,'$[0].items') WHERE d.task_id=" || _testquote(task) || " AND d.disposition='inspect:pending' AND json_extract(value,'$.evidence_id')='zz-late-subject' LIMIT 1")
+    cursor=scalartext(db,"SELECT json_extract(grounding_json,'$[0].next_cursor') FROM maintenance_decisions WHERE task_id=" || _testquote(task) || " AND disposition='inspect:pending' AND json_extract(response_json,'$.question')='passages' ORDER BY rowid DESC LIMIT 1")
+    if cursor="" then leave
+  end
+  errors=errors+check(page_count>1 & citation<>"","late passage appears beyond the first bounded inventory page")
+  cursor="";catalogue_pages=0;target_seen=0
+  do until target_seen=1 | catalogue_pages>=4
+    errors=errors+check(runresolution(store,job,task,responsejson("inspect","","[]","[]",cursor,"catalogue"),error)=0,"inspect bounded catalogue page " || error)
+    catalogue_pages=catalogue_pages+1
+    target_seen=scalarint(db,"SELECT count(*) FROM maintenance_decisions d,json_each(d.grounding_json,'$[0].items') WHERE d.task_id=" || _testquote(task) || " AND d.disposition='inspect:pending' AND json_extract(value,'$.concept_id')='zz-target'")
+    cursor=scalartext(db,"SELECT json_extract(grounding_json,'$[0].next_cursor') FROM maintenance_decisions WHERE task_id=" || _testquote(task) || " AND disposition='inspect:pending' AND json_extract(response_json,'$.question')='catalogue' ORDER BY rowid DESC LIMIT 1")
+    if cursor="" then leave
+  end
+  errors=errors+check(catalogue_pages>1 & target_seen=1,"decisive target appears beyond first catalogue page")
+  inventory_sql=backlogindexquery(db,task,"catalogue","current")
+  inventory_count=scalarint(db,"SELECT count(*) FROM (" || inventory_sql || ")")
+  emitted=scalarint(db,"SELECT count(*) FROM maintenance_decisions d,json_each(d.grounding_json,'$[0].items') WHERE d.task_id=" || _testquote(task) || " AND d.disposition='inspect:pending' AND json_extract(d.response_json,'$.question')='catalogue'")
+  unique_rows=scalarint(db,"SELECT count(DISTINCT json_extract(value,'$.concept_id')) FROM maintenance_decisions d,json_each(d.grounding_json,'$[0].items') WHERE d.task_id=" || _testquote(task) || " AND d.disposition='inspect:pending' AND json_extract(d.response_json,'$.question')='catalogue'")
+  errors=errors+check(emitted=inventory_count & unique_rows=inventory_count & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(task) || " AND disposition='inspect:pending' AND json_extract(response_json,'$.question')='catalogue' AND length(CAST(grounding_json AS BLOB))>8192")=0,"catalogue pages cover each current record once within the byte bound")
+  errors=errors+check(runresolution(store,job,task,responsejson("inspect","","[]","[]","zz-target","catalogue-target"),error)=0,"bind inspected target to durable packet " || error)
+  errors=errors+check(scalarint(db,"SELECT json_array_length(evidence_json,'$.catalogue') FROM maintenance_tasks WHERE task_id=" || _testquote(task))=1,"targeted catalogue preserves only selected candidate and incomplete scope")
+  errors=errors+check(runresolution(store,job,task,responsejson("read","","[]","[]",citation),error)=0,"read exact late source citation " || error)
+  evidence_id="resolver:" || rxhash..sha256hex(citation as .binary)
+  response=withdispositions(responsejson("propose-relationship","zz-target","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform mentions Azure."}]',"concept-parent"),"[]")
+  response=left(response,length(response)-1) || ',"relationship_type":"mentions"}'
+  errors=errors+check(runresolution(store,job,task,response,error)=0,"native worker reaches grounded relationship review " || error)
+  errors=errors+check(scalarint(db,"SELECT count(*) FROM reviews WHERE subject_id=" || _testquote(task) || " AND state='pending'")=1 & scalarint(db,"SELECT count(*) FROM claims WHERE source_concept_id='concept-parent' AND target_concept_id='zz-target'")=0,"substantive proposal retains mandatory semantic review without graph write")
+  errors=errors+check(scalarint(db,"SELECT count(*) FROM provider_runs WHERE provider_run_id IN(SELECT provider_run_id FROM maintenance_decisions WHERE task_id=" || _testquote(task) || ")")=page_count+catalogue_pages+3,"each acquisition and proposal has one retained provider receipt")
+  errors=errors+check(scalarint(db,"SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id=" || _testquote(job))=0,"large-evidence worker releases all aggregate reservations")
+  errors=errors+check(sqliteexec(db,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('large-unknown','Unlocated referent','concept','active'," || current || "); INSERT INTO concept_versions(concept_id,version,canonical_label,concept_type,lifecycle_state,generation,reason,created_at) VALUES('large-unknown',1,'Unlocated referent','concept','active'," || current || ",'fixture','fixture')")=0,"seed a genuinely unsupported question")
+  unknown="";before_calls=scalarint(db,"SELECT count(*) FROM provider_runs");before_usage=scalarint(db,"SELECT coalesce(sum(input_tokens+output_tokens),0) FROM provider_runs")
+  errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept","large-unknown","","",999999,policy,unknown,error)=0 & unknown<>"","enqueue source-absent question " || error)
+  unknown_packet=scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(unknown))
+  inventory_sql=backlogindexquery(db,unknown,"passages","current")
+  errors=errors+check(scalarint(db,"SELECT count(*) FROM (" || inventory_sql || ")")=0 & scalarint(db,"SELECT json_array_length(" || _testquote(unknown_packet) || ",'$.passages')")=0 & pos('"evidence_complete":false',unknown_packet)=0,"genuine absence is distinguished from an uninspected large packet")
+  errors=errors+check(nextwindow(store,raw,job,error)=0,"dispatch source-absent question " || error)
+  response=currentresponse(responsejson("insufficient-evidence","","[]","[]","","A new source passage identifying this referent and any relationship"),"")
+  errors=errors+check(runresolution(store,job,unknown,response,error)=0,"native worker records genuine evidence limitation " || error)
+  errors=errors+check(scalartext(db,"SELECT state||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(unknown))="unresolved:evidence-wait" & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(unknown) || " AND disposition='insufficient-evidence:unresolved'")=1 & scalarint(db,"SELECT count(*) FROM claims WHERE source_concept_id='large-unknown' OR target_concept_id='large-unknown'")=0,"evidence wait is explicit and creates no guessed relationship")
+  errors=errors+check(scalarint(db,"SELECT count(*) FROM provider_runs")=before_calls+1 & scalarint(db,"SELECT coalesce(sum(input_tokens+output_tokens),0) FROM provider_runs")=before_usage+20 & scalarint(db,"SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id=" || _testquote(job))=0,"genuine evidence limitation retains one call and releases reservations")
+  wait_policy=changestr('"search_reads":7',raw,'"search_reads":1')
+  do route=1 to 4
+    isolate="wait-isolate-" || route;wait_task="";wait_job=job
+    route_policy=wait_policy
+    if route=2 | route=3 then route_policy=scalartext(db,"SELECT json_set(" || _testquote(wait_policy) || ",'$.advanced_route',json(" || _testquote('{"role":"advanced-resolver","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000}') || "))")
+    errors=errors+check(sqliteexec(db,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES(" || _testquote(isolate) || ",'Platform','concept','active'," || current || "); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'wait-mention-" || route || "-'||mention_id," || _testquote(isolate) || ",revision_chunk_id,span_start,span_end," || current || " FROM mentions WHERE concept_id='concept-parent' AND visible_to_generation IS NULL")=0,"seed partial isolate source scope")
+    errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept",isolate,"","",999999, .jsondocument(route_policy),wait_task,error)=0 & wait_task<>"","enqueue partially inspectable isolate " || error)
+    if route=2 | route=3 then errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning' WHERE task_id=" || _testquote(wait_task))=0,"select advanced partial-acquisition route")
+    errors=errors+check(nextwindow(store,route_policy,wait_job,error)=0,"dispatch partial isolate " || error)
+    errors=errors+check(runresolution(store,wait_job,wait_task,responsejson("read","","[]","[]",citation),error)=0,"bind one partial isolate passage " || error)
+    errors=errors+check(scalarint(db,"SELECT json_extract(evidence_json,'$.omitted_catalogue')+json_extract(evidence_json,'$.omitted_passages') FROM maintenance_tasks WHERE task_id=" || _testquote(wait_task))>0,"partial isolate retains uninspected debt")
+    wait_response=currentresponse(responsejson("acquisition-wait","","[]","[]","","Inspect remaining source passages and catalogue candidates"),"One bound passage was inspected; this assessment covers that passage only")
+    errors=errors+check(runresolution(store,wait_job,wait_task,wait_response,error)=0,"retain scoped acquisition wait " || error)
+    errors=errors+check(scalartext(db,"SELECT state||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(wait_task))="unresolved:evidence-limit" & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(wait_task) || " AND disposition='acquisition-wait:unresolved'")=1,"partial route holds without a whole-subject conclusion")
+    if route=1 then do
+      external_plan="";external_error=""
+      external_status=planagentaction(store,architecturelocalconfig(),genericprofile(),wait_task,"resolution",wait_response,"fixture scoped wait","fixture-agent","",external_plan,external_error)
+      errors=errors+check(external_status<>0 & pos("worker acquisition waits",external_error)>0,"external proposal cannot misclassify worker acquisition wait " || external_error)
+    end
+    prior_runs=scalarint(db,"SELECT count(*) FROM provider_runs")
+    errors=errors+check(nextwindow(store,route_policy,wait_job,error)=0 & scalarint(db,"SELECT count(*) FROM job_items i JOIN maintenance_task_items m ON m.item_id=i.item_id WHERE m.task_id=" || _testquote(wait_task) || " AND i.state IN('queued','running')")=0 & scalarint(db,"SELECT count(*) FROM provider_runs")=prior_runs,"rediscovery does not repeat partial-acquisition dispatch " || error)
+    if route=1 then errors=errors+scopedholdchecks(store,wait_task,"acquisition-wait")
+    if route=2 then do
+      advanced_packet=scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(wait_task))
+      calls=scalarint(db,"SELECT count(*) FROM provider_runs")
+      again=""
+      errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept",isolate,"","",999999,.jsondocument(route_policy),again,error)=0 & again=wait_task & scalarint(db,"SELECT count(*) FROM provider_runs")=calls,"unchanged advanced technical hold stays quiet")
+      errors=errors+check(sqliteexec(db,"DELETE FROM mentions WHERE concept_id=" || _testquote(isolate) || " AND revision_chunk_id='chunk-lifecycle'")=0,"material source change removes advanced passage and catalogue bound")
+      advanced_child=""
+      errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept",isolate,"","",999999,.jsondocument(route_policy),advanced_child,error)=0 & advanced_child<>"" & advanced_child<>wait_task,"changed advanced technical question creates one successor " || error)
+      errors=errors+check(scalartext(db,"SELECT state||':'||required_capability||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(advanced_child))="pending:advanced-reasoning:" & scalartext(db,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _testquote(advanced_child))=wait_task & scalarint(db,"SELECT json_extract(evidence_json,'$.evidence_complete') FROM maintenance_tasks WHERE task_id=" || _testquote(advanced_child))<>0 & scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(wait_task))=advanced_packet & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(wait_task) || " AND disposition='acquisition-wait:unresolved'")=1,"removed bound clears only successor hold and retains original debt")
+      advanced_job=wait_job
+      errors=errors+check(nextwindow(store,route_policy,advanced_job,error)=0 & scalarint(db,"SELECT count(*) FROM job_items i JOIN maintenance_task_items m ON m.item_id=i.item_id WHERE m.task_id=" || _testquote(advanced_child) || " AND i.state IN('queued','running')")=1,"changed advanced successor is eligible for dispatch " || error)
+      advanced_evidence=scalartext(db,"SELECT json_extract(evidence_json,'$.passages[0].evidence_id') FROM maintenance_tasks WHERE task_id=" || _testquote(advanced_child))
+      retained=responsejson("retain","","[]",'[{"evidence_id":' || jsonquote(advanced_evidence) || ',"quote":"Platform"}]')
+      errors=errors+check(advanced_evidence<>"" & runresolution(store,advanced_job,advanced_child,retained,error)=0 & scalartext(db,"SELECT state||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(advanced_child))="resolved:","supported advanced successor fulfills wait without reviving origin " || error)
+      again=""
+      errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept",isolate,"","",999999,.jsondocument(route_policy),again,error)=0 & again=advanced_child,"settled advanced successor stays quiet")
+      errors=errors+check(sqliteexec(db,"UPDATE concepts SET concept_type='source-artifact' WHERE concept_id=" || _testquote(isolate))=0,"material subject correction follows settled advanced task")
+      settled_child=""
+      errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept",isolate,"","",999999,.jsondocument(route_policy),settled_child,error)=0 & settled_child<>advanced_child & scalartext(db,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _testquote(settled_child))=advanced_child & scalartext(db,"SELECT required_capability||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(settled_child))="advanced-reasoning:","settled successor preserves route without obsolete hold " || error)
+      errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET not_before_epoch=unixepoch()+3600 WHERE task_id=" || _testquote(settled_child))=0,"defer separate settled-successor fixture from later windows")
+      wait_job=advanced_job
+    end
+    if route=3 | route=4 then do
+      extra_chunk="wait-still-blocked-chunk-" || route;extra_mention="wait-still-blocked-extra-" || route
+      errors=errors+check(sqliteexec(db,"INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES(" || _testquote(extra_chunk) || ",'revision-lifecycle'," || (19+route) || ",0,14,'content-lifecycle'," || _testquote(extra_chunk) || ",'fixture-v1','direct'," || current || "); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES(" || _testquote(extra_mention) || "," || _testquote(isolate) || "," || _testquote(extra_chunk) || ",0,8," || current || ")")=0,"material new source passage leaves inherited inventory oversized")
+      blocked_child=""
+      expected_route="standard";if route=3 then expected_route="advanced-reasoning"
+      errors=errors+check(enqueuebacklogtask(db,"sparse-node","concept",isolate,"","",999999,.jsondocument(route_policy),blocked_child,error)=0 & blocked_child<>wait_task & scalartext(db,"SELECT state||':'||required_capability||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(blocked_child))="pending:" || expected_route || ":evidence-limit" & scalartext(db,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _testquote(blocked_child))=wait_task,"still oversized changed context retains " || expected_route || " technical hold " || error)
+      errors=errors+scopedholdchecks(store,blocked_child,"inherited " || expected_route || " hold",wait_task)
+    end
+    job=wait_job
+  end
+  oversize="";oversize_job=job
+  errors=errors+check(sqliteexec(db,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('!oversized-inventory'," || _testquote(copies("X",9000)) || ",'concept','active'," || current || "); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('oversized-inventory-mention','!oversized-inventory','chunk-lifecycle',0,8," || current || ")")=0,"seed one unrepresentable inventory record")
+  errors=errors+check(enqueuebacklogtask(db,"identity-review","concept","concept-parent","","",999999,policy,oversize,error)=0 & oversize<>"","enqueue unrepresentable inventory question " || error)
+  errors=errors+check(nextwindow(store,raw,oversize_job,error)=0,"dispatch unrepresentable inventory question " || error)
+  errors=errors+check(runresolution(store,oversize_job,oversize,responsejson("inspect","","[]","[]","","catalogue"),error)=0,"retain single-record inventory limit " || error)
+  errors=errors+check(scalartext(db,"SELECT state||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(oversize))="unresolved:evidence-limit" & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(oversize) || " AND disposition='inspect:unresolved' AND json_extract(grounding_json,'$[0].status')='record-too-large' AND json_array_length(grounding_json,'$[0].items')=0")=1,"single unrepresentable record produces bounded truthful hold")
+  errors=errors+scopedholdchecks(store,oversize,"inspect")
+  /* A later small catalogue row must not make the original oversized row
+   * appear repaired merely because an old cursor now returns a prefix. */
+  inspect_isolate="";inspect_job=oversize_job
+  errors=errors+check(sqliteexec(db,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('inspect-isolate','Platform','concept','active'," || current || "); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('inspect-isolate-mention','inspect-isolate','chunk-lifecycle',0,8," || current || ")")=0,"seed separate native record-limit question")
+  errors=errors+check(enqueuebacklogtask(db,"identity-review","concept","inspect-isolate","","",999999,policy,inspect_isolate,error)=0 & nextwindow(store,raw,inspect_job,error)=0 & runresolution(store,inspect_job,inspect_isolate,responsejson("inspect","","[]","[]","","catalogue"),error)=0 & scalartext(db,"SELECT state||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(inspect_isolate))="unresolved:evidence-limit","second native oversized record holds " || error)
+  inspect_packet=scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(inspect_isolate))
+  inspect_runs=scalarint(db,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(sqliteexec(db,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('!a-before-oversize','Small','concept','active'," || current || "); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('inspect-small-before','!a-before-oversize','chunk-lifecycle',0,8," || current || ")")=0,"insert fitting row before held oversized record")
+  again=""
+  errors=errors+check(enqueuebacklogtask(db,"identity-review","concept","inspect-isolate","","",999999,policy,again,error)=0 & again=inspect_isolate & scalartext(db,"SELECT state||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(inspect_isolate))="unresolved:evidence-limit" & scalarint(db,"SELECT count(*) FROM provider_runs")=inspect_runs,"earlier fitting row leaves exact oversized record held " || error)
+  errors=errors+check(sqliteexec(db,"UPDATE concepts SET canonical_label='Short inventory record' WHERE concept_id='!oversized-inventory'")=0,"repair exact oversized catalogue record")
+  inspect_child=""
+  errors=errors+check(enqueuebacklogtask(db,"identity-review","concept","inspect-isolate","","",999999,policy,inspect_child,error)=0 & inspect_child<>"" & inspect_child<>inspect_isolate & scalartext(db,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _testquote(inspect_child))=inspect_isolate & scalartext(db,"SELECT state||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(inspect_child))="pending:" & scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(inspect_isolate))=inspect_packet & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(inspect_isolate) || " AND disposition='inspect:unresolved'")=1 & scalarint(db,"SELECT count(*) FROM provider_runs")=inspect_runs,"only repair of exact held record releases linked successor " || error)
+  return errors
+
+/* Exercise the public plan/apply owner against a real worker decision. */
+scopedholdchecks: procedure = .int
+  arg store=.ragstorehandle,hold=.string,label=.string,ancestor=""
+  db=store.database();errors=0;error="";config=architecturelocalconfig();profile=genericprofile()
+  held_packet=scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(hold))
+  held_decisions=scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(hold))
+  held_attempts=scalarint(db,"SELECT count(*) FROM attempts a JOIN maintenance_task_items m ON m.item_id=a.item_id WHERE m.task_id=" || _testquote(hold))
+  held_runs=scalarint(db,"SELECT count(*) FROM provider_runs");held_usage=scalarint(db,"SELECT coalesce(sum(input_tokens+output_tokens),0) FROM provider_runs")
+  ancestor_packet="";ancestor_decisions=-1;ancestor_attempts=-1;ancestor_receipts=-1
+  if ancestor<>"" then do
+    ancestor_packet=scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(ancestor))
+    ancestor_decisions=scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(ancestor))
+    ancestor_attempts=scalarint(db,"SELECT count(*) FROM attempts a JOIN maintenance_task_items m ON m.item_id=a.item_id WHERE m.task_id=" || _testquote(ancestor))
+    ancestor_receipts=scalarint(db,"SELECT count(*) FROM provider_runs WHERE provider_run_id IN(SELECT provider_run_id FROM maintenance_decisions WHERE task_id=" || _testquote(ancestor) || ")")
+    review_id="fixture-inherited-review-" || rxhash..sha256hex(hold as .binary)
+    errors=errors+check(sqliteexec(db,"INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES(" || _testquote(review_id) || ",'maintenance-external'," || _testquote(hold) || ",'pending','{}','fixture')")=0,"pending inherited hold review fixture")
+    gated=""
+    errors=errors+check(planbacklogrefresh(store,config,profile,hold,8192,25,"review ownership guard","fixture-agent","fixture",gated,error)<>0 & pos("pending review",error)>0,"pending review retains inherited hold ownership " || error)
+    errors=errors+check(sqliteexec(db,"UPDATE reviews SET state='rejected' WHERE review_id=" || _testquote(review_id))=0,"release inherited hold review fixture")
+    owner_window=scalartext(db,"SELECT window_id FROM maintenance_task_items WHERE task_id=" || _testquote(ancestor) || " LIMIT 1")
+    owner_job=scalartext(db,"SELECT job_id FROM maintenance_windows WHERE window_id=" || _testquote(owner_window))
+    owner_item="fixture-inherited-owner-" || rxhash..sha256hex(hold as .binary)
+    errors=errors+check(owner_job<>"" & sqliteexec(db,"INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES(" || _testquote(owner_item) || "," || _testquote(owner_job) || ",'maintenance','queued',999999," || _testquote(owner_item) || ",'fixture','{}','fixture','fixture'); INSERT INTO maintenance_task_items(item_id,task_id,window_id,attempt_number) VALUES(" || _testquote(owner_item) || "," || _testquote(hold) || "," || _testquote(owner_window) || ",1)")=0,"active inherited hold ownership fixture")
+    errors=errors+check(planbacklogrefresh(store,config,profile,hold,8192,25,"worker ownership guard","fixture-agent","fixture",gated,error)<>0 & pos("active worker ownership",error)>0,"active worker keeps inherited hold fenced " || error)
+    errors=errors+check(sqliteexec(db,"DELETE FROM maintenance_task_items WHERE item_id=" || _testquote(owner_item) || "; DELETE FROM job_items WHERE item_id=" || _testquote(owner_item))=0,"release inherited hold worker ownership fixture")
+  end
+  scoped="";successor="";unchanged=""
+  prior_bytes=config.maintenance().maximum_evidence_bytes()
+  errors=errors+check(planbacklogrefresh(store,config,profile,hold,prior_bytes,100,"unchanged technical envelope","fixture-agent","fixture",unchanged,error)<>0 & pos("changed reviewed evidence envelope",error)>0,label || " native hold refuses unchanged envelope under current configuration " || error)
+  errors=errors+check(planbacklogrefresh(store,config,profile,hold,8192,25,"inspect the remaining inventory in a smaller scope","fixture-agent","fixture",scoped,error)=0 & pos('"complete":false',scoped)>0,label || " native hold plans incomplete scoped refresh " || error)
+  if scoped<>"" then errors=errors+check(applybacklogrefresh(store,config,profile,scoped,rxhash..sha256hex(scoped as .binary),successor,error)=0,label || " apply native hold refresh " || error)
+  errors=errors+check(successor<>"" & scalartext(db,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _testquote(successor))=hold & scalartext(db,"SELECT state||':'||escalation_origin FROM maintenance_tasks WHERE task_id=" || _testquote(successor))="unresolved:evidence-refresh" & scalartext(db,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(hold))="superseded" & scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(hold))=held_packet & scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(hold))=held_decisions & scalarint(db,"SELECT count(*) FROM attempts a JOIN maintenance_task_items m ON m.item_id=a.item_id WHERE m.task_id=" || _testquote(hold))=held_attempts & scalarint(db,"SELECT count(*) FROM provider_runs")=held_runs & scalarint(db,"SELECT coalesce(sum(input_tokens+output_tokens),0) FROM provider_runs")=held_usage,label || " scoped refresh retains lineage, evidence, decisions, attempts and usage")
+  if ancestor<>"" then do
+    errors=errors+check(scalartext(db,"SELECT parent_task_id FROM maintenance_tasks WHERE task_id=" || _testquote(hold))=ancestor,"inherited refresh retains original parent link")
+    actual_packet=scalartext(db,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _testquote(ancestor))
+    actual_decisions=scalarint(db,"SELECT count(*) FROM maintenance_decisions WHERE task_id=" || _testquote(ancestor))
+    actual_attempts=scalarint(db,"SELECT count(*) FROM attempts a JOIN maintenance_task_items m ON m.item_id=a.item_id WHERE m.task_id=" || _testquote(ancestor))
+    actual_receipts=scalarint(db,"SELECT count(*) FROM provider_runs WHERE provider_run_id IN(SELECT provider_run_id FROM maintenance_decisions WHERE task_id=" || _testquote(ancestor) || ")")
+    errors=errors+check(actual_packet=ancestor_packet,"inherited refresh retains original worker packet")
+    errors=errors+check(actual_decisions=ancestor_decisions,"inherited refresh retains original worker decisions")
+    errors=errors+check(actual_attempts=ancestor_attempts,"inherited refresh retains original worker attempts")
+    errors=errors+check(actual_receipts=ancestor_receipts,"inherited refresh retains original worker receipts")
+  end
+  rows=scalarint(db,"SELECT count(*) FROM maintenance_tasks")
+  errors=errors+check(planbacklogrefresh(store,config,profile,hold,8192,25,"inspect the remaining inventory in a smaller scope","fixture-agent","fixture",unchanged,error)<>0 & scalarint(db,"SELECT count(*) FROM maintenance_tasks")=rows,label || " unchanged repeat cannot reopen superseded source")
+  if successor<>"" then errors=errors+check(sqliteexec(db,"UPDATE maintenance_tasks SET not_before_epoch=unixepoch()+3600 WHERE task_id=" || _testquote(successor))=0,"defer refreshed fixture from later windows")
   return errors
 
 /* Saved-run reproduction: a quoted name occurs before and at the selected
@@ -1617,7 +1828,7 @@ main: procedure = .int
   arg args = .string[]
   if args.0 < 1 | args.0 > 2 then return 2
   selected_case = "core"; if args.0=2 then selected_case=args[2]
-  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" & selected_case<>"recording" & selected_case<>"reconsideration" & selected_case<>"sparse-edge" & selected_case<>"actionability" then return 2
+  if selected_case<>"core" & selected_case<>"escalation" & selected_case<>"budget" & selected_case<>"recording" & selected_case<>"reconsideration" & selected_case<>"sparse-edge" & selected_case<>"actionability" & selected_case<>"large-evidence" then return 2
   path = args[1]; errors = 0; error = ""; store = .ragstorehandle
   /* Applicability is a request contract as well as an apply-time guard. */
   note_schema = backlogschema("note",0); alias_schema = backlogschema("alias-issue",0)
@@ -1657,6 +1868,13 @@ main: procedure = .int
 
 
   policy_json = '{"mode":"automatic","window_seconds":1000,"automatic_actions":"reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate","maximum_impact":100,"maximum_attempts":3,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":100,"resolution_prompt":"Fixture resolution","knowledge_policy":"fixture-v1","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":100,"model_calls":100,"input_budget":10000000,"output_budget":1000000,"cost_budget":0,"codex_turns":0}'
+  if selected_case="large-evidence" then do
+    errors=errors+largeevidencechecks(store,policy_json)
+    call closeragstore store,error
+    if errors>0 then return 1
+    say "DURABLE_BACKLOG_OK large-evidence"
+    return 0
+  end
   if selected_case="actionability" then do
     errors=errors+actionabilitychecks(store,policy_json)
     call closeragstore store,error

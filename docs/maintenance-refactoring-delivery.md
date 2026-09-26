@@ -1509,3 +1509,148 @@ distinct matching recorded hashes. No further implementation or broad QA was
 requested. The exact checkpoint SHA and final focused evidence belong in the
 private Item 4 handoff. Full regression, hosted/platform, long-running,
 installation and publication gates remain separate.
+
+## 26 September bounded large evidence, item 5
+
+`ragbacklog` remains the task/evidence, source-inventory, validation,
+acquisition and refresh owner. Its complete builder still owns small packets.
+A bounded wrapper retains a source-inventory fingerprint, exact omitted
+passage/catalogue counts and `evidence_complete:false` when a concept question
+exceeds that builder's byte or 100-concept ceiling. The worker can page current
+passages or candidates with a cursor and completion flag, bind only a previously
+inspected exact candidate, and read an exact source citation into the task
+packet. Read/target selections replay from the task; one page is never
+presented as a complete inventory. Workflow-impact and provenance/extraction
+cases keep their complete-packet requirements. The fingerprint also covers
+current concept claims and supports.
+
+`ragresolutioncontract` owns `/12` inspect and scoped acquisition-wait guidance,
+action schema and the incomplete-packet warning. It reconstructs authentic frozen `/7`–`/11`
+prompt/schema bindings without resubmitting old schema. `ragresolutionreferences`
+recognizes `/12`, leaves inspect cursors native and expands a visible
+`catalogue-target` C reference to its canonical concept ID. `ragapplicationprovider` serializes the same message/input/schema body
+for measurement and receipt capture; it compares fresh calls with the smaller
+of reserved input and model context minus output, using the selected three-byte
+input envelope. Receipt replay remains exempt. An oversized fresh call asks
+`ragbacklog` to record a measured, uncalled `request-capability` hold. Its
+extraction correction path checks the same full serialized request and settles
+oversize corrections without a second call or a maintenance task. Inspection
+returns the largest prefix that fits both row count and 8,192 serialized bytes;
+a single unrepresentable record enters an `evidence-limit` hold. On incomplete
+partially inspected tasks, `acquisition-wait` records the inspected scope and
+remaining acquisition after calls or reads are exhausted, without claiming
+whole-subject validation or changing the graph. Its
+`evidence-limit` and request-capability holds do not re-enter ordinary worker
+selection. `ragbacklog` blocks whole-subject retain, no-change and
+insufficient-evidence on an incomplete packet and keeps older decisions in
+SQLite while reporting when only the latest 32 fit the model history.
+
+Existing reviewed refresh planning/digest/apply owns reconsideration. A
+technical hold can produce a scoped incomplete successor under a reviewed
+envelope. Repeating the same scoped bytes/concept count and configuration is
+refused with a changed-envelope/configuration next action. The predecessor,
+attempts, receipts, usage, question and lineage are not reset. Other refresh
+still requires a complete packet. The surface catalogue description and user
+guidance point to the same controls; no new adapter state, schema, provider
+route, global default or external orchestration was added.
+
+The before case was a catalogue-overflow task held in review with a falsely
+acceptable whole-subject no-change. The new core assertion failed first at
+`durable_backlog/20260925T232557-07e7a247`; the pre-change four-case backlog
+baseline passed. The byte-heavy synthetic fixture has more than 500 passages
+and 100 candidate concepts. Native inspection finds a late exact passage and
+late target on later pages, then produces a source-quoted directional
+relationship proposal that remains in mandatory review. The separate
+source-absent control produces `insufficient-evidence:unresolved`. The
+correction limit fixture stops a 21,311-byte serialized request at a 21,000-byte
+selected bound; the old content-only estimate was 20,414 bytes. Three earlier
+provider requests/receipts remain and reservations return to zero. Existing
+successful correction, malformed output, rejection, advanced route, budget,
+small-packet, stale-review, public surface and legacy prompt controls stay in
+the focused selection.
+
+Six direct cases and eleven adjacent regressions passed after the final
+product edit. The strengthened core preservation assertion and four sibling
+backlog cases then passed again. Fast accounted for 11/11; after the
+documentation edits, its documentation case executed and the other ten
+retained exact-input passes appeared as CTest skips. The first item-5 QA report
+counted 27 current-input passes and 115 not-run cases, with no failed or
+disabled case. Full formal regression, hosted calls,
+protected corpus use, installed/platform checks and publication remain outside
+this item-5 checkpoint. The fixture establishes functional bounds and
+provenance; it is not a long-history or large-scale throughput benchmark.
+
+Coordinator review R1–R4 was addressed in the same uncommitted item-5
+worktree. Fail-first extraction correction and normal-ID catalogue receipts
+showed the two prior boundary failures. The repaired extractor preserves one
+earlier receipt and 4,000:4 usage while refusing an oversized correction before
+provider dispatch; a fitting correction remains a positive control. The
+native catalogue fixture now proves no skipped or duplicate rows across
+byte-fitting pages, and a single unrepresentable row retains an
+`inspect:unresolved` technical hold. The reference test round-trips a target
+also present in competing identities, keeping raw cursors and raw target IDs.
+Ordinary and advanced partial-isolate cases bind one read, preserve omitted
+debt and stop as `acquisition-wait:unresolved` at the read boundary without
+repeated dispatch. The external-proposal path refuses that worker-only wait
+and names the existing inspection and reviewed refresh controls. A real Gemini loopback executes inspection and the scoped
+wait through `ragapplicationprovider` under finite budgets. The `/12` prompt
+and schema hashes were reviewed and the contract fixture updated. Fast
+accounted for 11/11; affected focused tests passed. The latest QA ledger has
+26 current-input passes, 118 not-run and no failed/disabled/interrupted cases.
+Formal regression and external qualification remain separate.
+
+The second coordinator review repaired the worker's direct technical-hold
+continuation in `ragbacklog`. Scoped reviewed refresh accepts genuine worker
+`unresolved:evidence-limit` results, with the same changed-envelope or current
+configuration guard as the prior review hold. Missing prior refresh limits on
+an actual worker hold use configured defaults, including when the SQL numeric
+read yields a negative missing value. Changed-context discovery reads
+the retained worker decision before inheriting `evidence-limit`: a prior
+`acquisition-wait` releases when the new packet is complete; a prior
+`inspect:unresolved` record-size limit releases when its exact offending
+record fits or leaves the current inventory.
+The check follows inherited parent lineage, while a still oversized successor
+keeps its hold. A completed wait and a later settled successor clear obsolete
+origins. Existing review, worker ownership and per-request admission owners
+remain in force; no schema, policy default or new retry mechanism was added.
+
+The extended `durable_backlog_large_evidence` case first failed at
+`20260926T083932-a57ff2cd`: actual worker holds could not plan their bounded
+scoped successor, and an advanced changed successor retained the obsolete
+origin. A later red receipt at `20260926T084437-0482c946` exposed the missing
+numeric-limit fallback on unchanged native refresh. The direct-hold case reaches `acquisition-wait:unresolved` and
+`inspect:unresolved` through fixture-provider processing, plans and applies a
+smaller incomplete packet from each, refuses the unchanged current envelope
+before apply and an unchanged re-plan of the
+superseded source, and independently checks parent packet, decisions, attempts,
+provider receipts and usage. A distinct advanced held task loses its source
+bound and dispatches one linked successor; an unchanged task stays quiet, a
+changed still oversized task stays held, and a supported retained resolution
+followed by another material change keeps advanced routing without the obsolete
+origin. A separate native `inspect:unresolved` control adds a small row before
+the offending record and stays held; only repairing that exact row releases a
+linked successor. The current positive receipt is recorded in the private item-5 handoff.
+The affected 15-case selection and 11-case fast preset passed with exact-input
+reuse noted by CTest. The real-provider loopback still qualifies only the
+two-call inspect-then-wait journey; late target/read/proposal remains direct
+native fixture evidence. Formal regression and hosted/corpus/platform gates
+remain open.
+
+The third review found one further continuation path: changed evidence can
+produce a `pending:evidence-limit` child when the original worker bound still
+applies. That child remains correctly excluded from dispatch, but the scoped
+refresh branch previously recognized only review and unresolved states. The
+extended native case created both advanced and ordinary held children from real
+`acquisition-wait:unresolved` parents. Before the owner fix,
+`durable_backlog_large_evidence/20260926T092014-3b1d973d` failed on the
+unchanged-envelope refusal and changed incomplete plan for both children.
+`planbacklogrefresh` now recognizes only the pending `evidence-limit` origin in
+addition to its prior states. The existing `planagentaction` pending-review,
+active-item and waiver guards and exact transactional re-plan still own
+admission. The native case checks those ownership guards, then applies a
+changed scoped envelope, verifies both parent links, exact old packets,
+decisions, attempts, receipts and total usage, and refuses a repeat on the
+superseded child. No state rewrite substitutes for either worker hold or the
+inherited child. The final positive receipt is in the private item-5 handoff.
+This remains focused local evidence awaiting coordinator review; full formal,
+hosted, corpus and platform qualification is still open.

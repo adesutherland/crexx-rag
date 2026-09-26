@@ -2,6 +2,7 @@ options levelg
 import rxfnsb
 import rxjson
 import rxsqlite
+import rxhash
 import ragcommand
 import ragproduct
 import ragmcp
@@ -47,6 +48,22 @@ main: procedure = .int
   legacy9_schema='046e73dddc15484cb8cb9d9b360ed5c838dbe3eca9c35f71f7817f39472d4b25'
   if resolutionlegacybinding(legacy9_input,"Synthetic objective","concept",0,legacy9_prompt,legacy9_schema)<>1 then do;say "PROMPT_FAIL authentic v9 frozen concept binding";return 1;end
   if resolutionlegacybinding(legacy9_input,"Synthetic objective","concept",0,legacy9_prompt,changestr("046e",legacy9_schema,"ffff"))=1 then do;say "PROMPT_FAIL tampered v9 frozen schema accepted";return 1;end
+  legacy10_input='{"resolution_contract":"crexx-rag.resolution-contract/10","required_capability":"advanced-reasoning","evidence_expected":0}'
+  legacy10_prompt='3178b9c3b05954c1cd5e28dd3c92fb5cacba4d3ea5f653e2f93f16809ce37301'
+  legacy10_schema='960485b2d63e502d58281ea9fbc792a3f2bb748ab9d880b90f8a2ecf3fa0361a'
+  if resolutionlegacybinding(legacy10_input,"Synthetic objective","concept",0,legacy10_prompt,legacy10_schema)<>1 then do;say "PROMPT_FAIL authentic v10 frozen concept binding";return 1;end
+  if resolutionlegacybinding(legacy10_input,"Synthetic objective","concept",0,legacy10_prompt,changestr("9604",legacy10_schema,"ffff"))=1 then do;say "PROMPT_FAIL tampered v10 frozen schema accepted";return 1;end
+  legacy11_input=changestr('resolution-contract/10',legacy10_input,'resolution-contract/11')
+  current11_prompt=resolutioninputprompt(legacy11_input,"Synthetic objective","concept")
+  wait_marker=" For an incomplete packet at the last reasoning call"
+  wait_start=pos(wait_marker,current11_prompt)
+  if wait_start=0 then do;say "PROMPT_FAIL scoped-wait instruction is absent";return 1;end
+  frozen11_prompt=left(current11_prompt,wait_start-1)
+  frozen11_schema=changestr(',"acquisition-wait"',resolutionresponseschema("concept",0),"")
+  frozen11_prompt_hash=rxhash..sha256hex(frozen11_prompt as .binary)
+  frozen11_schema_hash=rxhash..sha256hex(frozen11_schema as .binary)
+  if resolutionlegacybinding(legacy11_input,"Synthetic objective","concept",0,frozen11_prompt_hash,frozen11_schema_hash)<>1 then do;say "PROMPT_FAIL authentic v11 frozen binding";return 1;end
+  if resolutionlegacybinding(legacy11_input,"Synthetic objective","concept",0,frozen11_prompt_hash,changestr(left(frozen11_schema_hash,4),frozen11_schema_hash,"ffff"))=1 then do;say "PROMPT_FAIL tampered v11 frozen schema accepted";return 1;end
   answer_input='{"schema":"crexx-rag.answer-context/2","passages":[{"citation":"crexx-rag:long-source-one","text":"Literal E1 and crexx-rag:long-source-one","source_metadata":{"citation":"untouched"}}],"accepted_claims":[{"subject":"Philip Miller","object":"Johnson","direction":"outbound","supports":[{"citation":"crexx-rag:long-source-two","stance":"assertion"},{"citation":"crexx-rag:long-source-one"}]}],"analysis_notes":[{"citations":["crexx-rag:long-source-two"],"text":"Philips is a different person"}],"graph_leads":[{"limitation":"unproved"}],"gaps":["unknown"]}'
   answer_refs=.raganswerreferences(answer_input);answer_error=""
   projected=answer_refs.input()
@@ -96,6 +113,20 @@ main: procedure = .int
   expanded=refs.response(encoded,ref_error)
   if ref_error<>"" | expanded<>'{"action":"reuse","object_id":"issue-original","target_concept_id":"concept-original","evidence":[{"evidence_id":"evidence-original","quote":"Argyle"}],"reason":"literal C1 and evidence-original remain source data"}' then do;say "PROMPT_FAIL canonical field expansion " || ref_error;return 1;end
   if restored.response(encoded,ref_error)<>expanded then do;say "PROMPT_FAIL frozen correction/recovery mapping";return 1;end
+  target_input='{"resolution_contract":"crexx-rag.resolution-contract/12","evidence":{"subject":{"type":"concept","id":"subject-original","competing_identities":[{"concept_id":"concept-original"}]},"catalogue":[{"concept_id":"concept-original"}],"passages":[]}}'
+  target_refs=.ragresolutionreferences(target_input)
+  if pos('"concept_id":"C',target_refs.input())=0 then do;say "PROMPT_FAIL inspected competing identity projection";return 1;end
+  target_alias="C2"
+  if pos('"C2":"concept-original"',target_refs.mapping())=0 then do;say "PROMPT_FAIL competing identity alias mapping";return 1;end
+  target_response='{"action":"inspect","question":"catalogue-target","object_id":' || jsonquote(target_alias) || '}'
+  target_expanded=target_refs.response(target_response,ref_error)
+  if target_alias="" | target_expanded<>'{"action":"inspect","question":"catalogue-target","object_id":"concept-original"}' | ref_error<>"" then do;say "PROMPT_FAIL catalogue target alias round trip " || ref_error || " " || target_expanded;return 1;end
+  if target_refs.response('{"action":"inspect","question":"catalogue","object_id":"C1"}',ref_error)<>'{"action":"inspect","question":"catalogue","object_id":"C1"}' | ref_error<>"" then do;say "PROMPT_FAIL raw catalogue cursor changed";return 1;end
+  if target_refs.response('{"action":"inspect","question":"catalogue-target","object_id":"concept-raw"}',ref_error)<>'{"action":"inspect","question":"catalogue-target","object_id":"concept-raw"}' | ref_error<>"" then do;say "PROMPT_FAIL raw target changed";return 1;end
+  ignored=target_refs.response('{"action":"inspect","question":"catalogue-target","object_id":"C99"}',ref_error)
+  if ref_error="" then do;say "PROMPT_FAIL unknown catalogue target reference accepted";return 1;end
+  ignored=target_refs.response('{"action":"inspect","question":"catalogue-target","object_id":"S1"}',ref_error)
+  if ref_error="" then do;say "PROMPT_FAIL wrong-kind catalogue target reference accepted";return 1;end
   ignored=refs.response(changestr('"C1"',encoded,'"E1"'),ref_error)
   if ref_error="" | pos("target_concept_id",ref_error)=0 then do;say "PROMPT_FAIL wrong-kind reference accepted";return 1;end
   ignored=refs.response(changestr('"E1"',encoded,'"E99"'),ref_error)
@@ -118,7 +149,7 @@ main: procedure = .int
   if left(plain,18)\="operator objective" | enriched\=plain || "0A"x || assessmentprompt() then return 1
   if wordpos("split",resolutionactions("claim",0))>0 | wordpos("retract",resolutionactions("claim",0))=0 then return 1
   if wordpos("move",resolutionactions("support",0))>0 | wordpos("move",resolutionactions("support",1))=0 then return 1
-  if resolutioncontractversion()<>"crexx-rag.resolution-contract/10" | wordpos("propose-relationship",resolutionactions("concept",0))=0 | wordpos("propose-relationship",resolutionactions("concept",1))>0 | wordpos("propose-relationship",resolutionactions("claim",0))>0 then return 1
+  if resolutioncontractversion()<>"crexx-rag.resolution-contract/12" | wordpos("inspect",resolutionactions("concept",0))=0 | wordpos("acquisition-wait",resolutionactions("concept",0))=0 | wordpos("propose-relationship",resolutionactions("concept",0))=0 | wordpos("propose-relationship",resolutionactions("concept",1))>0 | wordpos("propose-relationship",resolutionactions("claim",0))>0 then return 1
   if pos('"relationship_type","resolution_text"]',resolutionresponseschema("concept",0))=0 | pos("source-scoped catalogue",resolutionprompt("objective","concept"))=0 | pos("human semantic review",resolutionprompt("objective","concept"))=0 then return 1
   if resolutionresponseschema("provenance-chunk",0)\=enrichmentschema() then return 1
   if resolutionprompt("ignored","provenance-chunk")\=enrichmentprompt() || "0A"x || quotationcontract() then return 1

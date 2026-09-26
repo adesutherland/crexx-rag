@@ -391,7 +391,7 @@ set_tests_properties(codex_application_${case} PROPERTIES
     TIMEOUT 180 LABELS "provider;codex;application;worker;durability;recovery;zero-outbound")
 endforeach()
 
-foreach(case IN ITEMS receipt-write preflight-once preflight-always preflight-disabled turn-disconnect admission-release citation-feedback citation-exhausted)
+foreach(case IN ITEMS receipt-write preflight-once preflight-always preflight-disabled turn-disconnect admission-release citation-feedback citation-limit citation-exhausted)
 crexxrag_add_test(NAME worker_recovery_${case}
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -798,6 +798,24 @@ crexxrag_add_test(NAME durable_backlog_actionability
 set_tests_properties(durable_backlog_actionability PROPERTIES
     TIMEOUT 300 LABELS "maintenance;review;sqlite;zero-outbound")
 
+crexxrag_add_test(NAME durable_backlog_large_evidence
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/backlog_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-durable-backlog"
+        -DCPRAG_CASE=large-evidence
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DurableBacklog.cmake")
+set_tests_properties(durable_backlog_large_evidence PROPERTIES
+    TIMEOUT 300 LABELS "maintenance;resolution;evidence;sqlite;zero-outbound")
+
 crexxrag_add_test(NAME task_reset
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -807,7 +825,7 @@ crexxrag_add_test(NAME task_reset
 set_tests_properties(task_reset PROPERTIES
     TIMEOUT 150 LABELS "regression;maintenance;recovery;surface;zero-outbound")
 
-foreach(case IN ITEMS valid receipt-recovery advanced malformed rejected manual concurrent budget continuation item-limit correction correction-failed correction-budget correction-advanced)
+foreach(case IN ITEMS valid receipt-recovery advanced malformed rejected manual concurrent budget continuation item-limit correction correction-limit correction-failed correction-budget correction-advanced large-acquisition)
 crexxrag_add_test(NAME durable_backlog_provider_${case}
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"

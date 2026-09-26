@@ -449,3 +449,36 @@ The new bounded-page/packet and unchanged-context controls are recorded in
 [beta delivery](beta-delivery-20260920.md). All 133 required local cases pass;
 the 200-call copied-corpus run closes cleanly with zero integrity issues.
 This is bounded functional/operational acceptance, not a new scale benchmark.
+
+## 26 September bounded large-evidence acquisition
+
+`ragbacklog` reuses the existing current-source passage and catalogue
+projections for oversized concept inventories. The fallback counts the two
+projections and fingerprints their current rows, including linked current
+claims/supports, when constructing or refreshing an incomplete packet. Native
+`inspect` applies an ordered ID cursor and `LIMIT` of nine passage or 49
+catalogue rows, returning the largest nonempty prefix that also fits its
+8,192-byte serialized result ceiling. The cursor is the last emitted ID; no
+row is skipped or shortened. One record that cannot fit produces a bounded
+`evidence-limit` hold with a record digest instead of repeated dispatch.
+Target binding fetches one exact concept from the source-scoped catalogue;
+the selected IDs (at most 16) and exact citation reads are replayed into the
+existing packet. The task, decision and provider receipt rows remain under
+their existing transaction owners. No schema, index, SQL adapter or second
+evidence store was added.
+
+For a changed task inheriting `evidence-limit`, the backlog owner reads the
+latest relevant decision by its indexed task ID, following at most 32 parent
+links for inherited holds. A partial-acquisition decision is compared with the
+new packet's completion flags; an inspection record limit scans current IDs
+for its retained record digest, then reuses one bounded page and its
+8,192-byte check at that exact row. This runs on a changed
+question before dispatch, not once per inventory row or provider call. Existing
+task/decision indexes and transaction ownership suffice; no schema or index
+change was needed.
+
+The synthetic item-5 case covers more than 500 passage entries and 100
+candidate concepts with decisive rows beyond the first pages. It proves
+bounded functional selection and state preservation, not corpus-scale query
+latency or throughput. The full serialized request guard is a byte check in
+the application provider before submission; it adds no database scan.

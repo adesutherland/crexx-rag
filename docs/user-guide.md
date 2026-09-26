@@ -1768,17 +1768,45 @@ job attempt eligibility; ordinary `maintain retry` keeps the task context.
 
 For an oversized task, `maintain evidence-index --id TASK_ID --kind passages
 --scope current` pages an addressable inventory; catalogue and context are also
-available. Its held packet reports `evidence_complete: false`, exact omitted
-passage and catalogue counts, and the inventory tool; an empty packet is not
-evidence that the library lacks a candidate. `maintain refresh-plan --id
-TASK_ID --reason 'Review complete evidence'`
-prepares a complete replacement, defaulting to 1 MiB/1000 concepts. Authorized
-`maintain refresh-apply --plan-json PLAN --expect-digest DIGEST` preserves and
-supersedes the old task. Read and resolve the returned successor. Per-task
-ceilings can grow to 8 MiB/1000 concepts without changing worker configuration;
-workers and pending reviews must release ownership first. This operation makes
-no provider calls or semantic generation. See the agent workflow for the
-separate provenance-enrichment contract and complete-support limits.
+available. An incomplete packet reports `evidence_complete: false`, exact omitted
+passage and catalogue counts, and an inventory fingerprint. Empty packet arrays
+do not mean that the library lacks a passage or candidate. Native resolution can
+`inspect` bounded passage or catalogue pages, using each `next_cursor`, bind an
+inspected `catalogue-target`, and `read` an exact source citation. The packet
+retains selected evidence; unseen entries cannot support a whole-subject negative
+conclusion. Each acquisition uses the configured call and evidence-read allowances.
+Pages fit both their row and 8,192-byte bounds; use the returned cursor rather
+than counting rows. A single record too large for inspection records an
+`evidence-limit` technical hold. When an incomplete task has exhausted its
+calls or reads after partial inspection, `acquisition-wait` retains the scoped
+assessment and names the remaining evidence to acquire. It does not publish a
+whole-subject no-change or imply that the uninspected catalogue is empty.
+
+`maintain refresh-plan --id TASK_ID --reason 'Review evidence envelope'` prepares
+a reviewed successor. Ordinary refresh still requires complete evidence, defaulting
+to 1 MiB/1000 concepts. A task held for `request-capability` or `evidence-limit`
+can instead plan a scoped incomplete successor by selecting `--maximum-bytes` and
+`--maximum-concepts`; inspect the plan's `complete`, counts and fingerprint before
+applying it. Authorized `maintain refresh-apply --plan-json PLAN --expect-digest
+DIGEST` preserves the predecessor's decisions, receipts and usage and supersedes
+it without changing global worker configuration. Per-task byte ceilings range up
+to 8 MiB; workers and pending reviews must release ownership first. Refresh makes
+no provider call or semantic generation. A full serialized resolution request,
+including schema, history and correction messages, still must fit its selected
+per-request context. A rejected oversized request remains a measured technical
+hold for review. See the agent workflow for the separate provenance-enrichment
+contract and complete-support limits.
+
+The same scoped refresh applies to a worker's `unresolved:evidence-limit` result
+from `acquisition-wait` or an unrepresentable `inspect` record, and to a changed
+`pending:evidence-limit` successor that inherited the still-valid hold. That
+pending task remains blocked from worker dispatch. Use a changed
+evidence envelope or current configuration and apply the exact reviewed plan;
+repeating it on the superseded source cannot create another task. If source
+evidence changes, discovery removes a partial-acquisition hold only after the
+current packet fits, or an inspection record hold only after the exact
+oversized record fits or leaves the current inventory. A changed question that
+still exceeds its bound remains held.
 
 For new claims, `proposal plan --proposals-ndjson NDJSON` accepts inline input
 up to 65535 bytes. Supply either that option or `--input FILE`. Both feed the
