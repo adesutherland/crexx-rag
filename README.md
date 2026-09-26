@@ -255,7 +255,7 @@ crexxrag maintain [--minutes N | --until TIMESTAMP | --overnight HH:MM-HH:MM] [-
 crexxrag review list
 crexxrag --access control job run JOB_ID
 crexxrag --access control job replay JOB_ID [--item ITEM_ID] [--reason TEXT]
-crexxrag library report [--top N] [--narrative off|cached|refresh] [--yes]
+crexxrag library report [--top N] [--since-generation N] [--narrative off|cached|refresh] [--yes]
 crexxrag --access control library snapshot [--trigger TYPE] [--reason TEXT]
 crexxrag library trend [--limit N]
 crexxrag query QUESTION

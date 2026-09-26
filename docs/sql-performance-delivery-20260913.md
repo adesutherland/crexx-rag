@@ -482,3 +482,46 @@ candidate concepts with decisive rows beyond the first pages. It proves
 bounded functional selection and state preservation, not corpus-scale query
 latency or throughput. The full serialized request guard is a byte check in
 the application provider before submission; it adds no database scan.
+
+## Item-6 optional graph report projection — 26 September 2026
+
+`ragreportservice` reads the requested before/after generations in one read
+snapshot. Qualification lineage starts with accepted `qualify` worker decisions
+or external review receipts, joins their exact prior claim ID and publication
+generation, and accepts only one matching new claim. The sampled example and
+the count use the same proven-pair CTE; unproven same-tuple changes remain
+separate. Task groups join retained task items and attempts once, counting
+distinct provider-run IDs in each displayed group. Pending-review checks use
+an actual review row. The existing `convergence-census` continues to own debt
+and reopening arithmetic. No index, migration or worker-loop read was added.
+
+Read-only `EXPLAIN QUERY PLAN` on the synthetic positive qualification
+(`durable_backlog`, generations 15–16, one proven pair) and empty comparison
+(`durable_backlog_sparse_edge`, generations 3–4, zero proven pairs) showed the
+same bounded lookup path: `claims` primary key for the prior ID, then
+`claims_target_visibility` on target ID and new generation. The task grouping
+uses `maintenance_decisions_task`, action primary key,
+`maintenance_task_items_task`, `attempts_item`, and `reviews_subject_state`.
+Both plans scan all retained decisions/tasks and use temporary B-trees for
+last-event ordering, grouping and distinct receipt counts. That all-history
+cost is confined to an explicitly requested report, with at most `--top`
+displayed groups and three claim examples. No index/write cost is justified
+for the focused synthetic workload; full-history scale remains part of the
+separate formal qualification boundary.
+
+Coordinator R1 chronology repair keeps this in the same optional read-only
+projection. It materializes completed worker and closed external-review
+outcomes, uses the indexed `(provider_run_id,item_id)` attempt lookup for a
+worker's completion bound, and compares retained events for the same task.
+An automatic decision's integer second and completed attempt bound its event;
+closed reviews use `decided_at`; an unusable legacy review timestamp leaves its
+order unknown. Overlapping conflicting bounds remain
+`order-uncertain`. Read-only plans on the positive actionability scratch
+library (38 tasks, 13 decisions, six external actions) and sparse-edge scratch
+library (20 tasks, five decisions, three actions) both materialize the event
+set, scan retained decisions, seek `attempts_provider_run`,
+`maintenance_decisions_task`, `maintenance_agent_actions_task`,
+`maintenance_task_items_task`, `attempts_item` and `reviews_subject_state`, and
+use temporary B-trees for grouping. This is all-history report work, including
+the task-local candidate comparison; it is not run in worker dispatch. No
+index or writer change was added. Corpus-scale report latency is unqualified.

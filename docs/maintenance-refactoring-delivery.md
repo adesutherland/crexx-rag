@@ -1654,3 +1654,79 @@ superseded child. No state rewrite substitutes for either worker hold or the
 inherited child. The final positive receipt is in the private item-5 handoff.
 This remains focused local evidence awaiting coordinator review; full formal,
 hosted, corpus and platform qualification is still open.
+
+## Graph-focused reporting — 26 September 2026
+
+The existing `ragreportservice` remains the SQL and report projection owner;
+`ragcommandcatalog` advertises the optional `since_generation` argument through
+the existing library report/overview operations, and `crexxrag_cli` shows the
+same flag. No new operation, schema, policy, model or provider route was added.
+The requested comparison verifies published ancestry and reads visible graph
+sets, concept history, bounded exact-span examples and retained task/call
+history in the current read snapshot. It does not alter narrative cache or
+observation snapshot identity. The existing `convergence-census` remains the
+owner of logical debt and the five outcome counters; the comparison's
+task-kind/outcome groups attribute distinct provider receipts rather than
+claiming task traffic improved the graph. Graph health now reports isolation
+and relationship concentration as observed measurements, without assigning
+semantic defects to a valid isolate.
+
+Before the product edit, the affected seven-case baseline passed. The new
+`durable_backlog_sparse_edge` assertions failed on the missing comparison at
+`20260926T100637-aee0f2e0`; the valid-isolate health assertion failed at
+`20260926T102058-c1da469f`. The guarded source-supported relationship,
+pending review, wrong-endpoint/direction/quote/qualification negatives and
+duplicate controls remain in that fixture. A separate synthetic published
+generation now tests one addition, two unrelated retractions and an unproven
+replacement candidate beside one identity type correction. No prior claim is
+invented. Actual worker qualification checks use the accepted decision's
+named prior claim and generation, including a competing same-tuple claim and
+a date-only change. Its new claim must uniquely match that accepted action;
+the example includes exact prior claim identity, qualifiers and dates. Without
+that evidence, a same-tuple change is counted as uncertain. Both kinds retain
+bounded exact source spans and honest omission counts.
+
+Coordinator review R1 exposed the earlier outcome projection's false
+`retain:review:reject` / `no-change:review:dismiss` successes and omitted
+accepted external note/gap actions. `durable_backlog_actionability` failed
+first at `20260926T110943-aff69e63`. The repair combines the existing worker
+decision and accepted external-review owners, keeps current task state and
+actual pending-review identity separate from last proven outcome, and groups
+distinct provider runs directly. A review state without a pending review is
+unconfirmed; superseded historic waits do not become current waits. The
+fixture exercises accepted external and worker changes, rejected/dismissed
+retain/no-change, evidence/capability waits, manual review, supersession,
+reopening, pending dependent work and read-only report repetition. R2 failed
+first at `durable_backlog_sparse_edge/20260926T110843-88f15b46`; the repaired
+case reports one unproven candidate and blank prior fields, while the genuine
+`durable_backlog` qualification reports the exact accepted predecessor.
+
+Coordinator re-review R1 found that independent source-priority branches still
+let an older accepted external defer mask a later worker conclusion on the
+same task. The fail-first native actionability receipt
+`20260926T115415-192e67d1` reproduced `resolved/deferred` after a grounded
+worker `retain:resolved`; earlier setup-red receipts record construction of
+the expected-evidence deferral route. `ragreportservice` now projects final
+worker and closed external-review outcomes as completion intervals. A review
+uses its decision timestamp when present; a legacy unusable timestamp leaves
+the review's order unknown. An automatic worker decision is bounded by its
+recorded second and the completed attempt. A provably later interval wins;
+conflicting overlapping intervals produce `order-uncertain` rather than an
+arbitrary source or hash-ID tie break. The native fixture checks the exact
+attempt-completion tie and an unusable legacy review timestamp, restores the
+known order, and keeps the old accepted
+deferral, worker receipt, provider usage and read-only behavior. No event
+ledger, schema, index or task transition changed. Coordinator re-review 3
+accepted R1 and R2 at focused local checkpoint scope; formal regression,
+installation and publication remain separate.
+
+Representative positive and empty scratch `EXPLAIN QUERY PLAN` checks use the
+claim primary key for prior identity, `claims_target_visibility` with target
+and generation for the new claim, `maintenance_task_items_task` and
+`attempts_item` for provider receipts, and `reviews_subject_state` for actual
+pending-review checks. The optional all-history projection scans retained
+decisions/tasks once and sorts the bounded displayed groups; it is not a worker
+loop, and no new index or write cost was added. Detailed selection and QA
+receipts are in the private item-6 handoff and the SQL performance delivery
+record. Formal regression, hosted/corpus use, installation and platform
+qualification remain deferred.

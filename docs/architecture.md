@@ -777,6 +777,29 @@ representative source-span passages. Exact-schema and known-citation
 validation occurs before a narrative is cached or displayed; advisory output
 has no graph-mutation path.
 
+`ragreportservice` also owns the optional `since-generation` read-only graph
+comparison. It checks published ancestry, compares visible claim sets, reads
+identity version/lineage history and bounded exact-span examples, and groups
+maintenance attempt/provider receipts by task kind, current state and proven
+historic outcome. An accepted `qualify` decision or external review supplies
+the prior claim ID and publication generation; only one exact matching new
+claim establishes a qualification pair. Same-tuple additions/retractions
+without that evidence are explicitly unproven. Each group counts distinct
+provider receipts directly. The last outcome compares completed worker and
+external-review evidence by time: a closed review uses its decision timestamp
+when available (otherwise its order is unknown),
+while an automatic worker decision is bounded by its recorded second and
+completed attempt. Conflicting outcomes whose intervals overlap are labelled
+`order-uncertain`; source type or hashed IDs do not break the tie. A review
+state requires a pending review row before it is labelled a pending
+consequence. The
+comparison does not change the semantic snapshot/advisory digest; it is a
+separately requested view of immutable graph generations and current task
+history. The graph health row treats isolates and relationship concentration as
+observations, because those counts cannot establish semantic defects. Known
+supported opportunities and invalid directions require source-backed synthetic
+or human review rather than a fabricated generic quality score.
+
 `ragreportservice` owns one shared vector projection for the report and its
 operational-digest recheck. It selects the latest compatible publication by
 publication time and ID, matching observation snapshots, and counts visible

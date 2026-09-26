@@ -1459,6 +1459,7 @@ crexxrag library report
 crexxrag --format json library report --top 10
 crexxrag library report --top 10 --narrative cached
 crexxrag library report --top 10 --narrative refresh --yes
+crexxrag library report --since-generation 42 --narrative off
 ```
 
 The default report is deterministic, read-only and makes no provider call. It
@@ -1468,6 +1469,52 @@ state inside one SQLite read transaction; lists bounded relationship types and t
 concept a stable source-span citation. Semantic and operational digests are
 separate so a maintenance or vector-publication change does not masquerade as
 a corpus-generation change.
+
+`--since-generation N` compares the current published graph with an ancestor
+published generation. It accepts the current generation as a zero-change
+control. The `graph-change` record counts exact claim additions and retractions,
+proven qualification replacements, identity lineage and changed label/type/lifecycle
+versions, duplicate active claim groups and claims with addressable support at
+both endpoints. Current isolates are reported as observations: a source-supported
+isolate is valid. Up to two identity examples show their before/after values and
+review ID when present. Up to three changed-claim examples include the literal
+source-span quote, citation, endpoints, relationship type, direction, current
+qualifiers and effective dates. A `proven` qualification example names the prior
+claim ID and its exact qualifiers and effective dates. `new` marks an addition
+without a same-tuple retraction. `unproven` means a same-tuple
+addition/retraction resembles a replacement but has no accepted action linking
+the claims; prior values are blank. A retracted example has no replacement
+predecessor. The `unproven_replacement_candidates` count exposes that uncertainty.
+Oversized examples and changes
+beyond the sample cap are counted as omitted, not silently shortened.
+`graph-work` gives all-history task and distinct provider-call
+totals, actual pending-review count, review states without a pending receipt,
+superseded versions, versions with a parent and unfinished workflow tasks.
+Up to `--top` groups show task kind, **current state**, last proven historic
+outcome, actual pending-review status, task count and distinct provider calls;
+`more_groups` marks a truncated breakdown. An accepted external review counts
+alongside worker decisions. Rejected/dismissed proposals do not become retention
+or no-change successes. A superseded evidence wait remains visible as history,
+not a current wait. When a task has both external and worker outcomes, the
+last chronologically provable result is shown. `order-uncertain` means their
+recorded completion times overlap or a review completion time is unusable, so
+no last result can be established; inspect
+the retained task decisions and reviews before interpreting that group. These
+groups describe task traffic and retained outcomes,
+not a before/after quality score. Use `convergence-census` for reconciled retention, scoped
+no-change, evidence/capability wait, pending review, applied correction and
+reopening counts. The optional comparison is read-only and is not added to the
+cached advisory narrative or historic snapshot identity.
+
+The report checks published structure and exact source addresses, but a quote
+and an endpoint label in a record do not prove semantic correctness. Review
+representative source passages for citation, endpoint, direction and qualifier
+accuracy, and use known-answer synthetic cases to expose missed supported
+connections. The report cannot infer corpus-wide missed opportunities or
+whole-corpus convergence from node/edge growth, storage verification or a
+completed job. The graph health row therefore says `observed` (or `empty`) and
+keeps isolates and relationship concentration as measurements with zero
+asserted semantic defects.
 
 Vector coverage counts distinct parent chunks with embeddings for the most
 recent compatible published model. `covered_chunks` and `coverage_millionths`

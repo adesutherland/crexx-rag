@@ -1384,3 +1384,80 @@ guards, child and original-worker lineage, evidence, decisions, attempts,
 receipts and usage. The pending held children are never dispatched; only their
 reviewed refreshed successors can continue. This is focused acceptance, not
 the full local regression gate.
+
+## Graph-focused reporting — 26 September 2026
+
+The item-6 baseline passed `ann_methodology`, `durable_backlog_budget`,
+`durable_backlog_sparse_edge`, `durable_backlog_actionability`,
+`durable_backlog_large_evidence`, `gemini_query` and `native_surfaces` before
+the report implementation. `durable_backlog_sparse_edge` then failed first on
+missing `since_generation` output with its source-supported edge still pending
+review and after acceptance; the existing positive source/graph checks stayed
+green. A separate assertion failed first because graph health marked a valid
+isolate as an issue. These are retained ordinary QA failures, not disabled
+or expected-pass cases.
+
+The strengthened sparse-edge fixture now asks the native MCP report before
+and after a guarded review. It independently checks the known source-supported
+missing edge remains absent while pending, then one qualified outbound edge
+appears with exact endpoint IDs, relationship, source quote and byte citation.
+It checks the valid isolate has zero asserted graph defects, counts calls by
+task/outcome kind, and repeats the report without a new provider run or graph
+publication. A synthetic generation projection separately checks one addition,
+two unrelated retractions, an **unproven** same-tuple replacement candidate and
+one actual concept type change. It cannot name an arbitrary predecessor, even
+when another removed claim sorts first. The `durable_backlog` case checks an
+actual accepted qualification with two same-tuple prior claims, the correct
+prior claim ID and before/after qualifiers and dates, plus a date-only
+qualification with unchanged scope. Those cases test actual action lineage;
+the sparse-edge projection tests uncertainty and report arithmetic. Existing
+sparse-edge negatives reject wrong
+endpoints, direction, quote and unsupported qualification; duplicate replay
+keeps a single hashed claim/support. Existing actionability, budget,
+large-evidence and provider-loopback cases carry the five earlier item
+contracts. Full multiworker, hosted, corpus and platform qualification remain
+for the separate final gate.
+
+Coordinator review R1/R2 added task/outcome controls in
+`durable_backlog_actionability` and `durable_backlog`: accepted external note/gap
+corrections, retention and no-change are included with worker outcomes;
+rejected/dismissed retain/no-change remain unsuccessful; actual pending reviews
+are distinct from a manual review state and technical/evidence waits. Historic
+superseded waits, reopened successors and pending dependent tasks are visible
+without conflating current state. Per-group calls count distinct receipts, and
+repeated native reports preserve graph, task, review and usage state. The R2
+sparse-edge failure at `20260926T110843-88f15b46` reproduced invented lineage;
+R1 actionability failure at `20260926T110943-aff69e63` reproduced omitted
+external outcomes. Both failing receipts remain in QA history. The focused
+three-case owner selection passed after repair; exact final wider QA counts and
+receipts are in the private item-6 handoff. The synthetic controls do not
+establish semantic quality or corpus-wide convergence.
+
+At the review-1 handoff, the linked build passed;
+the affected selection passed 8 component and 7 integration cases, and fast
+passed 11 cases. The read-only QA report has 26 current-input passes,
+118 not-run and no failed/disabled/interrupted case. Final owner receipts are
+`durable_backlog/20260926T113215-a31c4755`,
+`durable_backlog_actionability/20260926T113215-d35ecd46` and
+`durable_backlog_sparse_edge/20260926T113215-9b1a420d` under
+`cmake-build-debug/qa/runs/`. This remains a focused checkpoint, not the
+formal regression gate.
+
+Coordinator re-review R1 found one remaining same-task chronology case. A
+synthetic `durable_backlog_actionability` fixture now accepts an external
+`defer`, advances that same task to a due advanced worker window and records a
+grounded `retain:resolved` decision. The fail-first receipt
+`20260926T115415-192e67d1` showed the older defer masking retention; two
+earlier setup-red receipts (`20260926T115032-bb93a4c0` and
+`20260926T115126-47248bb7`) established the required expected-evidence
+configuration. The passing case requires current resolved state, later
+supported-retention outcome, one paid provider call, both retained action and
+decision histories, and no report mutation. It then moves the accepted review
+to the worker attempt's exact completion timestamp and requires
+`order-uncertain`, repeats that expectation for an unusable legacy review
+timestamp, then restores the proven order. The pre-existing reverse
+order, rejected/dismissed and read-only controls still pass. This closes the
+focused R1 reproduction. The current focused selection has 27 current-input
+passes and 117 not-run cases; formal and live gates remain.
+Coordinator re-review 3 accepted R1/R2 at focused checkpoint scope; this is
+not the full local regression or platform qualification.

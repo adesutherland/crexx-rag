@@ -108,7 +108,7 @@ _showhelp: procedure = .int
   say "  crexxrag --access control job replay JOB_ID [--item ITEM_ID] [--reason TEXT]"
   say "  crexxrag query QUESTION"
   say "  crexxrag citation show CITATION"
-  say "  crexxrag library report [--top N] [--narrative off|cached|refresh] [--yes]"
+  say "  crexxrag library report [--top N] [--since-generation N] [--narrative off|cached|refresh] [--yes]"
   say "  crexxrag library snapshot [--trigger TYPE] [--reason TEXT]"
   say "  crexxrag library trend [--limit N]"
   say "  crexxrag config show"

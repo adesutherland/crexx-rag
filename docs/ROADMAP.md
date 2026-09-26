@@ -95,6 +95,26 @@ for nonempty identity/graph cohorts. Synthetic fail-first cases and focused rece
 are in [delivery evidence](maintenance-refactoring-delivery.md#mechanical-debt-and-termination-reporting--25-september-2026)
 and the [coverage matrix](regression-coverage.md#mechanical-debt-and-termination-reporting--25-september-2026).
 
+Graph-focused reporting (26 September): **coordinator-accepted local item-6
+focused checkpoint; formal regression, installation and publication pending**.
+The optional `library report --since-generation N` compares published graph
+sets, identity history and bounded exact-span claim examples. It separates
+proven qualification lineage from unproven same-tuple changes, and current
+task state from accepted worker/external outcomes and distinct call receipts.
+Review 2 found a remaining same-task chronology defect: an older accepted
+external defer masked a later worker conclusion. The local repair now compares
+completed outcome times and reports `order-uncertain` when their recorded
+intervals overlap; the fail-first native case and focused rerun pass. Rejected
+reviews do not count as
+successful retention/no-change. Isolates and
+relationship concentration are observations, not semantic defects. Synthetic
+known-answer acceptance covers a missing supported edge through review and
+publication, unchanged/replayed support, actual accepted scope/date
+qualification, ambiguous retraction/addition, and valid isolation. It does not establish corpus-wide citation
+accuracy, recall, clinical quality or convergence. [Ownership and focused
+evidence](maintenance-refactoring-delivery.md#graph-focused-reporting--26-september-2026);
+[coverage](regression-coverage.md#graph-focused-reporting--26-september-2026).
+
 Combined convergence and evidence-bound candidate (23 September): **local
 implementation in progress; not installed, published or corpus-qualified**.
 The first-pass predicate now requires a validated successful extraction receipt;

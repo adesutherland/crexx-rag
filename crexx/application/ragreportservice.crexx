@@ -28,7 +28,7 @@ libraryreport: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = "library.report"; error = ""
   if commandhasaccess(request, "read") \= 1 then return commandfailure(operation, 4, "library report requires read access")
-  if commandworkeroptions(request, "top narrative yes", "yes", error) \= 0 then return commandfailure(operation, 2, error)
+  if commandworkeroptions(request, "top narrative yes since-generation", "yes", error) \= 0 then return commandfailure(operation, 2, error)
   positionals = request.positionals()
   if positionals.0 \= 0 then return commandfailure(operation, 2, "library report accepts no positional arguments")
   top_text = commandoption(request, "top", error); if top_text = "" then top_text = "10"
@@ -39,12 +39,21 @@ libraryreport: procedure = .ragcommandresult
   if commandunsigned(top_text) \= 1 then return commandfailure(operation, 2, "--top must be an integer from 1 through 20")
   top = top_text as .int
   if top < 1 | top > 20 then return commandfailure(operation, 2, "--top must be an integer from 1 through 20")
+  since_text = commandoption(request, "since-generation", error)
+  if since_text \= "" & commandunsigned(since_text) \= 1 then return commandfailure(operation, 2, "--since-generation must name a published generation")
+  since = 0; if since_text \= "" then since = since_text as .int
 
   store = .ragstorehandle; status = .ragstorestatus
   if openragstore(request.library(), "readonly", store, error) \= 0 then return commandopenfailure(operation, error)
   if sqliteexec(store.database(),"BEGIN") \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation,7,"cannot begin library report read snapshot"); end
   if storagestatus(store, status, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
   database = store.database(); generation = status.published_generation(); library_id = status.library_id()
+  if since_text \= "" then do
+    if since < 1 | since > generation | sqlreadint(database,"SELECT count(*) FROM published_generations WHERE generation=" || since || " AND state='published'") \= 1 then do
+      ignored = ""; call closeragstore store, ignored
+      return commandfailure(operation, 2, "--since-generation must be a published generation no later than the current graph")
+    end
+  end
   visible_source = "visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
   visible_revision = visible_source
   visible_chunk = visible_source
@@ -265,10 +274,8 @@ libraryreport: procedure = .ragcommandresult
   records[records.0 + 1] = _healthrecord("vector", vector_state, vector_issues, "published_rows=" || vector_rows || ",active_chunks=" || chunks || ",active_embeddings=" || embedding_links || ",covered_chunks=" || vector_parents)
   provenance_state = "pass"; if unsupported > 0 | conflicts > 0 then provenance_state = "attention"
   records[records.0 + 1] = _healthrecord("provenance", provenance_state, unsupported + conflicts, "unsupported_claims=" || unsupported || ",conflicts=" || conflicts)
-  graph_state = "pass"; graph_issues = 0
-  if concepts = 0 then graph_state = "empty"
-  else if claims = 0 | isolated * 2 > concepts | relationship_concentration >= 900000 then do; graph_state = "attention"; graph_issues = isolated; end
-  records[records.0 + 1] = _healthrecord("graph", graph_state, graph_issues, "isolated=" || isolated || ",concepts=" || concepts || ",largest_type_share_millionths=" || relationship_concentration)
+  graph_state = "observed"; if concepts = 0 then graph_state = "empty"
+  records[records.0 + 1] = _healthrecord("graph", graph_state, 0, "isolated=" || isolated || ",concepts=" || concepts || ",largest_type_share_millionths=" || relationship_concentration || ",semantic_quality=unassessed")
   maintenance_state = "pass"; maintenance_issues = incomplete_runs + pending_items + diagnosed_items + review_items + blocked_items + error_jobs + dead_letters + durable_open + durable[8] + durable[9]
   if maintenance_issues > 0 then maintenance_state = "attention"
   records[records.0 + 1] = _healthrecord("maintenance", maintenance_state, maintenance_issues, "incomplete_runs=" || incomplete_runs || ",pending_items=" || pending_items || ",durable_open_tasks=" || durable_open || ",unfinished_workflows=" || (durable[8]+durable[9]) || ",dead_letters=" || dead_letters || ",reconciliation_warning=" || commandboolean(reconciliation_warning))
@@ -280,6 +287,13 @@ libraryreport: procedure = .ragcommandresult
   end
   do i = 1 to top_concept_records.0
     records[records.0 + 1] = top_concept_records[i]
+  end
+
+  if since_text \= "" then do
+    if _appendgraphcomparison(database,library_id,since,generation,top,records,error) \= 0 then do
+      ignored="";call closeragstore store,ignored
+      return commandfailure(operation,7,error)
+    end
   end
 
   narrative_state = "off"; provider_calls = 0; narrative_json = ""; narrative_provider_run = ""; narrative_provider = ""; narrative_model = ""; narrative_prompt = ""; narrative_charging = ""; narrative_created = ""; narrative_input = 0; narrative_output = 0; narrative_cost = -1; narrative_allowance_before = -1; narrative_allowance_after = -1
@@ -357,6 +371,150 @@ _conceptpassage: procedure = .void
   if source_id = "" | revision_id = "" | finish <= start then do; citation = ""; text = ""; return; end
   citation = "crexx-rag:" || library_id || ":" || source_id || ":" || revision_id || ":utf8-" || start || "-" || finish
   return
+
+/* Optional comparison is a read-only projection of two published graph sets.
+ * It is outside the report snapshot/narrative cache identity: those continue
+ * to describe the current semantic generation and operational overlay. */
+_appendgraphcomparison: procedure = .int
+  arg database=.binary, library_id=.string, before=.int, after=.int, top=.int, expose records=.ragresultrecord[], expose error=.string
+  ancestor=sqlreadint(database,"WITH RECURSIVE ancestry(generation,parent_generation) AS (SELECT generation,parent_generation FROM published_generations WHERE generation=" || after || " UNION ALL SELECT p.generation,p.parent_generation FROM published_generations p JOIN ancestry a ON p.generation=a.parent_generation) SELECT count(*) FROM ancestry WHERE generation=" || before)
+  if ancestor\=1 then do;error="comparison generation is not an ancestor of the published graph";return -1;end
+  old="visible_from_generation<=" || before || " AND (visible_to_generation IS NULL OR visible_to_generation>" || before || ")"
+  now="visible_from_generation<=" || after || " AND (visible_to_generation IS NULL OR visible_to_generation>" || after || ")"
+  added="visible_from_generation>" || before || " AND visible_from_generation<=" || after || " AND (visible_to_generation IS NULL OR visible_to_generation>" || after || ")"
+  removed="visible_from_generation<=" || before || " AND visible_to_generation>" || before || " AND visible_to_generation<=" || after
+  before_claims=sqlreadint(database,"SELECT count(*) FROM claims WHERE " || old)
+  after_claims=sqlreadint(database,"SELECT count(*) FROM claims WHERE " || now)
+  added_claims=sqlreadint(database,"SELECT count(*) FROM claims WHERE " || added)
+  retracted_claims=sqlreadint(database,"SELECT count(*) FROM claims WHERE " || removed)
+  /* The accepted qualification action names its source claim and published
+   * generation. Match its exact requested fields to one new claim at that
+   * generation; competing matches stay unproven rather than being guessed. */
+  pair_old="p.visible_from_generation<=" || before || " AND (p.visible_to_generation IS NULL OR p.visible_to_generation>" || before || ")"
+  pair_now="c.visible_from_generation<=" || after || " AND (c.visible_to_generation IS NULL OR c.visible_to_generation>" || after || ")"
+  pair_sql="WITH events AS (SELECT response_json,applied_generation AS generation FROM maintenance_decisions WHERE disposition IN('qualify:resolved','qualify:review:accept') AND applied_generation IS NOT NULL UNION ALL SELECT json_extract(a.canonical_plan,'$.response_json'),json_extract(r.decision_json,'$.generation') FROM reviews r JOIN maintenance_agent_actions a ON a.action_id=json_extract(r.proposal_json,'$.action_id') WHERE r.review_type='maintenance-external' AND r.state='accepted' AND json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='qualify' AND json_extract(r.decision_json,'$.generation')>0),candidate AS (SELECT DISTINCT p.claim_id AS prior_claim_id,c.claim_id AS new_claim_id FROM events e JOIN claims p ON p.claim_id=json_extract(e.response_json,'$.object_id') JOIN claims c ON c.visible_from_generation=e.generation AND c.policy_version='durable-resolution-v1' AND c.source_concept_id=p.source_concept_id AND c.target_concept_id=p.target_concept_id AND c.relationship_type=p.relationship_type AND c.direction=p.direction AND c.qualifiers_json=json_extract(e.response_json,'$.qualifiers_json') AND coalesce(c.effective_from,'')=coalesce(json_extract(e.response_json,'$.effective_from'),'') AND coalesce(c.effective_to,'')=coalesce(json_extract(e.response_json,'$.effective_to'),'') WHERE p.visible_to_generation=e.generation AND " || pair_old || " AND " || pair_now || " AND (p.qualifiers_json<>c.qualifiers_json OR coalesce(p.effective_from,'')<>coalesce(c.effective_from,'') OR coalesce(p.effective_to,'')<>coalesce(c.effective_to,''))),proven AS (SELECT candidate.prior_claim_id,candidate.new_claim_id FROM candidate WHERE NOT EXISTS(SELECT 1 FROM candidate x WHERE x.prior_claim_id=candidate.prior_claim_id AND x.new_claim_id<>candidate.new_claim_id) AND NOT EXISTS(SELECT 1 FROM candidate x WHERE x.new_claim_id=candidate.new_claim_id AND x.prior_claim_id<>candidate.prior_claim_id))"
+  qualified=sqlreadint(database,pair_sql || " SELECT count(*) FROM proven")
+  uncertain=sqlreadint(database,pair_sql || " SELECT count(*) FROM claims c WHERE c." || added || " AND NOT EXISTS(SELECT 1 FROM proven q WHERE q.new_claim_id=c.claim_id) AND EXISTS(SELECT 1 FROM claims p WHERE p." || removed || " AND p.source_concept_id=c.source_concept_id AND p.target_concept_id=c.target_concept_id AND p.relationship_type=c.relationship_type AND p.direction=c.direction AND (p.qualifiers_json<>c.qualifiers_json OR coalesce(p.effective_from,'')<>coalesce(c.effective_from,'') OR coalesce(p.effective_to,'')<>coalesce(c.effective_to,'')))")
+  identity=sqlreadint(database,"SELECT count(*) FROM concept_lineage WHERE generation>" || before || " AND generation<=" || after)
+  versions=sqlreadint(database,"SELECT count(*) FROM concept_versions v JOIN concept_versions p ON p.concept_id=v.concept_id AND p.version=v.version-1 WHERE v.generation>" || before || " AND v.generation<=" || after || " AND (v.canonical_label<>p.canonical_label OR v.concept_type<>p.concept_type OR v.lifecycle_state<>p.lifecycle_state)")
+  old_duplicates=sqlreadint(database,"SELECT count(*) FROM (SELECT 1 FROM claims WHERE " || old || " GROUP BY source_concept_id,target_concept_id,relationship_type,direction,qualifiers_json,effective_from,effective_to HAVING count(*)>1)")
+  duplicates=sqlreadint(database,"SELECT count(*) FROM (SELECT 1 FROM claims WHERE " || now || " GROUP BY source_concept_id,target_concept_id,relationship_type,direction,qualifiers_json,effective_from,effective_to HAVING count(*)>1)")
+  before_supported=sqlreadint(database,"SELECT count(*) FROM claims c WHERE c." || old || " AND EXISTS(SELECT 1 FROM claim_support s WHERE s.claim_id=c.claim_id AND s." || old || ")")
+  supported=sqlreadint(database,"SELECT count(*) FROM claims c WHERE c." || now || " AND EXISTS(SELECT 1 FROM claim_support s WHERE s.claim_id=c.claim_id AND s." || now || ")")
+  isolates=sqlreadint(database,"SELECT count(*) FROM concepts c WHERE c.lifecycle_state='active' AND c." || now || " AND NOT EXISTS(SELECT 1 FROM claims x WHERE x." || now || " AND (x.source_concept_id=c.concept_id OR x.target_concept_id=c.concept_id))")
+  values=.int[];values[1]=before_claims;values[2]=after_claims;values[3]=added_claims;values[4]=retracted_claims;values[5]=qualified;values[6]=uncertain;values[7]=identity;values[8]=versions;values[9]=old_duplicates;values[10]=duplicates;values[11]=before_supported;values[12]=supported;values[13]=isolates
+  do i=1 to values.0
+    if values[i]<0 then do;error="cannot read graph comparison metric";return -1;end
+  end
+  fields=.ragresultfield[]
+  fields[1]=.ragresultfield("since_generation","integer",before);fields[2]=.ragresultfield("generation","integer",after)
+  fields[3]=.ragresultfield("before_claims","integer",before_claims);fields[4]=.ragresultfield("after_claims","integer",after_claims)
+  fields[5]=.ragresultfield("added_claims","integer",added_claims);fields[6]=.ragresultfield("retracted_claims","integer",retracted_claims)
+  fields[7]=.ragresultfield("qualified_changes","integer",qualified);fields[8]=.ragresultfield("unproven_replacement_candidates","integer",uncertain);fields[9]=.ragresultfield("identity_lineage_events","integer",identity)
+  fields[10]=.ragresultfield("concept_version_changes","integer",versions);fields[11]=.ragresultfield("before_duplicate_claim_groups","integer",old_duplicates);fields[12]=.ragresultfield("duplicate_claim_groups","integer",duplicates)
+  fields[13]=.ragresultfield("before_supported_claims","integer",before_supported);fields[14]=.ragresultfield("after_supported_claims","integer",supported);fields[15]=.ragresultfield("after_isolates","integer",isolates)
+  fields[16]=.ragresultfield("interpretation","string","Observed published graph changes and addressable support; unproven same-tuple changes are not qualifications; source meaning and missed connections require review")
+  records[records.0+1]=.ragresultrecord("graph-change",fields)
+
+  sql="SELECT v.concept_id,p.canonical_label,v.canonical_label,p.concept_type,v.concept_type,p.lifecycle_state,v.lifecycle_state,v.generation,coalesce(v.review_id,''),v.reason FROM concept_versions v JOIN concept_versions p ON p.concept_id=v.concept_id AND p.version=v.version-1 WHERE v.generation>" || before || " AND v.generation<=" || after || " AND (v.canonical_label<>p.canonical_label OR v.concept_type<>p.concept_type OR v.lifecycle_state<>p.lifecycle_state) AND length(v.concept_id)<=256 AND length(p.canonical_label)<=256 AND length(v.canonical_label)<=256 AND length(v.reason)<=256 ORDER BY v.generation,v.concept_id LIMIT 2"
+  prepared=.binary
+  if sqliteprepare(database,sql,prepared)\=0 then do;error="cannot prepare identity change examples";return -1;end
+  identity_shown=0
+  do forever
+    step=sqlitestep(prepared);if step=101 then leave
+    if step\=100 then do;call sqlitefinalize prepared;error="cannot read identity change examples";return -1;end
+    concept_id="";old_label="";new_label="";old_type="";new_type="";old_state="";new_state="";review_id="";reason="";change_generation=0
+    columns=sqlitecolumntext(prepared,0,concept_id) | sqlitecolumntext(prepared,1,old_label) | sqlitecolumntext(prepared,2,new_label) | sqlitecolumntext(prepared,3,old_type) | sqlitecolumntext(prepared,4,new_type) | sqlitecolumntext(prepared,5,old_state) | sqlitecolumntext(prepared,6,new_state) | sqlitecolumnint(prepared,7,change_generation) | sqlitecolumntext(prepared,8,review_id) | sqlitecolumntext(prepared,9,reason)
+    if columns\=0 then do;call sqlitefinalize prepared;error="cannot decode identity change example";return -1;end
+    example=.ragresultfield[];example[1]=.ragresultfield("concept_id","string",concept_id);example[2]=.ragresultfield("before_label","string",old_label);example[3]=.ragresultfield("after_label","string",new_label);example[4]=.ragresultfield("before_type","string",old_type);example[5]=.ragresultfield("after_type","string",new_type);example[6]=.ragresultfield("before_state","string",old_state);example[7]=.ragresultfield("after_state","string",new_state);example[8]=.ragresultfield("generation","integer",change_generation);example[9]=.ragresultfield("review_id","string",review_id);example[10]=.ragresultfield("reason","string",reason)
+    records[records.0+1]=.ragresultrecord("graph-identity-example",example);identity_shown=identity_shown+1
+  end
+  call sqlitefinalize prepared
+  clear fields;fields=.ragresultfield[];fields[1]=.ragresultfield("examples_shown","integer",identity_shown);fields[2]=.ragresultfield("version_changes_without_examples","integer",versions-identity_shown);fields[3]=.ragresultfield("identity_lineage_events","integer",identity)
+  records[records.0+1]=.ragresultrecord("graph-identity-coverage",fields)
+
+  shown=0
+  do change=1 to 2
+    if shown>=3 then leave
+    action="added";selected=added;point=after
+    if change=2 then do;action="retracted";selected=removed;point=before;end
+    sample_now="x.visible_from_generation<=" || point || " AND (x.visible_to_generation IS NULL OR x.visible_to_generation>" || point || ")"
+    selected_claim="c.visible_from_generation>" || before || " AND c.visible_from_generation<=" || after || " AND (c.visible_to_generation IS NULL OR c.visible_to_generation>" || after || ")"
+    if change=2 then selected_claim="c.visible_from_generation<=" || before || " AND c.visible_to_generation>" || before || " AND c.visible_to_generation<=" || after
+    sample_possible="EXISTS(SELECT 1 FROM claims u WHERE u.visible_from_generation<=" || before || " AND u.visible_to_generation>" || before || " AND u.visible_to_generation<=" || after || " AND u.source_concept_id=c.source_concept_id AND u.target_concept_id=c.target_concept_id AND u.relationship_type=c.relationship_type AND u.direction=c.direction AND (u.qualifiers_json<>c.qualifiers_json OR coalesce(u.effective_from,'')<>coalesce(c.effective_from,'') OR coalesce(u.effective_to,'')<>coalesce(c.effective_to,'')))"
+    sql=pair_sql || " SELECT c.claim_id,c.source_concept_id,a.canonical_label,c.relationship_type,c.direction,c.target_concept_id,b.canonical_label,c.qualifiers_json,c.effective_from,c.effective_to,s.support_id,s.revision_chunk_id,s.span_start,s.span_end,r.revision_id,v.source_id,CAST(substr(CAST(t.text AS BLOB),s.span_start+1,s.span_end-s.span_start) AS TEXT),coalesce(q.prior_claim_id,''),coalesce(p.qualifiers_json,''),coalesce(p.effective_from,''),coalesce(p.effective_to,'')," || sample_possible || " FROM claims c LEFT JOIN proven q ON q.new_claim_id=c.claim_id LEFT JOIN claims p ON p.claim_id=q.prior_claim_id JOIN concepts a ON a.concept_id=c.source_concept_id JOIN concepts b ON b.concept_id=c.target_concept_id JOIN claim_support s ON s.support_id=(SELECT x.support_id FROM claim_support x WHERE x.claim_id=c.claim_id AND " || sample_now || " AND x.span_end-x.span_start<=512 ORDER BY x.support_id LIMIT 1) JOIN revision_chunks r ON r.revision_chunk_id=s.revision_chunk_id JOIN chunk_contents t ON t.content_id=r.content_id JOIN source_revisions v ON v.revision_id=r.revision_id WHERE " || selected_claim || " AND length(c.claim_id)<=256 AND length(c.source_concept_id)<=256 AND length(c.target_concept_id)<=256 AND length(a.canonical_label)<=256 AND length(b.canonical_label)<=256 AND length(c.relationship_type)<=128 AND length(c.qualifiers_json)<=512 AND length(coalesce(c.effective_from,''))<=64 AND length(coalesce(c.effective_to,''))<=64 AND length(coalesce(p.claim_id,''))<=256 AND length(coalesce(p.qualifiers_json,''))<=512 AND length(coalesce(p.effective_from,''))<=64 AND length(coalesce(p.effective_to,''))<=64 ORDER BY c.claim_id LIMIT ?1"
+    prepared=.binary
+    if sqliteprepare(database,sql,prepared)\=0 | sqlitebindint(prepared,1,3-shown)\=0 then do;call sqlitefinalize prepared;error="cannot prepare bounded graph examples";return -1;end
+    do forever
+      step=sqlitestep(prepared);if step=101 then leave
+      if step\=100 then do;call sqlitefinalize prepared;error="cannot read bounded graph examples";return -1;end
+      claim_id="";source_id="";source_label="";relation="";direction="";target_id="";target_label="";qualifiers="";effective_from="";effective_to="";support_id="";chunk_id="";revision_id="";document_id="";quote="";prior_claim_id="";previous_qualifiers="";prior_from="";prior_to="";possible=0;span_start=0;span_end=0
+      columns=sqlitecolumntext(prepared,0,claim_id) | sqlitecolumntext(prepared,1,source_id) | sqlitecolumntext(prepared,2,source_label) | sqlitecolumntext(prepared,3,relation) | sqlitecolumntext(prepared,4,direction) | sqlitecolumntext(prepared,5,target_id) | sqlitecolumntext(prepared,6,target_label) | sqlitecolumntext(prepared,7,qualifiers) | sqlitecolumntext(prepared,10,support_id) | sqlitecolumntext(prepared,11,chunk_id) | sqlitecolumnint(prepared,12,span_start) | sqlitecolumnint(prepared,13,span_end) | sqlitecolumntext(prepared,14,revision_id) | sqlitecolumntext(prepared,15,document_id) | sqlitecolumntext(prepared,16,quote) | sqlitecolumntext(prepared,17,prior_claim_id) | sqlitecolumntext(prepared,18,previous_qualifiers) | sqlitecolumntext(prepared,19,prior_from) | sqlitecolumntext(prepared,20,prior_to) | sqlitecolumnint(prepared,21,possible)
+      ignored=sqlitecolumntext(prepared,8,effective_from);ignored=sqlitecolumntext(prepared,9,effective_to)
+      if columns\=0 then do;call sqlitefinalize prepared;error="cannot decode bounded graph example";return -1;end
+      start=sqlreadint(database,"SELECT normalized_start FROM revision_chunks WHERE revision_chunk_id=" || sqlquote(chunk_id)) + span_start
+      finish=start+span_end-span_start
+      if start<0 | finish<=start then do;call sqlitefinalize prepared;error="cannot locate graph example citation";return -1;end
+      citation="crexx-rag:" || library_id || ":" || document_id || ":" || revision_id || ":utf8-" || start || "-" || finish
+      example=.ragresultfield[]
+      example[1]=.ragresultfield("change","string",action);example[2]=.ragresultfield("claim_id","string",claim_id)
+      example[3]=.ragresultfield("source_concept_id","string",source_id);example[4]=.ragresultfield("source_label","string",source_label)
+      example[5]=.ragresultfield("relationship_type","string",relation);example[6]=.ragresultfield("direction","string",direction)
+      example[7]=.ragresultfield("target_concept_id","string",target_id);example[8]=.ragresultfield("target_label","string",target_label)
+      example[9]=.ragresultfield("qualifiers_json","string",qualifiers);example[10]=.ragresultfield("effective_from","string",effective_from);example[11]=.ragresultfield("effective_to","string",effective_to)
+      example[12]=.ragresultfield("support_id","string",support_id);example[13]=.ragresultfield("revision_chunk_id","string",chunk_id)
+      example[14]=.ragresultfield("citation","string",citation);example[15]=.ragresultfield("quote","string",quote)
+      lineage_state="new";if change=2 then lineage_state="not-applicable";else if prior_claim_id<>"" then lineage_state="proven";else if possible=1 then lineage_state="unproven"
+      example[16]=.ragresultfield("lineage_state","string",lineage_state);example[17]=.ragresultfield("prior_claim_id","string",prior_claim_id)
+      example[18]=.ragresultfield("previous_qualifiers_json","string",previous_qualifiers);example[19]=.ragresultfield("previous_effective_from","string",prior_from);example[20]=.ragresultfield("previous_effective_to","string",prior_to)
+      records[records.0+1]=.ragresultrecord("graph-change-example",example);shown=shown+1
+    end
+    call sqlitefinalize prepared
+  end
+  omitted=added_claims+retracted_claims-shown;if omitted<0 then omitted=0
+  clear fields;fields=.ragresultfield[];fields[1]=.ragresultfield("examples_shown","integer",shown);fields[2]=.ragresultfield("changes_without_examples","integer",omitted);fields[3]=.ragresultfield("maximum_example_quote_bytes","integer",512)
+  records[records.0+1]=.ragresultrecord("graph-example-coverage",fields)
+  if _appendgraphwork(database,top,records,error)\=0 then return -1
+  return 0
+
+_appendgraphwork: procedure = .int
+  arg database=.binary, top=.int, expose records=.ragresultrecord[], expose error=.string
+  tasks=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks")
+  calls=sqlreadint(database,"SELECT count(DISTINCT a.provider_run_id) FROM maintenance_task_items m JOIN attempts a ON a.item_id=m.item_id WHERE a.provider_run_id IS NOT NULL")
+  pending=sqlreadint(database,"SELECT count(*) FROM reviews r JOIN maintenance_tasks t ON t.task_id=r.subject_id WHERE r.state='pending'")
+  unconfirmed=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t WHERE t.state='review' AND NOT EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=t.task_id AND r.state='pending')")
+  superseded=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE state='superseded'")
+  parented=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id<>''")
+  dependent=sqlreadint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_workflows w ON w.workflow_id=t.workflow_id WHERE w.state<>'complete' AND t.state NOT IN('resolved','superseded')")
+  if tasks<0 | calls<0 | pending<0 | unconfirmed<0 | superseded<0 | parented<0 | dependent<0 then do;error="cannot read maintenance task/call totals";return -1;end
+  fields=.ragresultfield[];fields[1]=.ragresultfield("scope","string","all retained task history; current state separate from last proven outcome");fields[2]=.ragresultfield("tasks","integer",tasks);fields[3]=.ragresultfield("provider_calls","integer",calls);fields[4]=.ragresultfield("pending_reviews","integer",pending)
+  fields[5]=.ragresultfield("review_without_pending","integer",unconfirmed);fields[6]=.ragresultfield("superseded_tasks","integer",superseded);fields[7]=.ragresultfield("task_versions_with_parent","integer",parented);fields[8]=.ragresultfield("unfinished_workflow_tasks","integer",dependent)
+  records[records.0+1]=.ragresultrecord("graph-work",fields)
+  /* A worker's second-granularity decision precedes its completed attempt;
+   * a closed review has a precise completion time. Compare the resulting
+   * intervals, and retain competing outcomes when chronology is not proved. */
+  sql="WITH worker_raw AS (SELECT d.task_id,d.disposition,d.applied_generation,d.created_epoch,r.decided_at,r.review_id,(SELECT max(a.completed_at) FROM attempts a WHERE a.item_id=d.item_id AND a.provider_run_id=d.provider_run_id AND a.outcome='succeeded' AND a.validation_state='validated-maintenance-resolution') AS completed_at FROM maintenance_decisions d LEFT JOIN reviews r ON r.review_type='maintenance-resolution' AND json_extract(r.proposal_json,'$.decision_id')=d.decision_id AND r.state IN('accepted','rejected','dismissed') WHERE d.disposition NOT LIKE '%:review' AND d.disposition NOT LIKE '%:pending'),"
+  sql=sql || "worker_events AS (SELECT task_id,CASE WHEN disposition IN('retain:resolved','retain:review:accept') THEN 'supported-retention' WHEN disposition IN('no-change:resolved','no-change:review:accept') THEN 'scoped-no-change' WHEN disposition LIKE '%:review:reject' OR disposition LIKE '%:review:dismiss' THEN 'rejected-review' WHEN applied_generation IS NOT NULL THEN 'applied' WHEN disposition IN('insufficient-evidence:unresolved','insufficient-evidence:review:accept') THEN 'evidence-wait' WHEN disposition IN('capability-wait:unresolved','capability-wait:review:accept') THEN 'capability-wait' WHEN disposition IN('acquisition-wait:unresolved','inspect:unresolved') THEN 'technical-hold' WHEN disposition='defer:unresolved' THEN 'deferred' WHEN disposition='investigate:unresolved' THEN 'dependent-follow-up' END AS outcome,CASE WHEN unixepoch(decided_at) IS NOT NULL THEN strftime('%Y-%m-%dT%H:%M:%fZ',decided_at) WHEN review_id IS NOT NULL THEN '0000-01-01T00:00:00.000Z' ELSE strftime('%Y-%m-%dT%H:%M:%fZ',created_epoch,'unixepoch') END AS lower_at,CASE WHEN unixepoch(decided_at) IS NOT NULL THEN strftime('%Y-%m-%dT%H:%M:%fZ',decided_at) WHEN review_id IS NOT NULL THEN '9999-12-31T23:59:59.999Z' WHEN unixepoch(completed_at) IS NOT NULL THEN strftime('%Y-%m-%dT%H:%M:%fZ',completed_at) ELSE strftime('%Y-%m-%dT%H:%M:%fZ',created_epoch+1,'unixepoch') END AS upper_at FROM worker_raw),"
+  sql=sql || "external_events AS (SELECT a.task_id,CASE WHEN r.state IN('rejected','dismissed') THEN 'rejected-review' WHEN json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='retain' AND t.subject_type<>'gap' THEN 'supported-retention' WHEN json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='no-change' THEN 'scoped-no-change' WHEN json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='insufficient-evidence' THEN 'evidence-wait' WHEN json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='capability-wait' THEN 'capability-wait' WHEN json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='acquisition-wait' THEN 'technical-hold' WHEN json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='investigate' THEN 'dependent-follow-up' WHEN json_extract(json_extract(a.canonical_plan,'$.response_json'),'$.action')='defer' THEN 'deferred' WHEN json_extract(r.decision_json,'$.generation')>0 THEN 'applied' ELSE 'accepted-no-change' END AS outcome,CASE WHEN unixepoch(r.decided_at) IS NOT NULL THEN strftime('%Y-%m-%dT%H:%M:%fZ',r.decided_at) ELSE '0000-01-01T00:00:00.000Z' END AS lower_at,CASE WHEN unixepoch(r.decided_at) IS NOT NULL THEN strftime('%Y-%m-%dT%H:%M:%fZ',r.decided_at) ELSE '9999-12-31T23:59:59.999Z' END AS upper_at FROM maintenance_agent_actions a JOIN reviews r ON r.review_type='maintenance-external' AND json_extract(r.proposal_json,'$.action_id')=a.action_id AND r.state IN('accepted','rejected','dismissed') JOIN maintenance_tasks t ON t.task_id=a.task_id),"
+  sql=sql || "events AS (SELECT * FROM worker_events WHERE outcome IS NOT NULL UNION ALL SELECT * FROM external_events),last AS (SELECT e.task_id,CASE WHEN count(DISTINCT e.outcome)=1 THEN min(e.outcome) ELSE 'order-uncertain' END AS outcome FROM events e WHERE NOT EXISTS(SELECT 1 FROM events later WHERE later.task_id=e.task_id AND later.lower_at>e.upper_at) GROUP BY e.task_id),"
+  sql=sql || "classified AS (SELECT t.task_id,t.kind,t.state AS current_state,CASE WHEN l.outcome IS NOT NULL THEN l.outcome WHEN EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=t.task_id AND r.state='pending') THEN 'proposal-awaiting-review' WHEN t.state='review' THEN 'review-unconfirmed' WHEN t.escalation_origin='evidence-wait' THEN 'evidence-wait' WHEN t.escalation_origin='capability-wait' THEN 'capability-wait' WHEN t.escalation_origin='evidence-limit' THEN 'technical-hold' WHEN t.state='resolved' THEN 'resolved-other' ELSE 'unassessed' END AS historic_outcome,EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=t.task_id AND r.state='pending') AS pending_review FROM maintenance_tasks t LEFT JOIN last l ON l.task_id=t.task_id) SELECT c.kind,c.current_state,c.historic_outcome,c.pending_review,count(DISTINCT c.task_id),count(DISTINCT a.provider_run_id) FROM classified c LEFT JOIN maintenance_task_items m ON m.task_id=c.task_id LEFT JOIN attempts a ON a.item_id=m.item_id AND a.provider_run_id IS NOT NULL GROUP BY c.kind,c.current_state,c.historic_outcome,c.pending_review ORDER BY c.kind,c.current_state,c.historic_outcome,c.pending_review LIMIT ?1"
+  prepared=.binary
+  if sqliteprepare(database,sql,prepared)\=0 | sqlitebindint(prepared,1,top+1)\=0 then do;call sqlitefinalize prepared;error="cannot prepare task/outcome call breakdown";return -1;end
+  groups=0;more=0
+  do forever
+    step=sqlitestep(prepared);if step=101 then leave
+    if step\=100 then do;call sqlitefinalize prepared;error="cannot read task/outcome call breakdown";return -1;end
+    groups=groups+1
+    if groups>top then do;more=1;leave;end
+    kind="";current_state="";outcome="";has_review=0;count=0;group_calls=0
+    if sqlitecolumntext(prepared,0,kind)\=0 | sqlitecolumntext(prepared,1,current_state)\=0 | sqlitecolumntext(prepared,2,outcome)\=0 | sqlitecolumnint(prepared,3,has_review)\=0 | sqlitecolumnint(prepared,4,count)\=0 | sqlitecolumnint(prepared,5,group_calls)\=0 then do;call sqlitefinalize prepared;error="cannot decode task/outcome call breakdown";return -1;end
+    fields=.ragresultfield[];fields[1]=.ragresultfield("task_kind","string",kind);fields[2]=.ragresultfield("current_state","string",current_state);fields[3]=.ragresultfield("historic_outcome","string",outcome);fields[4]=.ragresultfield("pending_review","boolean",commandboolean(has_review));fields[5]=.ragresultfield("tasks","integer",count);fields[6]=.ragresultfield("provider_calls","integer",group_calls)
+    records[records.0+1]=.ragresultrecord("graph-work-type",fields)
+  end
+  call sqlitefinalize prepared
+  clear fields;fields=.ragresultfield[];fields[1]=.ragresultfield("groups_shown","integer",min(groups,top));fields[2]=.ragresultfield("more_groups","boolean",commandboolean(more));fields[3]=.ragresultfield("limit","integer",top)
+  records[records.0+1]=.ragresultrecord("graph-work-coverage",fields)
+  return 0
 _advisorypromptversion: procedure = .string
   arg profile = .ragprofile
   prompts = profile.prompts()
