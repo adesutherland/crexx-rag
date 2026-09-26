@@ -23,9 +23,13 @@ file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
 
 function(run_cli output)
+    set(selection_args)
+    if(case STREQUAL "large-target")
+        set(selection_args --config gemini-loopback --profile it-architecture-profile)
+    endif()
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env
         "CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key"
-        "CREXXRAG_SELF=${CPRAG_NATIVE_APPLICATION}" "${CPRAG_NATIVE_APPLICATION}" ${ARGN}
+        "CREXXRAG_SELF=${CPRAG_NATIVE_APPLICATION}" "${CPRAG_NATIVE_APPLICATION}" ${selection_args} ${ARGN}
         WORKING_DIRECTORY "${work}" RESULT_VARIABLE status OUTPUT_VARIABLE result ERROR_VARIABLE detail TIMEOUT ${CPRAG_COMMAND_TIMEOUT})
     file(APPEND "${work}/commands.log" "${ARGN}\n${result}${detail}\n")
     if(NOT status EQUAL 0)
@@ -52,6 +56,9 @@ foreach(case IN LISTS CPRAG_CASES)
     if(case STREQUAL "large-acquisition")
         set(request_count 4)
         set(maintenance_calls 2)
+    elseif(case STREQUAL "large-target")
+        set(request_count 20)
+        set(CPRAG_COMMAND_TIMEOUT 120)
     endif()
     if(case STREQUAL "upgrade")
         set(request_count 8)
@@ -114,7 +121,24 @@ foreach(case IN LISTS CPRAG_CASES)
     if(NOT ready)
         message(FATAL_ERROR "durable backlog loopback did not become ready")
     endif()
-    configure_file("${CPRAG_CONFIG_TEMPLATE}" "${work}/crexxrag.conf" @ONLY)
+    if(case STREQUAL "large-target")
+        # The typed configuration exposes the per-call input control needed
+        # to carry multiple bounded pages and a correction in one request.
+        if(NOT DEFINED CPRAG_TYPED_CONFIG_TEMPLATE OR NOT EXISTS "${CPRAG_TYPED_CONFIG_TEMPLATE}")
+            message(FATAL_ERROR "large-target requires a captured typed configuration template")
+        endif()
+        file(READ "${CPRAG_TYPED_CONFIG_TEMPLATE}" typed_config)
+        string(REPLACE "config.id = google-gemini" "config.id = gemini-loopback" typed_config "${typed_config}")
+        string(REPLACE "source.architecture-docs.root = ./source-docs" "source.architecture-docs.root = ${CPRAG_FIXTURE_SOURCE}" typed_config "${typed_config}")
+        string(REPLACE "https://generativelanguage.googleapis.com/v1beta" "http://127.0.0.1:${CPRAG_FIXTURE_PORT}/gemini/v1beta" typed_config "${typed_config}")
+        string(REPLACE "route_class = hosted" "route_class = local" typed_config "${typed_config}")
+        string(REPLACE "env:GEMINI_API_KEY" "env:CPRAG_FIXTURE_GEMINI_KEY" typed_config "${typed_config}")
+        string(REPLACE "role.extractor.max_input_tokens = 8192" "role.extractor.max_input_tokens = 32768" typed_config "${typed_config}")
+        string(REPLACE "worker.processes = 1" "worker.processes = 2" typed_config "${typed_config}")
+        file(WRITE "${work}/crexxrag.conf" "${typed_config}")
+    else()
+        configure_file("${CPRAG_CONFIG_TEMPLATE}" "${work}/crexxrag.conf" @ONLY)
+    endif()
     run_cli(init init)
     run_cli(ingest ingest --yes --workers 1)
     set(database "${work}/library/library.sqlite")
@@ -130,9 +154,46 @@ foreach(case IN LISTS CPRAG_CASES)
         set(note_text "Review source")
         set(note_action "")
     endif()
-    execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
-        "INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) SELECT 'fixture-note','lead','${note_text}',900000,100000,'${note_action}','active','{}','fixture',published_generation,'fixture','fixture' FROM library_meta; INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) SELECT 'fixture-note-link','fixture-note','chunk',revision_chunk_id,revision_chunk_id,0,43 FROM revision_chunks WHERE visible_to_generation IS NULL LIMIT 1;"
-        COMMAND_ERROR_IS_FATAL ANY)
+    if(NOT case STREQUAL "large-target")
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) SELECT 'fixture-note','lead','${note_text}',900000,100000,'${note_action}','active','{}','fixture',published_generation,'fixture','fixture' FROM library_meta; INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) SELECT 'fixture-note-link','fixture-note','chunk',revision_chunk_id,revision_chunk_id,0,43 FROM revision_chunks WHERE visible_to_generation IS NULL LIMIT 1;"
+            COMMAND_ERROR_IS_FATAL ANY)
+    endif()
+    if(case STREQUAL "large-target")
+        string(REPEAT "e" 64 late_source_suffix)
+        string(REPEAT "f" 64 late_revision_suffix)
+        string(REPEAT "a" 64 early_source_suffix)
+        string(REPEAT "b" 64 early_revision_suffix)
+        set(late_source_id "source-sha256:${late_source_suffix}")
+        set(late_revision_id "revision-sha256:${late_revision_suffix}")
+        set(early_source_id "source-sha256:${early_source_suffix}")
+        set(early_revision_id "revision-sha256:${early_revision_suffix}")
+        # The decisive source and target sit beyond independently bounded
+        # passage and catalogue prefixes. These rows are synthetic only.
+        set(late_seed_sql "
+INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('late-artifact','late-raw','text/plain','utf-8',NULL,'fixture://late','fixture');
+INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('late-text','late-digest','PlatformService depends on AzureStore.','fixture','utf8-v1','fixture');
+INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) SELECT '${late_source_id}','fixture','late','${late_revision_id}','active','fixture://late','Late dependency source',published_generation FROM library_meta;
+INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) SELECT '${late_revision_id}','${late_source_id}','late-envelope','late-artifact','late-text','late-meta','fixture',published_generation FROM library_meta;
+INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('late-content','late-content-digest','PlatformService depends on AzureStore.','late-input');
+INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) SELECT 'late-chunk','${late_revision_id}',1,0,38,'late-content','late-continuity','fixture','direct',published_generation FROM library_meta;
+INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('late-chunk','late-content','PlatformService depends on AzureStore.');
+INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('early-artifact','early-raw','text/plain','utf-8',NULL,'fixture://early','fixture');
+INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('early-text','early-digest','PlatformService is catalogued.','fixture','utf8-v1','fixture');
+INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) SELECT '${early_source_id}','fixture','early','${early_revision_id}','active','fixture://early','Earlier catalogue source',published_generation FROM library_meta;
+INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) SELECT '${early_revision_id}','${early_source_id}','early-envelope','early-artifact','early-text','early-meta','fixture',published_generation FROM library_meta;
+INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('early-content','early-content-digest','PlatformService is catalogued.','early-input');
+INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) SELECT 'early-chunk','${early_revision_id}',1,0,30,'early-content','early-continuity','fixture','direct',published_generation FROM library_meta;
+INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('early-chunk','early-content','PlatformService is catalogued.');
+INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) SELECT 'zz-subject','PlatformService','application-component','active',published_generation FROM library_meta UNION ALL SELECT 'zz-target','AzureStore','data-store','active',published_generation FROM library_meta;
+INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'zz-late-subject','zz-subject','late-chunk',0,15,published_generation FROM library_meta UNION ALL SELECT 'zz-late-target','zz-target','late-chunk',27,37,published_generation FROM library_meta;
+WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<105) INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) SELECT 'concept:'||printf('%064x',i),'Platform catalogue candidate with longer metadata','concept','active',published_generation FROM n,library_meta;
+INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'fixture-large-'||c.concept_id,c.concept_id,r.revision_chunk_id,0,14,c.visible_from_generation FROM concepts c JOIN revision_chunks r ON r.visible_to_generation IS NULL AND r.revision_chunk_id='late-chunk' WHERE c.concept_id LIKE 'concept:%' LIMIT 105;
+WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<12) INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'm-subject-'||printf('%03d',i),'zz-subject','early-chunk',0,15,published_generation FROM n,library_meta;
+WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<500) INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'zzzz-byte-mention-'||i,'zz-subject','early-chunk',0,15,published_generation FROM n,library_meta;")
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}" "${late_seed_sql}"
+            COMMAND_ERROR_IS_FATAL ANY)
+    endif()
     if(case STREQUAL "large-acquisition")
         execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
             "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<105) INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) SELECT 'concept:'||printf('%064x',i),'Platform catalogue candidate with longer metadata','concept','active',published_generation FROM n,library_meta; INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'fixture-large-'||c.concept_id,c.concept_id,r.revision_chunk_id,0,14,c.visible_from_generation FROM concepts c JOIN revision_chunks r ON r.visible_to_generation IS NULL WHERE c.concept_id LIKE 'concept:%';"
@@ -151,6 +212,14 @@ foreach(case IN LISTS CPRAG_CASES)
         "SELECT (SELECT count(*) FROM revision_chunks)||':'||(SELECT group_concat(hex(vector)) FROM embeddings)||':'||(SELECT count(*) FROM revision_chunk_embeddings)||':'||(SELECT count(*) FROM provider_runs);"
         OUTPUT_VARIABLE before OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
     file(READ "${work}/crexxrag.conf" config)
+    if(case STREQUAL "large-target")
+        string(REPLACE "budget.minutes = 30" "budget.minutes = 2" config "${config}")
+        string(REPLACE "budget.item_limit = 100" "budget.item_limit = 2" config "${config}")
+        string(REPLACE "budget.model_calls = 50" "budget.model_calls = 2" config "${config}")
+        string(REPLACE "budget.input_tokens = 100000" "budget.input_tokens = 8192" config "${config}")
+        string(REPLACE "budget.output_tokens = 50000" "budget.output_tokens = 1024" config "${config}")
+        string(REPLACE "maintenance.batch_items = 1000\n" "" config "${config}")
+    endif()
     if(CPRAG_CONFIGURED_ROUTE)
         # Hosted planning makes no provider call. The existing public/local
         # case separately exercises execution against synthetic loopback.
@@ -160,6 +229,9 @@ foreach(case IN LISTS CPRAG_CASES)
         string(REPLACE "http://127.0.0.1:" "https://127.0.0.1:" config "${config}")
     endif()
     set(window_items 1)
+    if(case STREQUAL "large-target")
+        set(window_items 10)
+    endif()
     if(case STREQUAL "upgrade")
         set(window_items 2)
     endif()
@@ -188,6 +260,10 @@ foreach(case IN LISTS CPRAG_CASES)
     set(window_calls ${window_items})
     if(case STREQUAL "large-acquisition")
         set(window_calls 2)
+    elseif(case STREQUAL "large-target")
+        set(window_calls 16)
+        string(REPLACE "budget.minutes = 2" "budget.minutes = 10" config "${config}")
+        string(REPLACE "budget.output_tokens = 1024" "budget.output_tokens = 32768" config "${config}")
     endif()
     if(case STREQUAL "upgrade")
         set(window_calls 2)
@@ -203,6 +279,9 @@ foreach(case IN LISTS CPRAG_CASES)
     # The current strict resolution request exceeds half of the old aggregate
     # 8192-token allowance when the two-worker fixture reserves both slots.
     string(REPLACE "budget.input_tokens = 8192" "budget.input_tokens = 16384" config "${config}")
+    if(case STREQUAL "large-target")
+        string(REPLACE "budget.input_tokens = 16384" "budget.input_tokens = 200000" config "${config}")
+    endif()
     if(case STREQUAL "large-acquisition")
         string(REPLACE "budget.input_tokens = 16384" "budget.input_tokens = 20000" config "${config}")
     endif()
@@ -213,6 +292,9 @@ foreach(case IN LISTS CPRAG_CASES)
         string(REPLACE "maintenance.maximum_attempts = 1" "maintenance.maximum_attempts = 2" config "${config}")
         string(REPLACE "maintenance.resolution_prompt = fixture-resolution-prompt" "maintenance.resolution_prompt = Inspect." config "${config}")
         string(APPEND config "maintenance.search_reads = 1\n")
+    elseif(case STREQUAL "large-target")
+        string(REPLACE "maintenance.maximum_attempts = 1" "maintenance.maximum_attempts = 10" config "${config}")
+        string(APPEND config "maintenance.search_reads = 12\n")
     endif()
     if(case STREQUAL "upgrade")
         string(REPLACE "maintenance.maximum_attempts = 1" "maintenance.maximum_attempts = 3" config "${config}")
@@ -239,6 +321,56 @@ foreach(case IN LISTS CPRAG_CASES)
     string(JSON configuration_plan GET "${config_plan}" records 0 fields canonical_plan)
     string(JSON configuration_digest GET "${config_plan}" records 0 fields digest)
     run_cli(config_apply --access admin config apply --plan-json "${configuration_plan}" --expect-digest "${configuration_digest}")
+    if(case STREQUAL "large-target")
+        run_cli(phase_plan --format json --access plan maintain plan --phase graph --cohort-after zz-0 --cohort-limit 1)
+        string(JSON phase_canonical GET "${phase_plan}" records 0 fields canonical_plan)
+        string(JSON phase_digest GET "${phase_plan}" records 0 fields digest)
+        string(JSON phase_policy GET "${phase_canonical}" action window_policy)
+        string(JSON selected_subject GET "${phase_policy}" phase_cohort 0)
+        if(NOT selected_subject STREQUAL "zz-subject")
+            message(FATAL_ERROR "large-target phase did not isolate the synthetic subject: ${selected_subject}")
+        endif()
+        run_cli(phase_apply --format json --access curate maintain apply --plan-json "${phase_canonical}" --expect-digest "${phase_digest}")
+        string(JSON phase_job GET "${phase_apply}" records 0 fields job_id)
+        run_cli(maintain --format json --access control worker start --job "${phase_job}" --count 1 --poll-ms 20 --max-polls 0)
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "SELECT (SELECT count(*) FROM maintenance_tasks WHERE kind='sparse-node' AND subject_id='zz-subject')||':'||(SELECT count(*) FROM maintenance_decisions WHERE disposition='propose-relationship:review')||':'||(SELECT count(*) FROM reviews WHERE state='pending' AND subject_id IN(SELECT task_id FROM maintenance_tasks WHERE subject_id='zz-subject'))||':'||(SELECT count(*) FROM claims WHERE source_concept_id='zz-subject' AND target_concept_id='zz-target')||':'||(SELECT count(*) FROM job_events WHERE event_type='citation-correction-requested')||':'||(SELECT count(*) FROM job_events WHERE event_type='provider-request' AND json_extract(message,'$.body_bytes')=length(CAST(json_extract(message,'$.body') AS BLOB)) AND json_extract(message,'$.body_bytes')<=98304)||':'||(SELECT count(*) FROM job_events WHERE event_type='provider-request')||':'||(SELECT coalesce(sum(reserved_calls+reserved_tokens+reserved_cost),-1) FROM jobs);"
+            OUTPUT_VARIABLE result OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        file(READ "${work}/server.out" server)
+        file(READ "${work}/server.status" server_status)
+        string(REPLACE ":" ";" result_fields "${result}")
+        list(GET result_fields 5 measured_requests)
+        list(GET result_fields 6 retained_requests)
+        if(NOT result MATCHES "^1:1:1:0:1:[0-9]+:[0-9]+:0$" OR
+           NOT measured_requests EQUAL retained_requests OR NOT server_status STREQUAL "0" OR
+           NOT server MATCHES "passage_pages=[2-9]" OR NOT server MATCHES "catalogue_pages=[2-9]")
+            message(FATAL_ERROR "late-target model-wire proposal, paging, correction or exact request bounds failed: ${result}\n${server}\n${maintain}")
+        endif()
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "SELECT (SELECT count(*) FROM maintenance_decisions d,json_each(d.grounding_json,'$[0].items') p WHERE json_extract(d.response_json,'$.question')='passages' AND json_extract(d.response_json,'$.object_id')<>'' AND json_extract(p.value,'$.evidence_id')='zz-late-subject')||':'||(SELECT count(*) FROM maintenance_decisions d,json_each(d.grounding_json,'$[0].items') c WHERE json_extract(d.response_json,'$.question')='catalogue' AND json_extract(d.response_json,'$.object_id')<>'' AND json_extract(c.value,'$.concept_id')='zz-target')||':'||(SELECT count(*) FROM maintenance_decisions WHERE disposition='inspect:pending' AND length(CAST(grounding_json AS BLOB))>8192)||':'||(SELECT count(*) FROM provider_runs)||':'||(SELECT count(*) FROM job_events WHERE event_type='provider-request' AND instr(json_extract(message,'$.body.messages[2].content'),'An invented dependency quotation.')>0 AND instr(json_extract(message,'$.body.messages[3].content'),'Citation correction (one attempt)')>0 AND instr(json_extract(message,'$.body.messages[1].content'),'Selected source spans')>0)||':'||(SELECT count(*) FROM maintenance_decisions WHERE task_id IN(SELECT task_id FROM maintenance_tasks WHERE subject_id='zz-subject'));"
+            OUTPUT_VARIABLE journey OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        if(NOT journey STREQUAL "1:1:0:11:1:8")
+            message(FATAL_ERROR "late source/target, bounded pages, correction history or receipts were incomplete: ${journey}")
+        endif()
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "SELECT (SELECT count(*) FROM (SELECT input_json FROM job_items WHERE item_type='maintenance-resolution' ORDER BY rowid LIMIT 1) WHERE instr(input_json,'late-chunk')>0 OR instr(input_json,'${late_source_id}')>0 OR instr(input_json,'PlatformService depends on AzureStore.')>0)||':'||(SELECT count(*) FROM maintenance_decisions d,json_each(d.grounding_json,'$[0].items') p WHERE d.decision_id=(SELECT decision_id FROM maintenance_decisions WHERE json_extract(response_json,'$.question')='passages' ORDER BY rowid LIMIT 1) AND json_extract(p.value,'$.revision_chunk_id')='late-chunk')||':'||(SELECT count(*) FROM maintenance_decisions d,json_each(d.grounding_json,'$[0].items') p WHERE json_extract(d.response_json,'$.question')='passages' AND json_extract(d.response_json,'$.object_id')<>'' AND json_extract(p.value,'$.revision_chunk_id')='late-chunk');"
+            OUTPUT_VARIABLE late_coverage OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        if(NOT late_coverage STREQUAL "0:0:1")
+            message(FATAL_ERROR "decisive source was visible before bounded passage continuation: ${late_coverage}")
+        endif()
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "SELECT review_id FROM reviews WHERE state='pending' AND subject_id IN(SELECT task_id FROM maintenance_tasks WHERE subject_id='zz-subject') LIMIT 1;"
+            OUTPUT_VARIABLE review_id OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        run_cli(decide --format json --access curate review decide "${review_id}" --decision accept --apply)
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "SELECT (SELECT count(*) FROM claims WHERE source_concept_id='zz-subject' AND target_concept_id='zz-target' AND relationship_type='depends-on' AND visible_to_generation IS NULL)||':'||(SELECT count(*) FROM claim_support s JOIN claims c ON c.claim_id=s.claim_id WHERE c.source_concept_id='zz-subject' AND c.target_concept_id='zz-target' AND s.revision_chunk_id='late-chunk' AND s.span_start=0 AND s.span_end=38); PRAGMA integrity_check; SELECT count(*) FROM pragma_foreign_key_check;"
+            OUTPUT_VARIABLE accepted OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        if(NOT accepted STREQUAL "1:1\nok\n0")
+            message(FATAL_ERROR "review did not publish the exact directed, cited relationship: ${accepted}\n${decide}")
+        endif()
+        run_cli(verify --access diagnose library verify)
+        continue()
+    endif()
     if(case STREQUAL "large-acquisition")
         run_cli(maintain maintain --yes --workers 1)
         run_cli(second maintain --yes --workers 1)

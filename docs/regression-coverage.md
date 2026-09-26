@@ -1461,3 +1461,30 @@ focused R1 reproduction. The current focused selection has 27 current-input
 passes and 117 not-run cases; formal and live gates remain.
 Coordinator re-review 3 accepted R1/R2 at focused checkpoint scope; this is
 not the full local regression or platform qualification.
+
+## Six-item programme final local QA — 26 September 2026
+
+The six reviewed checkpoint commits culminate in `847cea88`. Before the final
+fixture and owner corrections, the required selection had 145/145 passing
+exact-input receipts; its initial local embedding timeout failure and unchanged
+passing rerun are both retained. The separate scale lane passed. A 400-item
+native run used two workers and 200 forced overlapping provider pairs, closed
+400 retain decisions and left no unfinished items or reservations.
+
+`durable_backlog_provider_large-target` passed as a targeted native case after
+separating earlier non-decisive chunks from the late 38-byte relationship
+quotation and capturing the typed Gemini config in its QA receipt identity.
+Its new absence assertion failed on the old seed (`0:8:8`) and passed on the
+corrected seed (`0:0:1`); target paging, exact citation, correction, pending
+review and accepted directed support remained covered. The private-copy
+config edit changed the inspected QA identity without touching product config.
+
+A separate bounded exploratory format-4 case failed first when a zero deadline
+was treated as expired at provider admission. The two owner checks now exempt
+zero while retaining positive finite deadlines. Its exploratory harness was
+removed under Adrian's instruction; no local test was run on the final source
+after that correction. The earlier 145-pass report is not a current-input pass
+for these edits. Adrian withdrew the proposed timed synthetic gate and directed
+publication and per-user installation without more local tests. Live Gemini,
+correct-corpus endurance and other-platform functional QA remain unrun.
+[Local QA record](maintenance-programme-qa-20260926.md).

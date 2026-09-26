@@ -29,7 +29,7 @@ admitprovidercall: procedure = .int
     now_epoch = _scalarint(database, "SELECT CAST(strftime('%s','now') AS INTEGER)")
     if now_epoch < 0 then return _rollback(database, "cannot read the provider admission clock", error)
     if sqliteexec(database, "UPDATE provider_admissions SET outcome='expired',released_epoch=" || now_epoch || " WHERE outcome='active' AND lease_until_epoch<=" || now_epoch) \= 0 then return _rollback(database, "cannot expire stale provider admissions", error)
-    if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch()-coalesce(json_extract(nullif(json_extract(policy_json,'$.timing'),''),'$.cleanup_seconds'),0))*1000<" || timeout_ms || ")",claim.job_id()) > 0 then return _rollback(database,"maintenance deadline reached during provider admission",error)
+    if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch>0 AND (deadline_epoch-unixepoch()-coalesce(json_extract(nullif(json_extract(policy_json,'$.timing'),''),'$.cleanup_seconds'),0))*1000<" || timeout_ms || "))",claim.job_id()) > 0 then return _rollback(database,"maintenance deadline reached during provider admission",error)
     scope = "provider_id=" || _q(provider_id) || " AND model=" || _q(model)
     capacity=.int[]
     /* Cooldown may outlive every recent admission. Read its row independently. */

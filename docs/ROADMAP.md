@@ -1,6 +1,18 @@
 # Master roadmap and defect register
 
-Current decision and status authority — updated 25 September 2026.
+Current decision and status authority — updated 26 September 2026.
+The reviewed six-item maintenance programme has six local checkpoint commits.
+Its earlier candidate passed 145/145 required local cases, the separate scale
+lane, a 400-item two-worker concurrency control and a private staged native
+smoke. The subsequent late-source fixture and typed-config receipt corrections
+passed their targeted case. A bounded synthetic run then reproduced a genuine
+format-4 zero-deadline provider-admission defect; the two owning checks were
+corrected. Adrian directed publication and per-user installation without
+further local test runs, so **the final source has no current-input full-suite
+pass**. The cancelled timed synthetic gate and a later eight-hour correct-corpus
+run are not completed qualification. No live Gemini, protected corpus or beta
+tag is included. [Final local QA evidence](maintenance-programme-qa-20260926.md)
+and [coverage](regression-coverage.md#six-item-programme-final-local-qa--26-september-2026).
 The six-item maintenance enhancement programme is proceeding by reviewed local
 checkpoints. Item 3, sparse-node graph development, is a coordinator-reviewed
 local checkpoint on `temp/enhancement-3-sparse-edge`. A source-backed relationship

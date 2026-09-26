@@ -84,6 +84,56 @@ std::string json_string(const std::string& value)
     return output;
 }
 
+std::string escaped_field_after(const std::string& request, const std::string& field,
+                                std::size_t after = 0)
+{
+    const std::string marker = "\\\"" + field + "\\\":\\\"";
+    const std::size_t start = request.find(marker, after);
+    if (start == std::string::npos) return {};
+    const std::size_t value_start = start + marker.size();
+    const std::size_t end = request.find("\\\"", value_start);
+    return end == std::string::npos ? std::string{} : request.substr(value_start, end - value_start);
+}
+
+std::string last_escaped_field(const std::string& request, const std::string& field)
+{
+    const std::string marker = "\\\"" + field + "\\\":\\\"";
+    const std::size_t start = request.rfind(marker);
+    return start == std::string::npos ? std::string{}
+        : escaped_field_after(request, field, start);
+}
+
+std::string escaped_page_cursor(const std::string& request, const std::string& kind)
+{
+    // History order is not a cursor contract. Select the furthest page of
+    // this kind by its explicit after key, then use that page's next cursor.
+    const std::string marker = "\\\"kind\\\":\\\"" + kind + "\\\"";
+    std::string furthest_after;
+    std::string cursor;
+    for (std::size_t page = request.find(marker); page != std::string::npos;
+         page = request.find(marker, page + marker.size())) {
+        const std::string after = escaped_field_after(request, "after", page);
+        const std::string next = escaped_field_after(request, "next_cursor", page);
+        if (!next.empty() && (cursor.empty() || after > furthest_after)) {
+            furthest_after = after;
+            cursor = next;
+        }
+    }
+    return cursor;
+}
+
+std::string backlog_resolution(const std::string& action, const std::string& object_id,
+                               const std::string& question = {}, const std::string& evidence = "[]",
+                               const std::string& relationship = {})
+{
+    return "{\"action\":" + json_string(action) + ",\"object_id\":" + json_string(object_id)
+        + ",\"target_concept_id\":" + json_string(relationship.empty() ? "" : "C2")
+        + ",\"canonical_label\":\"\",\"concept_type\":\"\",\"successors\":[],\"reason\":\"The exact late source passage supports this directed dependency.\",\"evidence\":"
+        + evidence + ",\"effective_from\":\"\",\"effective_to\":\"\",\"qualifiers_json\":\"{}\",\"question\":"
+        + json_string(question) + ",\"dispositions\":[],\"relationship_type\":"
+        + json_string(relationship) + ",\"resolution_text\":\"\"}";
+}
+
 const char* reason_phrase(int status)
 {
     if (status == 200) return "OK";
@@ -138,6 +188,12 @@ int main(int argc, char** argv)
     int barrier_pairs = 0;
     int first_pass_extractions = 0;
     int large_acquisition_steps = 0;
+    int large_target_stage = 0;
+    int large_target_passage_pages = 0;
+    int large_target_catalogue_pages = 0;
+    std::string large_target_citation;
+    std::string large_target_evidence;
+    int completed_requests = 0;
     std::unordered_map<std::string, int> retry_attempts;
     std::string embedding_retry_target;
     for (int index = 0; index < requests; ++index) {
@@ -261,7 +317,7 @@ int main(int argc, char** argv)
                     http_status = 400;
                     body = R"({"error":{"message":"Invalid schema for response_format codex_output_schema: Missing dispositions.","type":"invalid_request_error","code":"invalid_json_schema","param":"text.format.schema"}})";
                 } else if (!valid_auth || !valid_structured || (!correcting && request.find("maintenance-resolution") == std::string::npos)
-                    || (scenario != "product-backlog-advanced" && scenario != "product-backlog-correction-advanced" && scenario != "product-backlog-upgrade" && scenario != "product-backlog-large-acquisition" && scenario != "product-first-pass" && request.find("fixture-resolution-prompt") == std::string::npos)
+                    || (scenario != "product-backlog-advanced" && scenario != "product-backlog-correction-advanced" && scenario != "product-backlog-upgrade" && scenario != "product-backlog-large-acquisition" && scenario != "product-backlog-large-target" && scenario != "product-first-pass" && request.find("fixture-resolution-prompt") == std::string::npos)
                     || (!correcting && request.find("Reference contract:") == std::string::npos)) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini resolution request shape mismatch"}})";
@@ -276,6 +332,54 @@ int main(int argc, char** argv)
                         resolution = large_acquisition_steps == 1
                             ? R"({"action":"inspect","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"Inspect catalogue.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"catalogue","dispositions":[],"relationship_type":"","resolution_text":""})"
                             : R"({"action":"acquisition-wait","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The inspected catalogue prefix does not justify a change across the remaining subject.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":"Inspect remaining catalogue candidates and source passages","dispositions":[],"relationship_type":"","resolution_text":"Only the first catalogue page was inspected; no full-subject assessment was made."})";
+                    }
+                    if (scenario == "product-backlog-large-target") {
+                        if (large_target_stage == 0) {
+                            resolution = backlog_resolution("inspect", "", "passages");
+                            large_target_stage = 1;
+                            ++large_target_passage_pages;
+                        } else if (large_target_stage == 1) {
+                            const std::size_t late = request.find("\\\"evidence_id\\\":\\\"zz-late-subject\\\"");
+                            if (late != std::string::npos) {
+                                large_target_citation = escaped_field_after(request, "context_citation", late);
+                                if (large_target_citation.empty()) return 6;
+                                resolution = backlog_resolution("inspect", "", "catalogue");
+                                large_target_stage = 2;
+                                ++large_target_catalogue_pages;
+                            } else {
+                                const std::string cursor = escaped_page_cursor(request, "passages");
+                                if (cursor.empty() || large_target_passage_pages >= 4) return 6;
+                                resolution = backlog_resolution("inspect", cursor, "passages");
+                                ++large_target_passage_pages;
+                            }
+                        } else if (large_target_stage == 2) {
+                            if (request.find("\\\"concept_id\\\":\\\"zz-target\\\"") != std::string::npos) {
+                                resolution = backlog_resolution("inspect", "zz-target", "catalogue-target");
+                                large_target_stage = 3;
+                            } else {
+                                const std::string cursor = escaped_page_cursor(request, "catalogue");
+                                if (cursor.empty() || large_target_catalogue_pages >= 4) return 6;
+                                resolution = backlog_resolution("inspect", cursor, "catalogue");
+                                ++large_target_catalogue_pages;
+                            }
+                        } else if (large_target_stage == 3) {
+                            resolution = backlog_resolution("read", large_target_citation);
+                            large_target_stage = 4;
+                        } else if (large_target_stage == 4) {
+                            if (request.find("\\\"evidence_id\\\":\\\"E1\\\"") == std::string::npos
+                                || request.find("\\\"concept_id\\\":\\\"C2\\\"") == std::string::npos) return 6;
+                            large_target_evidence = "E1";
+                            resolution = backlog_resolution("propose-relationship", "S1", "",
+                                "[{\"evidence_id\":" + json_string(large_target_evidence)
+                                + ",\"quote\":\"An invented dependency quotation.\"}]", "depends-on");
+                            large_target_stage = 5;
+                        } else if (large_target_stage == 5) {
+                            if (!correcting || request.find("An invented dependency quotation.") == std::string::npos) return 6;
+                            resolution = backlog_resolution("propose-relationship", "S1", "",
+                                "[{\"evidence_id\":" + json_string(large_target_evidence)
+                                + ",\"quote\":\"PlatformService depends on AzureStore.\"}]", "depends-on");
+                            large_target_stage = 6;
+                        } else return 6;
                     }
                     if (scenario == "product-backlog-advanced" || scenario == "product-backlog-upgrade"
                         || scenario == "product-first-pass") {
@@ -625,11 +729,18 @@ int main(int argc, char** argv)
             send_all(client, response);
             ::close(client);
         }
+        completed_requests = index + 1;
+        if (scenario == "product-backlog-large-target" && large_target_stage == 6) break;
     }
     if (paired_client >= 0) { ::close(paired_client); ::close(server); return 8; }
-    std::cout << "SUMMARY scenario=" << scenario << " connections=" << requests
+    if (scenario == "product-backlog-large-target"
+        && (large_target_stage != 6 || large_target_passage_pages < 2
+            || large_target_catalogue_pages < 2)) return 9;
+    std::cout << "SUMMARY scenario=" << scenario << " connections=" << completed_requests
               << " request_connection_close=" << close_requests
-              << " barrier_pairs=" << barrier_pairs << std::endl;
+              << " barrier_pairs=" << barrier_pairs
+              << " passage_pages=" << large_target_passage_pages
+              << " catalogue_pages=" << large_target_catalogue_pages << std::endl;
     ::close(server);
     return 0;
 }

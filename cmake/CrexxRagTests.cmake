@@ -825,12 +825,17 @@ crexxrag_add_test(NAME task_reset
 set_tests_properties(task_reset PROPERTIES
     TIMEOUT 150 LABELS "regression;maintenance;recovery;surface;zero-outbound")
 
-foreach(case IN ITEMS valid receipt-recovery advanced malformed rejected manual concurrent budget continuation item-limit correction correction-limit correction-failed correction-budget correction-advanced large-acquisition)
+foreach(case IN ITEMS valid receipt-recovery advanced malformed rejected manual concurrent budget continuation item-limit correction correction-limit correction-failed correction-budget correction-advanced large-acquisition large-target)
+set(typed_config_arg)
+if(case STREQUAL "large-target")
+    set(typed_config_arg "-DCPRAG_TYPED_CONFIG_TEMPLATE=${CREXXRAG_APP_DIR}/config/google-gemini.conf")
+endif()
 crexxrag_add_test(NAME durable_backlog_provider_${case}
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
         "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        ${typed_config_arg}
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-durable-backlog-provider-${case}"
         "-DCPRAG_CASES=${case}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DurableBacklogProvider.cmake")
