@@ -139,6 +139,8 @@ def apple_sign_payload(prefix, keychain):
     run("security", "create-keychain", "-p", password, keychain)
     run("security", "set-keychain-settings", "-lut", "21600", keychain)
     run("security", "unlock-keychain", "-p", password, keychain)
+    run("security", "list-keychains", "-d", "user", "-s", keychain)
+    run("security", "default-keychain", "-d", "user", "-s", keychain)
     for kind in ("", "INSTALLER_"):
         cert = keychain.parent / (kind + "certificate.p12")
         cert.write_bytes(base64.b64decode(env[f"APPLE_DEVELOPER_ID_{kind}CERTIFICATE_BASE64"], validate=True))

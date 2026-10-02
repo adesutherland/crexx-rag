@@ -103,7 +103,8 @@ GitHub supplies an empty value for an unset secret; the packager checks the
 effective environment rather than assuming every secret exists.
 [GitHub secret behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
 
-Signing imports credentials into a private temporary keychain, signs the native
+Signing imports credentials into a private temporary keychain, registers it in
+the disposable runner's user search list and selects it as the default, then signs the native
 executable and runtime libraries with hardened runtime and timestamps, verifies
 them, and refreshes the provider's nested runtime hashes. It then signs the PKG,
 submits it to Apple and waits for acceptance, staples the ticket and validates

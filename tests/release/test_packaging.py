@@ -171,6 +171,30 @@ class PackagingTests(unittest.TestCase):
                 package.run("security", "secret-value")
         self.assertNotIn("secret-value", str(caught.exception))
 
+    def test_apple_signing_makes_imported_keychain_searchable_before_signing(self):
+        keychain = Path(self.temp.name) / "signing.keychain-db"
+        credentials = {key: "fixture" for key in package.APPLE_SECRETS}
+        for kind in ("", "INSTALLER_"):
+            credentials[f"APPLE_DEVELOPER_ID_{kind}CERTIFICATE_BASE64"] = "Zml4dHVyZQ=="
+        searchable = False
+        default = False
+        signed = []
+        def signing_tool(*args, **kwargs):
+            nonlocal searchable, default
+            if args[:2] == ("security", "list-keychains"):
+                searchable = args[-1] == keychain
+            if args[:2] == ("security", "default-keychain"):
+                default = args[-1] == keychain
+            if args[0] == "codesign" and "--sign" in args:
+                if not searchable or not default:
+                    raise RuntimeError("The specified item could not be found in the keychain")
+                signed.append(args[-1])
+        def file_type(args, **kwargs):
+            return "Mach-O executable" if args[-1] == str(self.bin / "crexxrag") else "data"
+        with patch.dict(package.os.environ, credentials, clear=True), patch.object(package, "run", side_effect=signing_tool), patch.object(package.subprocess, "check_output", side_effect=file_type):
+            package.apple_sign_payload(self.root, keychain)
+        self.assertEqual(signed, [self.bin / "crexxrag"])
+
     def test_windows_preserves_valid_vendor_signatures(self):
         with patch.dict(package.os.environ, {"PROVIDER":"fixture", "CERTUM_ALIAS":"fixture"}), patch.object(package.subprocess, "run", return_value=SimpleNamespace(returncode=0)), patch.object(package, "run") as signer:
             package.sign_file(self.bin / "engine.so")
