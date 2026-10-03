@@ -157,6 +157,94 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(result["signing"], "signed")
         self.assertEqual((Path(self.temp.name)/"signed unpacked/bin/engine.so").read_bytes(), b"MZenginesignature")
 
+    def publication_fixture(self, corrupt="", existing=False):
+        args = self.windows_input()
+        def sign(path):
+            path.write_bytes(path.read_bytes() + b"signature")
+        def installer(prefix, output, version, helper):
+            output.write_bytes(b"MZinstaller-signature")
+        with patch.dict(package.os.environ, {"PROVIDER":"fixture", "CERTUM_ALIAS":"fixture"}), patch.object(package, "sign_file", side_effect=sign), patch.object(package, "windows_installer", side_effect=installer):
+            package.windows_sign(args)
+        args.repo, args.tag = "owner/repo", "v0.1.0-beta.1"
+        stem = "crexxrag-0.1.0-beta.1-windows-x64-unsigned"
+        unsigned = [stem+".zip", stem+"-setup.exe", stem+".zip.sha256", stem+"-setup.exe.sha256"]
+        unrelated = ["macos-signed.pkg", "crexxrag-0.0.9-windows-x64-unsigned.zip"]
+        remote = {name: b"old download" for name in unsigned + unrelated}
+        if existing:
+            remote.update({p.name: p.read_bytes() for p in args.output.iterdir()})
+        ids = {name:index+1 for index,name in enumerate(sorted(remote))}
+        calls = []
+        def api(command, **kwargs):
+            if command[-2:] == ["--jq", ".sha"]:
+                return "a"*40
+            return json.dumps({"id":73, "tag_name":args.tag, "assets":[{"id":ids[name], "name":name} for name in sorted(remote)]})
+        def transport(*command, **kwargs):
+            command = [str(value) for value in command]
+            calls.append(command)
+            if command[:3] == ["gh", "release", "upload"]:
+                for value in command[3:]:
+                    path = Path(value)
+                    if path.is_file():
+                        remote[path.name] = path.read_bytes()
+                        if path.name not in ids: ids[path.name] = max(ids.values())+1
+            elif command[:3] == ["gh", "release", "download"]:
+                destination = Path(command[command.index("--dir")+1])
+                for index, value in enumerate(command):
+                    if value == "--pattern":
+                        name = command[index+1]
+                        data = remote[name]
+                        if corrupt and name.endswith(corrupt): data += b"transport damage"
+                        (destination/name).write_bytes(data)
+            elif command[:2] == ["gh", "api"] and "DELETE" in command:
+                asset_id = int(command[-1].rsplit("/", 1)[1])
+                name = next(name for name,value in ids.items() if value == asset_id)
+                del remote[name]
+        return args, unsigned, unrelated, remote, calls, api, transport
+
+    def test_verified_upload_removes_only_matching_unsigned_assets(self):
+        args, unsigned, unrelated, remote, calls, api, transport = self.publication_fixture()
+        with patch.object(package.subprocess, "check_output", side_effect=api), patch.object(package, "run", side_effect=transport):
+            package.windows_upload(args)
+        self.assertTrue(all(name not in remote for name in unsigned))
+        self.assertTrue(all(name in remote for name in unrelated))
+        download = next(i for i, command in enumerate(calls) if command[:3] == ["gh", "release", "download"])
+        deletions = [i for i, command in enumerate(calls) if "DELETE" in command]
+        self.assertEqual(len(deletions), 4)
+        self.assertTrue(all(i > download for i in deletions))
+
+    def test_corrupt_uploaded_bytes_preserve_all_unsigned_assets(self):
+        for suffix in (".zip", ".exe", ".zip.sha256", ".exe.sha256"):
+            with self.subTest(asset=suffix):
+                args, unsigned, _, remote, calls, api, transport = self.publication_fixture(corrupt=suffix)
+                with patch.object(package.subprocess, "check_output", side_effect=api), patch.object(package, "run", side_effect=transport):
+                    with self.assertRaisesRegex(ValueError, "Uploaded asset differs"):
+                        package.windows_upload(args)
+                self.assertTrue(all(name in remote for name in unsigned))
+                self.assertFalse(any("DELETE" in command for command in calls))
+
+    def test_interrupted_upload_preserves_unsigned_and_can_resume_existing_bytes(self):
+        args, unsigned, _, remote, calls, api, transport = self.publication_fixture()
+        def interrupted(*command, **kwargs):
+            transport(*command, **kwargs)
+            if command[:3] == ("gh", "release", "upload"):
+                raise RuntimeError("interrupted upload")
+        with patch.object(package.subprocess, "check_output", side_effect=api), patch.object(package, "run", side_effect=interrupted):
+            with self.assertRaisesRegex(RuntimeError, "interrupted upload"):
+                package.windows_upload(args)
+        self.assertTrue(all(name in remote for name in unsigned))
+        self.assertFalse(any("DELETE" in command for command in calls))
+        with patch.object(package.subprocess, "check_output", side_effect=api), patch.object(package, "run", side_effect=transport):
+            package.windows_upload(args)
+        self.assertTrue(all(name not in remote for name in unsigned))
+
+    def test_upload_retry_verifies_existing_assets_without_resigning(self):
+        args, unsigned, _, remote, calls, api, transport = self.publication_fixture(existing=True)
+        with patch.object(package.subprocess, "check_output", side_effect=api), patch.object(package, "run", side_effect=transport), patch.object(package, "sign_file") as signer:
+            package.windows_upload(args)
+            signer.assert_not_called()
+        self.assertFalse(any(command[:3] == ["gh", "release", "upload"] for command in calls))
+        self.assertTrue(all(name not in remote for name in unsigned))
+
     def test_windows_upload_checks_release_identity_before_signing(self):
         args = self.windows_input()
         args.upload, args.repo, args.tag = True, "owner/repo", "v0.1.0-beta.1"

@@ -154,12 +154,31 @@ and verifies the signatures with `osslsigncode`. It writes a new signed ZIP,
 installer and checksums; the original unsigned ZIP is unchanged.
 
 There is **no upload by default**. `--upload` first checks that the chosen tag
-resolves to the payload's exact RAG source SHA. Signed assets use different names
-and do not overwrite the unsigned assets. On an interrupted upload, keep the
-completed signed outputs and retry their `gh release upload` after inspecting
-the remote assets; do not rebuild or re-sign merely to retry transport. Real
-token signing and signed Windows execution still require their first acceptance
-run; simulated signing tests are not certificate-validation evidence.
+resolves to the payload's exact RAG source SHA. Signed assets use different names.
+After upload, the script downloads the signed ZIP, installer and both checksum
+files and compares every hash with the local signed outputs. It rechecks the
+tag/source and release identity before deleting only that version's unsigned
+Windows ZIP, installer and their two checksum files, then confirms the final
+asset list. macOS and other-version assets are preserved. Any upload or
+verification failure retains the unsigned downloads; conflicting signed assets
+are never overwritten.
+
+On an interrupted upload, keep the completed signed outputs and retry transport
+without rebuilding or re-signing:
+
+```sh
+python3 scripts/release/package.py windows-upload \
+  --output /path/to/signed-assets \
+  --repo adesutherland/crexx-rag --tag v0.1.0
+```
+
+The retry verifies local signatures and checksums, uploads only missing assets,
+and verifies existing remote assets before cleanup. It needs no token login.
+Local SimplySign signing and `osslsigncode` verification passed on 3 October
+2026 for the `v0.1.0` input, including the installer, extracted uninstaller,
+NSIS helper DLLs and PowerShell helper. This local acceptance did not upload
+assets or change the release/tag; native execution of this signed installer
+on Windows remains a separate acceptance gate.
 
 ## Local packaging checks
 

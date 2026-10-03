@@ -247,6 +247,70 @@ def sign_file(path):
     run("osslsigncode", "verify", "-in", path, stdout=subprocess.DEVNULL)
 
 
+def check_release_source(meta, repo, tag):
+    if tag != "v" + meta["version"]:
+        raise ValueError("Release tag differs from payload version")
+    target = subprocess.check_output(["gh", "api", f"repos/{repo}/commits/{tag}", "--jq", ".sha"], text=True).strip()
+    if target != meta["source_commit"]:
+        raise ValueError("Release tag differs from payload source")
+
+
+def windows_upload(args):
+    """Publish existing signed bytes; cleanup only after complete readback."""
+    archives = list(args.output.glob("*-windows-x64-signed.zip"))
+    if len(archives) != 1:
+        raise ValueError("Expected exactly one signed Windows ZIP in --output")
+    with tempfile.TemporaryDirectory(prefix="rag-windows-upload-") as temp:
+        prefix = Path(temp) / "payload"
+        meta = unpack(archives[0], prefix)
+        if meta["product"] != "crexxrag" or meta["platform"] != "windows-x64" or meta["signing"] != "signed":
+            raise ValueError("Expected the signed RAG Windows release ZIP")
+        check_release_source(meta, args.repo, args.tag)
+        stem = f"crexxrag-{meta['version']}-windows-x64-signed"
+        zip_path, installer = (args.output / (stem + suffix) for suffix in (".zip", "-setup.exe"))
+        if archives[0] != zip_path:
+            raise ValueError("Signed ZIP filename differs from its inventory")
+        assets = [installer, zip_path, installer.with_name(installer.name + ".sha256"), zip_path.with_name(zip_path.name + ".sha256")]
+        for path in (installer, zip_path):
+            checksum = path.with_name(path.name + ".sha256").read_text().split()
+            if checksum != [digest(path), path.name]:
+                raise ValueError(f"Signed checksum differs: {path.name}")
+        for path in [installer, *sorted(prefix.rglob("*"))]:
+            if path.is_file():
+                with path.open("rb") as stream:
+                    if stream.read(2) == b"MZ" or path.suffix.lower() == ".ps1":
+                        run("osslsigncode", "verify", "-in", path, stdout=subprocess.DEVNULL)
+        endpoint = f"repos/{args.repo}/releases/tags/{args.tag}"
+        release = json.loads(subprocess.check_output(["gh", "api", endpoint], text=True))
+        existing = {row["name"] for row in release["assets"]}
+        missing = [path for path in assets if path.name not in existing]
+        if missing:
+            run("gh", "release", "upload", args.tag, "--repo", args.repo, *missing)
+        remote = Path(temp) / "downloaded"
+        remote.mkdir()
+        command = ["gh", "release", "download", args.tag, "--repo", args.repo, "--dir", remote]
+        for path in assets:
+            command.extend(["--pattern", path.name])
+        run(*command)
+        for path in assets:
+            if not (remote / path.name).is_file() or digest(remote / path.name) != digest(path):
+                raise ValueError(f"Uploaded asset differs: {path.name}; unsigned downloads retained")
+        check_release_source(meta, args.repo, args.tag)
+        current = json.loads(subprocess.check_output(["gh", "api", endpoint], text=True))
+        if current["id"] != release["id"]:
+            raise ValueError("Release changed during upload; unsigned downloads retained")
+        unsigned = f"crexxrag-{meta['version']}-windows-x64-unsigned"
+        obsolete = {unsigned + suffix for suffix in (".zip", "-setup.exe", ".zip.sha256", "-setup.exe.sha256")}
+        for row in current["assets"]:
+            if row["name"] in obsolete:
+                run("gh", "api", "--method", "DELETE", f"repos/{args.repo}/releases/assets/{row['id']}")
+        final = json.loads(subprocess.check_output(["gh", "api", endpoint], text=True))
+        names = {row["name"] for row in final["assets"]}
+        if final["id"] != release["id"] or names & obsolete or not {path.name for path in assets} <= names:
+            raise ValueError("Release asset cleanup did not complete; inspect the release before retrying")
+        print("Verified all four uploaded signed assets; removed matching unsigned Windows downloads.")
+
+
 def windows_sign(args):
     for variable in ("PROVIDER", "CERTUM_ALIAS"):
         if not os.environ.get(variable):
@@ -260,9 +324,7 @@ def windows_sign(args):
         if meta["product"] != "crexxrag" or meta["platform"] != "windows-x64" or meta["signing"] != "unsigned":
             raise ValueError("Expected the unsigned RAG Windows release ZIP")
         if args.upload:
-            target = subprocess.check_output(["gh", "api", f"repos/{args.repo}/commits/{args.tag}", "--jq", ".sha"], text=True).strip()
-            if target != meta["source_commit"]:
-                raise ValueError("Release tag differs from payload source")
+            check_release_source(meta, args.repo, args.tag)
         for path in sorted(prefix.rglob("*")):
             if path.is_file():
                 with path.open("rb") as stream:
@@ -281,8 +343,7 @@ def windows_sign(args):
         archive(prefix, zip_path)
         checksums(args.output)
         if args.upload:
-            run("gh", "release", "upload", args.tag, "--repo", args.repo, installer, zip_path,
-                installer.with_name(installer.name + ".sha256"), zip_path.with_name(zip_path.name + ".sha256"))
+            windows_upload(args)
 
 
 def main():
@@ -301,6 +362,10 @@ def main():
     signing.add_argument("--upload", action="store_true")
     signing.add_argument("--repo")
     signing.add_argument("--tag")
+    upload = sub.add_parser("windows-upload", help="Verify and upload existing signed bytes, then remove matching unsigned assets")
+    upload.add_argument("--output", type=Path, required=True)
+    upload.add_argument("--repo", required=True)
+    upload.add_argument("--tag", required=True)
     helper = sub.add_parser("sign-file")
     helper.add_argument("paths", nargs="+")
     helper.add_argument("--nsis-plugins", action="store_true")
@@ -311,6 +376,8 @@ def main():
         verify_inventory(args.prefix)
     elif args.command == "windows-sign":
         windows_sign(args)
+    elif args.command == "windows-upload":
+        windows_upload(args)
     elif args.nsis_plugins:
         source, target = map(Path, args.paths)
         target.mkdir(parents=True)
