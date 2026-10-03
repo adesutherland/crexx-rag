@@ -268,8 +268,15 @@ passed Windows packaging and portable ZIP verification, then reported a hash
 mismatch on the first installed DLL. A fail-first fixture reproduces the
 filename-escaping form of `sha256sum` output for a backslash-containing host
 path; the digest helper now hashes bytes through stdin. Installed Windows
-execution still requires a passing hosted run. No full product regression is
-claimed for the original tooling change.
+execution and the three-platform release workflow then passed on exact source
+`6daad3585f979687885cb48b6fde58c04e5067bc` in the
+[final hosted run](https://github.com/adesutherland/crexx-rag/actions/runs/37117331656):
+Windows x64 passed the NSIS fixture, packaged ZIP, relocated smoke, installer,
+reinstall, PATH and uninstall checks; macOS arm64 and x86_64 passed their ZIP
+and installer checks. The local current-input gate accounted for 145/145
+required cases, including the executed 22-control packaging case and retained
+exact-input passes. Signed Windows release execution and broader non-macOS
+functional qualification remain separate.
 The preceding SimplySign operation signed and uploaded the `v0.1.0` Windows
 installer/ZIP and removed the unsigned assets. See [the maintained signing guide](build-and-release.md#windows-separate-post-release-signing).
 
