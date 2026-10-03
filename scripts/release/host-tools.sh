@@ -130,7 +130,7 @@ macos_installer() {
     xcrun stapler staple "$output"; xcrun stapler validate "$output"
   fi
 }
-nsis_path() { if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]]; then cygpath -m "$1"; else printf '%s\n' "$1"; fi; }
+nsis_path() { if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]]; then cygpath -w "$1"; else printf '%s\n' "$1"; fi; }
 nsis_escape() { local name="${1//\//\\}"; name="${name//\$/\$\$}"; printf '%s' "${name//\"/\$\\\"}"; }
 # The literal $INSTDIR below is expanded by NSIS, not by this shell.
 # shellcheck disable=SC2016

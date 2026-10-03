@@ -254,8 +254,13 @@ of valid vendor signatures, Windows helper staging, interrupted upload and
 retry, exact unsigned cleanup and preservation of unrelated assets. Cleanup
 checks the signed names are present before deleting the old names, as requested.
 Local cREXX compilation, inventory verification, the real NSIS compiler fixture,
-shellcheck and actionlint pass. The hosted replacement pipeline will be exercised
-by the next release; no full product regression is claimed for this tooling change.
+shellcheck and actionlint pass. The first [replacement hosted run](https://github.com/adesutherland/crexx-rag/actions/runs/37107260601)
+failed before the Windows SDK build: native NSIS could not include the generated
+uninstall list passed through Git Bash as a forward-slash path. The new NSIS
+path-contract fixture first failed against that baseline, then passed with
+Windows-native path conversion; the real local NSIS fixture remains a positive
+control. The repaired Windows job still requires hosted execution. No full
+product regression is claimed for the original tooling change.
 The preceding SimplySign operation signed and uploaded the `v0.1.0` Windows
 installer/ZIP and removed the unsigned assets. See [the maintained signing guide](build-and-release.md#windows-separate-post-release-signing).
 
