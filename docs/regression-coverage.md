@@ -247,7 +247,7 @@ and receipt accounting. The separate scale lane is unchanged.
 ## Installer tooling — 20 September 2026
 
 On 3 October 2026 the release orchestration was replaced with cREXX and native
-shell helpers, including the relocated smoke. `release_packaging` now runs 20
+shell helpers, including the relocated smoke. `release_packaging` now runs 21
 private shell-fixture controls covering provider hash refresh, payload file and
 hash integrity, ZIP permissions, metadata, all nine Apple settings, preservation
 of valid vendor signatures, Windows helper staging, interrupted upload and
@@ -259,8 +259,13 @@ failed before the Windows SDK build: native NSIS could not include the generated
 uninstall list passed through Git Bash as a forward-slash path. The new NSIS
 path-contract fixture first failed against that baseline, then passed with
 Windows-native path conversion; the real local NSIS fixture remains a positive
-control. The repaired Windows job still requires hosted execution. No full
-product regression is claimed for the original tooling change.
+control. The [first repair run](https://github.com/adesutherland/crexx-rag/actions/runs/37115355731)
+passed that NSIS fixture and reached Windows packaging, where native `jq` CRLF
+output caused a false provider-hash mismatch. A second fail-first fixture now
+exercises that Windows text boundary, and the shared shell helper normalizes
+`jq` output before parsing. The repaired Windows packaging and installer still
+require hosted execution. No full product regression is claimed for the original
+tooling change.
 The preceding SimplySign operation signed and uploaded the `v0.1.0` Windows
 installer/ZIP and removed the unsigned assets. See [the maintained signing guide](build-and-release.md#windows-separate-post-release-signing).
 

@@ -18,6 +18,16 @@ jq -n --arg hash "$hash" '{version:1,provider:"rxllama",platform:"Darwin",arch:"
 runtime_hash="$(shasum -a 256 "$payload/bin/rxllama.runtime.json" | cut -d ' ' -f1)"
 jq -n --arg hash "$hash" --arg runtime "$runtime_hash" '{version:1,provider:"rxllama",platform:"Darwin",arch:"arm64",engine:"pinned",link_libraries:[{path:"engine.so",sha256:$hash}],runtime_files:[{path:"engine.so",sha256:$hash},{path:"rxllama.runtime.json",sha256:$runtime}]}' > "$payload/bin/rxllama.native.json"
 bash "$HOST" provider "$payload/bin"; pass 'provider positive control'
+mkdir -p "$work/tools"
+cat > "$work/tools/jq" <<'STUB'
+#!/usr/bin/env bash
+set -o pipefail
+"$REAL_JQ" "$@" | awk '{printf "%s\r\n", $0}'
+STUB
+chmod +x "$work/tools/jq"
+REAL_JQ="$(command -v jq)" PATH="$work/tools:$PATH" bash "$HOST" provider "$payload/bin"
+pass 'provider accepts native Windows jq CRLF output'
+rm "$work/tools/jq"
 printf 'signed engine' > "$payload/bin/engine.so"
 reject bash "$HOST" provider "$payload/bin"; pass 'changed provider bytes rejected'
 bash "$HOST" provider "$payload/bin" refresh
