@@ -5,7 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 # The native Windows jq executable writes CRLF; normalize its text before Bash reads it.
 jq() { command jq "$@" | tr -d '\r'; }
-digest() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d ' ' -f 1; }
+# Hash stdin so sha256sum cannot escape a native Windows pathname into the hash field.
+digest() { if command -v sha256sum >/dev/null; then sha256sum -b < "$1"; else shasum -a 256 < "$1"; fi | cut -d ' ' -f 1; }
 absolute() { local path="$1"; (cd "$(dirname "$path")" && printf '%s/%s\n' "$PWD" "$(basename "$path")"); }
 local_file() {
   local root="$1" name="$2" parent

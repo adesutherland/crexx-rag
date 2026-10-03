@@ -39,6 +39,19 @@ reject bash "$HOST" provider "$payload/bin" refresh; pass 'provider escape rejec
 mv "$work/native.json" "$payload/bin/rxllama.native.json"; rm "$payload/outside"
 bash "$HOST" inventory "$payload" 0.1.0-beta.1 "$commit" "$crexx" macos-arm64 unsigned
 bash "$HOST" verify "$payload"; pass 'complete inventory positive control'
+escaped_root="$work/payload\\windows"
+cp -R "$payload" "$escaped_root"
+cat > "$work/tools/sha256sum" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+result="$("$REAL_SHA256SUM" "$@")"
+if [[ "${1:-}" == *\\* ]]; then printf '\\%s\n' "$result"; else printf '%s\n' "$result"; fi
+STUB
+chmod +x "$work/tools/sha256sum"
+REAL_SHA256SUM="$(command -v sha256sum)" PATH="$work/tools:$PATH" \
+  bash "$HOST" verify "$escaped_root"
+pass 'inventory hashes files under a backslash-containing host path'
+rm "$work/tools/sha256sum"
 touch "$payload/extra"; reject bash "$HOST" verify "$payload"; rm "$payload/extra"; pass 'extra file rejected'
 cp "$payload/bin/crexxrag" "$work/application"
 printf changed > "$payload/bin/crexxrag"; reject bash "$HOST" verify "$payload"; pass 'changed file rejected'
