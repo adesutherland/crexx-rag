@@ -246,15 +246,18 @@ and receipt accounting. The separate scale lane is unchanged.
 
 ## Installer tooling — 20 September 2026
 
-The 3 October 2026 Windows signing follow-up adds verified upload/cleanup and
-transport retry controls to `release_packaging` (21 tooling tests, with damaged
-readback controls for all four uploaded assets). Successful readback removes
-only matching unsigned Windows assets; corruption and interrupted transport
-retain them. Retry verifies existing bytes without signing again. Actual local
-SimplySign signing and Authenticode/timestamp checks pass for the `v0.1.0`
-payload, installer, extracted uninstaller and helper files. No release/tag was
-changed by this acceptance; signed installer execution on Windows and actual
-GitHub upload/cleanup remain separate. See [the maintained signing guide](build-and-release.md#windows-separate-post-release-signing).
+On 3 October 2026 the release orchestration was replaced with cREXX and native
+shell helpers, including the relocated smoke. `release_packaging` now runs 20
+private shell-fixture controls covering provider hash refresh, payload file and
+hash integrity, ZIP permissions, metadata, all nine Apple settings, preservation
+of valid vendor signatures, Windows helper staging, interrupted upload and
+retry, exact unsigned cleanup and preservation of unrelated assets. Cleanup
+checks the signed names are present before deleting the old names, as requested.
+Local cREXX compilation, inventory verification, the real NSIS compiler fixture,
+shellcheck and actionlint pass. The hosted replacement pipeline will be exercised
+by the next release; no full product regression is claimed for this tooling change.
+The preceding SimplySign operation signed and uploaded the `v0.1.0` Windows
+installer/ZIP and removed the unsigned assets. See [the maintained signing guide](build-and-release.md#windows-separate-post-release-signing).
 
 `release_packaging` adds one isolated fast case (16 release-tooling controls),
 bringing the registered required selection to 134 cases. The pre-change

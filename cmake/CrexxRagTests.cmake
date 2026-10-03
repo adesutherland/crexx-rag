@@ -1111,9 +1111,10 @@ crexxrag_add_test(NAME regression_sql_performance
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ProjectContract.cmake")
 set_tests_properties(regression_sql_performance PROPERTIES TIMEOUT 150 LABELS "regression;sqlite;zero-outbound")
 
-crexxrag_add_test(NAME release_packaging COMMAND "${Python3_EXECUTABLE}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/tests/release/test_packaging.py")
-set_tests_properties(release_packaging PROPERTIES TIMEOUT 30 LABELS "release;packaging;zero-outbound")
+find_program(CREXXRAG_RELEASE_BASH NAMES bash REQUIRED)
+crexxrag_add_test(NAME release_packaging COMMAND "${CREXXRAG_RELEASE_BASH}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/release/test_packaging.sh")
+set_tests_properties(release_packaging PROPERTIES TIMEOUT 90 LABELS "release;packaging;zero-outbound")
 
 crexxrag_add_test(NAME qa_execution COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/qa/test_execution.py")

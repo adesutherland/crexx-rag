@@ -42,7 +42,7 @@ try {
                 if (!(Test-Path $uninstallKey)) { throw 'Missing uninstall registration.' }
             }
             if ($case -eq 'normal') {
-                & python (Join-Path $PSScriptRoot 'smoke.py') --prefix $installRoot
+                & crexx -nokeep (Join-Path $PSScriptRoot 'smoke.crexx') --args --prefix $installRoot
                 if ($LASTEXITCODE -ne 0) { throw 'Installed native smoke failed.' }
             }
             # Uninstall must preserve user data even inside the application folder.

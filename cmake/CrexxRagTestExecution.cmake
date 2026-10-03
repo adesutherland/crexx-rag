@@ -78,13 +78,15 @@ function(crexxrag_add_test)
     endif()
     if(name STREQUAL "release_packaging")
         list(APPEND inputs
-            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/package.py"
-            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/smoke.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/package.crexx"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/smoke.crexx"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/host-tools.sh"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/metadata.sh"
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/test-windows-installer.ps1"
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sign-windows-release.sh"
             "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/crexxrag.nsi"
             "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/update-user-path.ps1"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tests/release/test_nsis.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/release/test_nsis.sh"
             "${CMAKE_CURRENT_SOURCE_DIR}/.github/workflows/build-release.yml"
             "${CMAKE_CURRENT_SOURCE_DIR}/.github/crexx-revision.txt")
     endif()

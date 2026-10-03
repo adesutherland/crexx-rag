@@ -1,0 +1,80 @@
+/* Zero-outbound relocated package check, using private mutable state. */
+options levelg
+import rxfnsb
+import rxjson
+main: procedure = .int
+  arg args = .string[]
+  if args.0 <> 2 then return 2
+  source = args.2
+  ignored = .string[]; prefix = .string; result = .string; parsed = .int
+  paths = host("work",""); work = paths[1]
+  if args.1 = "--archive" then do
+    prefix = work || "/payload"
+    ignored = host("unpack " || quote(source) || " " || quote(prefix),work)
+  end
+  else if args.1 = "--prefix" then prefix = source
+  else do
+    ignored = host("cleanup " || quote(work),"")
+    return 2
+  end
+  ignored = host("verify " || quote(prefix) || " installed",work)
+  paths = host("absolute " || quote(prefix),work); prefix = paths[1]
+  binary = prefix || "/bin/crexxrag"
+  if getenv("OS") = "Windows_NT" then binary = binary || ".exe"
+  commands = .string[]
+  commands.1 = "--access admin library init"
+  commands.2 = "--access control worker start --count 2 --poll-ms 50 --max-polls 4"
+  commands.3 = "--access diagnose library verify"
+  process = .string[]; process.1 = "bash"; process.2 = "-c"
+  do i = 1 to commands.0
+    response = .string[]
+    invocation = "cd " || quote(work) || " && env -u CREXX_HOME -u REXX_HOME -u CREXXRAG_CONFIG -u RX_PLUGIN_PATH CREXXRAG_SELF=" || quote(binary) || " " || quote(binary) || " --library " || quote(work || "/library") || " --config architecture-local --profile generic-profile --format json " || commands[i]
+    process.3 = invocation
+    address crexx "run :process[]" output response
+    status = rc
+    if status = 0 & response.0 > 0 then do
+      document = .jsondocument(response[1])
+      parsed = document.node_string(document.member(document.root(),"status"),result)
+      if result <> "ok" then status = 1
+      exit_code = 1
+      parsed = document.node_int(document.member(document.root(),"exit_code"),exit_code)
+      if exit_code <> 0 then status = 1
+      if i = 2 then do
+        records = document.member(document.root(),"records")
+        fields = document.member(document.element(records,1),"fields")
+        completed = 0; failed = 0
+        parsed = document.node_int(document.member(fields,"workers_completed"),completed)
+        parsed = document.node_int(document.member(fields,"workers_failed"),failed)
+        if completed <> 2 | failed <> 0 then status = 1
+      end
+    end
+    else status = 1
+    if status <> 0 then do
+      ignored = host("cleanup " || quote(work),"")
+      return status
+    end
+  end
+  ignored = host("cleanup " || quote(work),"")
+  say "Relocated release check passed; provider calls: 0."
+  return 0
+
+host: procedure = .string[]
+  arg command = .string, work = .string
+  result = .string[]
+  invocation = .string[]
+  invocation.1 = "bash"; invocation.2 = "-c"
+  invocation.3 = "bash scripts/release/host-tools.sh " || command
+  address crexx "run :invocation[]" output result
+  status = rc
+  if status <> 0 then do
+    if work <> "" then do
+      invocation.3 = "bash scripts/release/host-tools.sh cleanup " || quote(work)
+      address crexx "run :invocation[]"
+    end
+    exit status
+  end
+  return result
+
+quote: procedure = .string
+  arg value = .string
+  return "'" || changestr("'",value,"'\''") || "'"

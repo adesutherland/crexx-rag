@@ -7,7 +7,8 @@ RAG and its required CREXX native runtime; users do not need a separate CREXX
 installation. Models, credentials and user libraries are not bundled.
 
 Implementation: [workflow](../.github/workflows/build-release.yml),
-[packager](../scripts/release/package.py),
+[cREXX packager](../scripts/release/package.crexx),
+[native host tools](../scripts/release/host-tools.sh),
 [Windows installer](../packaging/windows/crexxrag.nsi).
 The [delivery record](installer-delivery-20260920.md) distinguishes local checks
 from hosted platform and real-signing acceptance.
@@ -130,7 +131,7 @@ Restart the terminal after installation to receive the new PATH.
 
 The maintainer runs [the separate signing script](../scripts/sign-windows-release.sh)
 on their signing machine, following CREXX's PKCS11 workflow. Requirements:
-Python 3.11+, NSIS (`makensis`), `jsign`, `osslsigncode`, the local token/provider,
+cREXX, Bash, `jq`, CMake, NSIS (`makensis`), `jsign`, `osslsigncode`, the local token/provider,
 and `gh` only when uploading. Set `PROVIDER` to the PKCS11 configuration and
 `CERTUM_ALIAS` to the token identity; `TSA_URL` optionally overrides the existing
 Certum timestamp service. Credentials stay on that machine.
@@ -155,9 +156,8 @@ installer and checksums; the original unsigned ZIP is unchanged.
 
 There is **no upload by default**. `--upload` first checks that the chosen tag
 resolves to the payload's exact RAG source SHA. Signed assets use different names.
-After upload, the script downloads the signed ZIP, installer and both checksum
-files and compares every hash with the local signed outputs. It rechecks the
-tag/source and release identity before deleting only that version's unsigned
+After upload, the script checks that the signed ZIP, installer and both checksum
+files are present. It rechecks the tag/source and release identity before deleting only that version's unsigned
 Windows ZIP, installer and their two checksum files, then confirms the final
 asset list. macOS and other-version assets are preserved. Any upload or
 verification failure retains the unsigned downloads; conflicting signed assets
@@ -167,38 +167,39 @@ On an interrupted upload, keep the completed signed outputs and retry transport
 without rebuilding or re-signing:
 
 ```sh
-python3 scripts/release/package.py windows-upload \
+crexx -nokeep scripts/release/package.crexx --args windows-upload \
   --output /path/to/signed-assets \
   --repo adesutherland/crexx-rag --tag v0.1.0
 ```
 
-The retry verifies local signatures and checksums, uploads only missing assets,
-and verifies existing remote assets before cleanup. It needs no token login.
+The retry verifies the local inventory and checksums, uploads only missing assets,
+and checks remote asset names before cleanup. It needs no token login.
 Local SimplySign signing and `osslsigncode` verification passed on 3 October
 2026 for the `v0.1.0` input, including the installer, extracted uninstaller,
-NSIS helper DLLs and PowerShell helper. This local acceptance did not upload
-assets or change the release/tag; native execution of this signed installer
-on Windows remains a separate acceptance gate.
+NSIS helper DLLs and PowerShell helper. Signed Windows assets were subsequently
+uploaded to `v0.1.0` and their unsigned counterparts removed; the version and
+tag were unchanged. The cREXX/shell replacements have local tooling checks;
+the next release will exercise the hosted packaging and signing paths.
 
 ## Local packaging checks
 
 ```sh
-python3 tests/release/test_packaging.py
+bash tests/release/test_packaging.sh
 # With NSIS installed; CI runs this before the Windows dependency build:
-python3 tests/release/test_nsis.py
+bash tests/release/test_nsis.sh
 actionlint .github/workflows/build-release.yml
-shellcheck scripts/sign-windows-release.sh
+shellcheck scripts/sign-windows-release.sh scripts/release/*.sh tests/release/*.sh
 # After normal configure/build, the same contract is a fast CTest case:
 ctest --preset fast -R '^release_packaging$' --output-on-failure
 ```
 
 For a development macOS package, stage an already built application with
 `cmake --install <build-dir> --prefix <private-prefix>` and invoke
-`python3 scripts/release/package.py package` with `--prefix`, `--output`,
+`crexx -nokeep scripts/release/package.crexx --args package` with `--prefix`, `--output`,
 `--version`, full `--commit`, full `--crexx-commit` and
 `--platform macos-arm64` or `macos-x86_64`. Use an empty output directory per
 build. This command checks the effective Apple environment just like CI.
-`python3 scripts/release/smoke.py --archive <zip>` verifies and executes the
+`crexx -nokeep scripts/release/smoke.crexx --args --archive <zip>` verifies and executes the
 relocated application using disposable state.
 
 The local Windows script compiler check can run on macOS with NSIS, but only

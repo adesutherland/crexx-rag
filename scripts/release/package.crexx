@@ -1,0 +1,123 @@
+/* SPDX-License-Identifier: MIT
+ * Release orchestration. Native platform interfaces live in host-tools.sh.
+ * Published tags are never created or moved by this script.
+ */
+options levelb
+import rxfnsb
+main: procedure = .int
+  arg args = .string[]
+  if args.0 = 0 then do
+    say "usage: crexx -nokeep scripts/release/package.crexx --args package|verify|windows-sign|windows-upload [options]"
+    return 2
+  end
+  command = args.1
+  ignored = .string[]
+  prefix = ""; output_dir = ""; version = ""; commit = ""; crexx_commit = ""; platform = ""
+  archive = ""; repository = ""; tag = ""; upload = 0
+  i = .int; option = .string; value = .string
+  if command = "verify" then do
+    if args.0 <> 2 then return 2
+    ignored = host("verify " || quote(args.2),"")
+    return 0
+  end
+  i = 2
+  do while i <= args.0
+    option = args[i]
+    if option = "--upload" then upload = 1
+    else do
+      i = i + 1
+      if i > args.0 then return 2
+      value = args[i]
+      select
+        when option = "--prefix" then prefix = value
+        when option = "--output" then output_dir = value
+        when option = "--version" then version = value
+        when option = "--commit" then commit = value
+        when option = "--crexx-commit" then crexx_commit = value
+        when option = "--platform" then platform = value
+        when option = "--zip" then archive = value
+        when option = "--repo" then repository = value
+        when option = "--tag" then tag = value
+        otherwise return 2
+      end
+    end
+    i = i + 1
+  end
+  if output_dir = "" then return 2
+  if (command = "windows-upload" | upload) & (repository = "" | tag = "") then return 2
+  if command = "package" & (prefix = "" | version = "" | commit = "" | crexx_commit = "" | platform = "") then return 2
+  if command = "windows-sign" & archive = "" then return 2
+  if command <> "package" & command <> "windows-sign" & command <> "windows-upload" then return 2
+  paths = .string[]
+  address crexx "run cmake -E make_directory :output_dir"
+  if rc <> 0 then return rc
+  paths = host("work","")
+  work = strip(paths[1]); payload = work || "/payload"
+  state = "unsigned"
+  if command = "package" then do
+    ignored = host("prepare " || quote(prefix) || " " || quote(payload) || " " || quote(platform) || " " || quote(output_dir),work)
+    if left(platform,5) = "macos" then do
+      paths = host("apple_state",work)
+      state = strip(paths[1])
+      if state = "signed" then ignored = host("apple_sign " || quote(payload) || " " || quote(work),work)
+    end
+  end
+  else if command = "windows-sign" then do
+    ignored = host("unpack " || quote(archive) || " " || quote(payload),work)
+    ignored = host("identity " || quote(payload) || " windows-x64 unsigned",work)
+    paths = host("metadata " || quote(payload),work)
+    version = paths[1]; commit = paths[2]; crexx_commit = paths[3]; platform = paths[4]
+    if upload then ignored = host("check_source " || quote(payload || "/release.json") || " " || quote(repository) || " " || quote(tag),work)
+    ignored = host("sign_payload " || quote(payload),work)
+    state = "signed"
+  end
+  if command <> "windows-upload" then do
+    ignored = host("inventory " || quote(payload) || " " || quote(version) || " " || quote(commit) || " " || quote(crexx_commit) || " " || quote(platform) || " " || quote(state),work)
+    stem = output_dir || "/crexxrag-" || version || "-" || platform || "-" || state
+    if left(platform,5) = "macos" then ignored = host("macos_installer " || quote(payload) || " " || quote(stem || ".pkg") || " " || quote(version) || " " || quote(work) || " " || quote(state),work)
+    else do
+      helper = ""
+      if state = "signed" then do
+        ignored = host("sign-helper " || quote(work),work)
+        helper = work || "/sign-helper.sh"
+      end
+      ignored = host("windows_installer " || quote(payload) || " " || quote(stem || "-setup.exe") || " " || quote(version) || " " || quote(work) || " " || quote(helper),work)
+      if state = "signed" then ignored = host("sign-file " || quote(stem || "-setup.exe"),work)
+    end
+    ignored = host("archive_payload " || quote(payload) || " " || quote(stem || ".zip"),work)
+    ignored = host("checksums " || quote(output_dir),work)
+    say "Installer and ZIP:" state "source" commit
+    summary = getenv("GITHUB_STEP_SUMMARY")
+    if summary <> "" then do
+      call lineout summary,"Installer and ZIP: " || state || ". Source " || commit || "."
+      if state = "signed" & left(platform,5) = "macos" then call lineout summary,"The macOS PKG is notarized and stapled."
+      call lineout summary
+    end
+  end
+  if command = "windows-upload" | upload then do
+    ignored = host("windows_upload " || quote(output_dir) || " " || quote(repository) || " " || quote(tag) || " " || quote(work),work)
+  end
+  ignored = host("cleanup " || quote(work),"")
+  return 0
+
+host: procedure = .string[]
+  arg command = .string, work = .string
+  result = .string[]
+  invocation = .string[]
+  invocation.1 = "bash"; invocation.2 = "-c"
+  invocation.3 = "bash scripts/release/host-tools.sh " || command
+  address crexx "run :invocation[]" output result
+  status = rc
+  if status <> 0 then do
+    if work <> "" then do
+      invocation.3 = "bash scripts/release/host-tools.sh cleanup " || quote(work)
+      address crexx "run :invocation[]"
+    end
+    say "Release operation failed (exit " || status || ")."
+    exit status
+  end
+  return result
+
+quote: procedure = .string
+  arg value = .string
+  return "'" || changestr("'",value,"'\''") || "'"
