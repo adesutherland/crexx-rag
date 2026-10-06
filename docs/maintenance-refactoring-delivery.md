@@ -1730,3 +1730,14 @@ loop, and no new index or write cost was added. Detailed selection and QA
 receipts are in the private item-6 handoff and the SQL performance delivery
 record. Formal regression, hosted/corpus use, installation and platform
 qualification remain deferred.
+## 6 October bounded release repair ownership
+
+The reset transition stays in `ragbacklog.resetbacklogtasks`; `ragproduct`
+only exposes its aggregate outcome and blocker list. The report's existing
+`ragreportservice` ledger remains the single accounting owner; its added field
+definitions are explanatory text. The legacy zero-call refusal is at the
+`ragproduct` maintenance-plan boundary, with format-4 interpretation still in
+the existing configuration/admission owners. The CLI/MCP reset description
+remains in `ragcommandcatalog`. Regression names, baseline reproduction and
+qualification are recorded in [the bounded change record](release-repair-20261006.md)
+and [coverage matrix](regression-coverage.md#6-october-bounded-release-repair).

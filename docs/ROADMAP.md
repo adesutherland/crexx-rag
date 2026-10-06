@@ -62,6 +62,17 @@ prompt/quotation, checkpoint/restart and advanced-call repairs remain included.
 
 ## Recent defects and delivery status
 
+6 October bounded release repair: **145/145 local regression receipts passed;
+hosted platform packaging is a separate release gate; no corpus reset was
+requested**. Bulk task reset
+now commits eligible tasks while reporting each running or evidence-limited
+blocker with a partial failure. Library reporting defines its retained-history
+accounting fields without changing the ledger. Format-3 zero call-budget
+refusal points to format 4, and coverage guidance uses the working report
+command. The release workflow selects checksum-pinned CREXX 1.0.0-beta.3 core
+and llama binaries instead of rebuilding CREXX. [Change record](release-repair-20261006.md),
+[coverage](regression-coverage.md#6-october-bounded-release-repair).
+
 Optional aggregate limits (25 September): **reviewed local checkpoint;
 full qualification, installation and publication remain pending**.
 Configuration format 4 explicitly opts into zero as unlimited for aggregate
@@ -174,7 +185,7 @@ implemented. Hosted gates and release status are separate from this local QA.
 
 | ID | Status | Scope and evidence |
 | --- | --- | --- |
-| RAG-REL-001 | Published; replacement three-platform hosted build passed; signed Windows execution pending | Windows x64 and macOS Apple Silicon/Intel build/installers, unsigned macOS fallback when credentials are missing, pinned CREXX dependency, package identity/hash checks and separate Windows post-release signing. [PR #1](https://github.com/adesutherland/crexx-rag/pull/1) merged on 22 September. Its [initial hosted gate](https://github.com/adesutherland/crexx-rag/actions/runs/35518552817) passed native builds, portable ZIPs, actual installer execution and Windows reinstall/PATH/uninstall controls. A published upstream SDK archive remains the preferred future dependency route; current runtime snapshots lack required SDK files. [Dependency evidence](integration-issues.md#snapshot-sdk-packaging--20-september-2026), [delivery](installer-delivery-20260920.md), [operator setup](build-and-release.md). Stable v0.1.0 is published. Local token signing and upload/cleanup passed on 3 October 2026; signed Windows downloads replaced unsigned assets without changing the version or tag. The cREXX/shell replacement tooling exposed Windows NSIS path, native `jq` CRLF and installed-file hash parsing failures. All three have fail-first local controls; the repaired exact source `6daad3585f979687885cb48b6fde58c04e5067bc` passed [hosted Windows x64 and macOS arm64/x86_64 packaging, ZIP and installer checks](https://github.com/adesutherland/crexx-rag/actions/runs/37117331656). [Regression detail](regression-coverage.md#installer-tooling--20-september-2026). |
+| RAG-REL-001 | Published; replacement three-platform hosted build passed; signed Windows execution pending | Windows x64 and macOS Apple Silicon/Intel build/installers, unsigned macOS fallback when credentials are missing, pinned CREXX dependency, package identity/hash checks and separate Windows post-release signing. [PR #1](https://github.com/adesutherland/crexx-rag/pull/1) merged on 22 September. Its [initial hosted gate](https://github.com/adesutherland/crexx-rag/actions/runs/35518552817) passed native builds, portable ZIPs, actual installer execution and Windows reinstall/PATH/uninstall controls. The 6 October repair consumes SHA-256-pinned CREXX 1.0.0-beta.3 core and llama binary assets directly; its three-platform hosted gate remains pending. Earlier runtime snapshots lacked CMake SDK exports. [Dependency evidence](integration-issues.md#snapshot-sdk-packaging--20-september-2026), [delivery](installer-delivery-20260920.md), [operator setup](build-and-release.md). Stable v0.1.0 is published. Local token signing and upload/cleanup passed on 3 October 2026; signed Windows downloads replaced unsigned assets without changing the version or tag. The cREXX/shell replacement tooling exposed Windows NSIS path, native `jq` CRLF and installed-file hash parsing failures. All three have fail-first local controls; the repaired exact source `6daad3585f979687885cb48b6fde58c04e5067bc` passed [hosted Windows x64 and macOS arm64/x86_64 packaging, ZIP and installer checks](https://github.com/adesutherland/crexx-rag/actions/runs/37117331656). [Regression detail](regression-coverage.md#installer-tooling--20-september-2026). |
 
 “Locally repaired” closes the named reproduction, not the wider umbrella
 qualification. Historical corpus outcomes remain dated evidence.

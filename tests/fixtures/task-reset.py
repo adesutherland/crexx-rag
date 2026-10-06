@@ -10,9 +10,12 @@ binary, template, directory = sys.argv[1:]
 work = Path(directory).resolve()
 (work / "source").mkdir()
 (work / "source/history.txt").write_text("Platform depends on Peer.\n")
+(work / "source/oversized.txt").write_text("Oversized alias evidence.\n")
 (work / "glossary.tsv").write_text("format\tcrexx-rag.glossary/1\nconcept\tPlatform\tapplication-component\nconcept\tPeer\tdata-store\n")
 config = Path(template).read_text().replace("@CPRAG_FIXTURE_SOURCE@", str(work / "source"))
 config = config.replace("@CPRAG_FIXTURE_GLOSSARY@", str(work / "glossary.tsv")).replace("@CPRAG_FIXTURE_PORT@", "1")
+config = config.replace("budget.item_limit = 2", "budget.item_limit = 10")
+config = config.replace("budget.model_calls = 2", "budget.model_calls = 10")
 (work / "crexxrag.conf").write_text(config + "\nmaintenance.mode = manual\n")
 base = [binary, "--library", str(work / "library"), "--config-file", str(work / "crexxrag.conf"), "--format", "json"]
 
@@ -68,7 +71,8 @@ def close_task(task):
 cli("--access", "admin", "library", "init")
 plan = fields(cli("--access", "plan", "ingest", "plan", "--source-set", "architecture-docs"))
 cli("--access", "ingest", "ingest", "apply", "--plan-json", plan["canonical_plan"], "--expect-digest", plan["digest"])
-chunk = rows("SELECT revision_chunk_id FROM revision_chunks")[0][0]
+chunk = rows("SELECT r.revision_chunk_id FROM revision_chunks r JOIN chunk_contents c ON c.content_id=r.content_id WHERE c.text LIKE 'Platform depends%'")[0][0]
+oversized_chunk = rows("SELECT r.revision_chunk_id FROM revision_chunks r JOIN chunk_contents c ON c.content_id=r.content_id WHERE c.text LIKE 'Oversized alias%'")[0][0]
 with db() as connection:
     connection.executescript("""
       UPDATE job_items SET state='cancelled'; UPDATE jobs SET state='cancelled';
@@ -127,17 +131,42 @@ assert "drain" in blocked["message"] and task_state("task:running") == "dispatch
 with db() as connection:
     connection.execute("INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES('old-review','maintenance-external','task:note','pending','{}','fixture')")
     connection.execute("INSERT INTO maintenance_task_waivers(waiver_id,task_id,reason,state,created_epoch) VALUES('old-waiver','task:concept','old policy','active',1)")
+# A retained workflow question can exceed the bounded resolution catalogue.
+# One unresettable task must not roll back independent, eligible resets.
+with db() as connection:
+    connection.executemany(
+        "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES(?,?,'application-component','active',2)",
+        ((f"reset-extra-{n}", f"Extra {n}") for n in range(1001)),
+    )
+    connection.executemany(
+        "INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES(?,?,?,0,8,2)",
+        ((f"reset-extra-mention-{n}", f"reset-extra-{n}", oversized_chunk) for n in range(1001)),
+    )
+    connection.execute("INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('oversized-concept','Oversized alias','application-component','active',2)")
+    connection.execute("INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('oversized-subject-mention','oversized-concept',?,0,8,2)", (oversized_chunk,))
+    connection.execute("INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch) VALUES('task:oversized','alias-resolution','concept','oversized-concept','oversized-workflow','old','old','{}','Old alias resolution','failed',1,1,1)")
+    connection.execute("INSERT INTO maintenance_workflows(workflow_id,origin_task_id,kind,parent_concept_id,successors_json,state,created_generation,created_epoch,updated_epoch) VALUES('oversized-workflow','task:oversized','merge','oversized-concept','[]','migrating',2,1,1)")
+single_blocked = cli("--access", "control", "maintain", "reset", "task:oversized", success=False)
+assert "resolution catalogue exceeds 1000 concepts" in single_blocked["message"]
 before = facts()
 request = json.dumps(dict(jsonrpc="2.0", id=1, method="initialize", params={})) + "\n"
 request += json.dumps(dict(jsonrpc="2.0", id=2, method="tools/call", params=dict(name="rag_task_reset", arguments=dict(all=True)))) + "\n"
 rpc = subprocess.run(base + ["--access", "control", "serve", "mcp"], cwd=work, input=request, capture_output=True, text=True, timeout=20)
 (work / "mcp-reset.jsonl").write_text(rpc.stdout + rpc.stderr)
-assert rpc.returncode == 0 and '"isError":true' not in rpc.stdout.replace(" ", ""), rpc.stdout + rpc.stderr
+assert rpc.returncode == 0 and '"isError":true' in rpc.stdout.replace(" ", ""), rpc.stdout + rpc.stderr
+reset_result = json.loads(rpc.stdout.splitlines()[-1])["result"]["structuredContent"]
+reset_fields = reset_result["records"][0]["fields"]
+blockers = json.loads(reset_fields["blocked_tasks"])
+assert reset_result["status"] == "error" and reset_result["exit_name"] == "operation-failed" and reset_fields["tasks_reset"] == 2
+assert reset_fields["running_tasks_skipped"] == reset_fields["tasks_blocked"] == 1
+assert {entry["task_id"] for entry in blockers} == {"task:running", "task:oversized"}
+assert "drain" in next(entry["reason"] for entry in blockers if entry["task_id"] == "task:running")
+assert "resolution catalogue exceeds 1000 concepts" in next(entry["reason"] for entry in blockers if entry["task_id"] == "task:oversized")
 assert task_state("task:concept") == task_state("task:note") == "superseded", rpc.stdout
 assert rows("SELECT state FROM reviews WHERE review_id='old-review'") == [("dismissed",)]
 assert task_state("task:closed") == task_state(fresh) == "resolved"
 assert task_state("task:running") == "dispatched"
-assert '"running_tasks_skipped":1' in rpc.stdout.replace(" ", "")
+assert task_state("task:oversized") == "failed"
 assert facts() == before
 baseline = json.loads(rows("SELECT message FROM job_events WHERE item_id='old-item' AND event_type='retry-reset'")[0][0])
 assert baseline["attempts"] == baseline["paid_calls"] == baseline["task_calls"] == 3, baseline
@@ -160,7 +189,7 @@ assert task_state("task:gone") == "resolved"
 # Current-policy census must find retained resolved questions, not reopen them.
 plan = fields(cli("--access", "plan", "maintain", "plan", "--minutes", "1"))
 cli("--access", "curate", "maintain", "apply", "--plan-json", plan["canonical_plan"], "--expect-digest", plan["digest"])
-assert rows("SELECT task_id,state FROM maintenance_tasks WHERE kind='concept-review' AND subject_type='chunk' AND state<>'superseded'") == [(fresh,"resolved")], "census reopened the closed chunk review"
+assert rows("SELECT task_id,state FROM maintenance_tasks WHERE kind='concept-review' AND subject_type='chunk' AND subject_id=? AND state<>'superseded'", (chunk,)) == [(fresh,"resolved")], "census reopened the closed chunk review"
 assert rows("SELECT count(*),sum(input_tokens),sum(output_tokens) FROM provider_runs") == [(3,33,6)]
 assert rows("PRAGMA integrity_check") == [("ok",)]
 assert rows("PRAGMA foreign_key_check") == []

@@ -662,7 +662,7 @@ does not silently disable hybrid retrieval.
 
 A high-capability agent should use the library as an evidence substrate:
 
-1. Start with `library overview`, the profile vocabulary and `query inspect`.
+1. Start with `library report --narrative off`, the profile vocabulary and `query inspect`.
    These inspect the corpus without writes or provider calls. Ordinary lexical
    `query evidence` also avoids providers but records query-gap observations.
 2. Separate accepted claims from passage-only observations, ambiguities,

@@ -302,7 +302,11 @@ without invented evidence. `--all` does not reopen completed tasks. An explicit
 maintenance convergence policy. Pending old
 reviews and retry requests are retired; queued old work is cancelled and old
 waivers do not attach to the successor. Running items must drain; `--all` skips
-those tasks and reports the count so other tasks can reset independently.
+those tasks and reports their IDs and reasons so other tasks can reset
+independently. A bounded evidence failure on one task likewise leaves that task
+unchanged while eligible tasks reset. `--all` commits those successful resets
+and returns a nonzero partial outcome with `blocked_tasks` when any task could
+not be reset.
 
 The existing complete-evidence builder and refresh marker keep subsequent
 census and normal resolution tied to that packet. `raglifecycle.recordretryreset`

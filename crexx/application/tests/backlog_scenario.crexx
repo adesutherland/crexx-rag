@@ -1589,8 +1589,8 @@ escalationroutechecks: procedure = .int
   errors=errors+check(nextwindow(store,budget_policy,job_id,error)=0 & runresolution(store,job_id,budget_a,responsejson("no-change"),error)=0,"first smaller advanced reservation fits shared budget " || error)
   errors=errors+check(tickbacklogwindow(store,job_id,error)>=0,"checkpoint next affordable route")
   errors=errors+check(scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'")="active" & scalarint(database,"SELECT count(*) FROM job_items i JOIN maintenance_task_items m ON m.item_id=i.item_id WHERE m.task_id='" || budget_b || "' AND i.state='queued'")=1,"remaining budget permits advanced work when ordinary reservation no longer fits")
-  reset_successor=""; reset_changed=0; reset_skipped=0
-  errors=errors+check(resetbacklogtasks(store,architecturelocalconfig(),genericprofile(),ordinary,reset_successor,reset_changed,reset_skipped,error)=0 & reset_successor<>ordinary & reset_changed=1,"explicit one-task reset can reconsider a final assessment " || error)
+  reset_successor=""; reset_changed=0; reset_skipped=0; reset_blocked=""
+  errors=errors+check(resetbacklogtasks(store,architecturelocalconfig(),genericprofile(),ordinary,reset_successor,reset_changed,reset_skipped,reset_blocked,error)=0 & reset_successor<>ordinary & reset_changed=1,"explicit one-task reset can reconsider a final assessment " || error)
 
   return errors
 

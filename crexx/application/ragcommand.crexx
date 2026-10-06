@@ -349,7 +349,7 @@ rendercommandresult: procedure = .int
         if fields[j].value_type() = "null" | value = "" then iterate
         if name = "detail" & (left(strip(value), 1) = "{" | left(strip(value), 1) = "[") then iterate
         value = _human(value)
-        if name \= "generated_answer" & length(value) > 240 then value = left(value, 237) || "..."
+        if name \= "generated_answer" & name \= "blocked_tasks" & length(value) > 240 then value = left(value, 237) || "..."
         if section = "" then section = changestr("-", records[i].kind(), " ")
         section = section || "0A"x || "  " || changestr("_", name, " ") || ": " || value
       end

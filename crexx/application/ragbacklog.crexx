@@ -1028,8 +1028,8 @@ _refreshpacket: procedure = .int
  * current evidence builder and policy; original receipts and accepted facts
  * remain untouched. Only genuinely in-flight items must be drained first. */
 resetbacklogtasks: procedure = .int
-  arg store=.ragstorehandle,config=.ragconfig,profile=.ragprofile,task_id=.string,expose successor=.string,expose changed=.int,expose skipped=.int,expose error=.string
-  database=store.database();successor=task_id;changed=0;skipped=0;error=""
+  arg store=.ragstorehandle,config=.ragconfig,profile=.ragprofile,task_id=.string,expose successor=.string,expose changed=.int,expose skipped=.int,expose blocked=.string,expose error=.string
+  database=store.database();successor=task_id;changed=0;skipped=0;blocked="[";error=""
   if sqliteexec(database,"BEGIN IMMEDIATE")<>0 then do;error="cannot begin task reset";return -1;end
   scope="state NOT IN('resolved','superseded')";if task_id<>"" then scope="task_id=" || _q(task_id)
   inventory=_text(database,"SELECT json_group_array(task_id) FROM maintenance_tasks WHERE " || scope)
@@ -1048,10 +1048,19 @@ resetbacklogtasks: procedure = .int
     end
     if _number(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items j ON j.item_id=m.item_id WHERE m.task_id=" || _q(id) || " AND j.state IN('running','cancel_requested')")>0 then do
       if task_id<>"" then return _rollback(database,"task has running work; use worker drain on its job, then repeat maintain reset",error)
+      if length(blocked)>1 then blocked=blocked || ","
+      blocked=blocked || '{"task_id":' || jsonquote(id) || ',"reason":"task has running work; use worker drain on its job, then repeat maintain reset --all"}'
       skipped=skipped+1;iterate
     end
     metadata='{"schema":"crexx-rag.task-refresh/1","source_task_id":' || jsonquote(id) || ',"maximum_bytes":8388608,"maximum_concepts":1000,"reset":true}'
     packet="";fingerprint="";status=_refreshpacket(database,task,metadata,packet,fingerprint,error)
+    if status=2 then do
+      reason=error || "; inspect current evidence with maintain evidence-index --id " || id || " --kind catalogue --scope current"
+      if task_id<>"" then return _rollback(database,reason,error)
+      if length(blocked)>1 then blocked=blocked || ","
+      blocked=blocked || '{"task_id":' || jsonquote(id) || ',"reason":' || jsonquote(reason) || "}"
+      error="";iterate
+    end
     if status<>0 & status<>1 then return _rollback(database,error,error)
     jobs=0;items=0
     if recordretryreset(database,"",jobs,items,error,id)<>0 then return _rollback(database,error,error)
@@ -1070,7 +1079,7 @@ resetbacklogtasks: procedure = .int
   end
   if sqliteexec(database,"COMMIT")<>0 then return _rollback(database,"cannot commit task reset",error)
   if task_id="" then successor=""
-  error="";return 0
+  blocked=blocked || "]";error="";return 0
 
 _freshbacklogtask: procedure = .int
   arg database = .binary, task_id = .string, maximum_bytes = .int, expose packet = .string, expose fingerprint = .string, expose error = .string, additional_citation = "", additional_concept = ""

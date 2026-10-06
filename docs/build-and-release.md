@@ -20,7 +20,7 @@ flowchart TD
   A[Push main, pull request, or manual build] --> B[Check packaging contracts and freeze source identities]
   T[Push version tag] --> B
   B --> C[Three parallel platform builds]
-  C --> D[Build and install pinned CREXX SDK, or restore matching cache]
+  C --> D[Download and verify pinned CREXX beta 3 core and llama binaries]
   D --> E[Build and stage native RAG]
   E --> M{macOS and all Apple credentials present?}
   M -- Yes --> S[Sign native payload, refresh hashes, sign and notarize PKG]
@@ -35,26 +35,21 @@ flowchart TD
 
 1. Freeze the full RAG checkout SHA and the CREXX SHA in
    [`.github/crexx-revision.txt`](../.github/crexx-revision.txt). Updating CREXX
-   is an explicit dependency change. The initial pin is the published runtime
-   used by the current local RAG baseline, `5949ef27efd813b8bb96d23c58717b9a72aad1b9`.
-2. Build the installed CREXX SDK using its staged targets and explicit llama
-   runtime/provider packaging targets, plus the SQLite and vector dynamic/static
-   targets needed by native RAG. The SDK cache includes platform and
-   exact dependency SHA. Bump its recipe version when SDK options change.
-   Save the installed SDK before downstream RAG checks, so a later RAG failure
-   does not discard a successful dependency build. Parser mode is disabled:
-   RAG does not need its separate editor dependency.
-   Apple Silicon includes Metal; Intel and Windows use CPU inference. CUDA,
-   Vulkan and downloaded model files are outside this installer scope.
-   Published CREXX runtime ZIPs cannot yet replace this SDK: the inspected
-   `dev-snapshot` at the same pinned SHA lacks the CMake package, headers and
-   SQLite/vector static archives. Prefer a verified, platform-specific upstream
-   SDK ZIP when CREXX publishes one; pin its source identity and checksum rather
-   than silently following a mutable `latest` download. See the
-   [dependency evidence](integration-issues.md#snapshot-sdk-packaging--20-september-2026).
-3. Build Release RAG against that installed SDK, then stage into a private
-   prefix. Use the runner's CPU count, capped at four compiler workers, instead
-   of CREXX's higher macOS `auto` concurrency. Package only that prefix, including runtime notices and the CREXX
+   is an explicit dependency change. The release pin is CREXX 1.0.0-beta.3
+   source `ae1607b8e145174422cee7f3e73fbcc37a65226c`.
+2. Download the versioned [CREXX beta 3 release](https://github.com/adesutherland/CREXX/releases/tag/v1.0.0-beta.3)
+   core and matching llama.rexx binary ZIPs for the platform. The workflow pins
+   each asset name and SHA-256, then checks `BUILDINFO` and the llama manifest
+   against the source SHA, platform and backend before building RAG. Apple
+   Silicon uses Metal; Intel macOS uses CPU; Windows uses the Vulkan package,
+   which also includes CPU support. Model files are not bundled. These
+   versioned runtime ZIPs contain the compiler, native packager and SQLite/vector
+   static providers, but no CMake SDK export. The release build uses
+   `CREXXRAG_CREXX_BINARY_PREFIX` to select those verified binaries directly.
+   The earlier [snapshot SDK finding](integration-issues.md#snapshot-sdk-packaging--20-september-2026)
+   remains dated evidence about an older asset.
+3. Build Release RAG against that binary prefix, then stage into a private
+   prefix. Use four compiler workers. Package only that prefix, including runtime notices and the CREXX
    licence. Native packaging checks library creation and two child workers.
 4. Verify the actual relocated ZIP and installed application: payload and
    provider hashes, library initialization, two-worker supervision and library
@@ -65,8 +60,8 @@ flowchart TD
    builds retain workflow artifacts for 14 days. Only a pushed `v*` tag creates
    a GitHub release, after all three platform jobs pass. A version containing
    `-` becomes a prerelease. Tags must match the CMake product version (currently
-   `0.1.0`) with an optional prerelease/build suffix; development artifacts use
-   `0.1.0-dev.<run-number>`.
+   `0.1.1`) with an optional prerelease/build suffix; development artifacts use
+   `0.1.1-dev.<run-number>`.
 
 These are build/installer gates. They do not replace the required local
 functional regression gate or qualify hosted providers on every platform.

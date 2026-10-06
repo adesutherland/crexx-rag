@@ -839,18 +839,26 @@ _taskreset: procedure = .ragcommandresult
   if config_lookup.found()<>1 | profile_lookup.found()<>1 then return commandfailure(operation,5,"configuration or profile is unavailable")
   store=.ragstorehandle
   if openragstore(request.library(),"readwrite",store,error)<>0 then return commandopenfailure(operation,error)
-  successor="";changed=0;skipped=0
-  status=resetbacklogtasks(store,config_lookup.config(),profile_lookup.profile(),id,successor,changed,skipped,error)
+  successor="";changed=0;skipped=0;blocked="[]"
+  status=resetbacklogtasks(store,config_lookup.config(),profile_lookup.profile(),id,successor,changed,skipped,blocked,error)
   close_error="";closed=closeragstore(store,close_error)
   if status<>0 then return commandfailure(operation,3,error)
   if closed<>0 then return commandfailure(operation,7,close_error)
   fields=.ragresultfield[]
   fields[1]=.ragresultfield("source_task_id","string",id);fields[2]=.ragresultfield("task_id","string",successor)
   fields[3]=.ragresultfield("tasks_reset","integer",changed);fields[4]=.ragresultfield("running_tasks_skipped","integer",skipped)
+  blocked_document=.jsondocument(blocked)
+  blocked_count=blocked_document.node_count(blocked_document.root())-skipped
   fields[5]=.ragresultfield("provider_calls","integer",0)
+  fields[6]=.ragresultfield("tasks_blocked","integer",blocked_count)
+  fields[7]=.ragresultfield("blocked_tasks","string",blocked)
   records=.ragresultrecord[];records[1]=.ragresultrecord("task-reset",fields)
-  message="tasks reset with current evidence and policy; retries cleared; resolve the returned task or run maintenance"
-  if skipped>0 then message=message || "; running tasks skipped: drain their jobs, then repeat maintain reset --all"
+  message=changed || " tasks reset with current evidence and policy; retries cleared"
+  if blocked_count>0 | skipped>0 then do
+    message=message || "; " || blocked_count || " evidence-limited tasks and " || skipped || " running tasks could not be reset; inspect blocked_tasks for each reason"
+    return .ragcommandresult(operation,"error",1,message,records)
+  end
+  message=message || "; resolve the returned task or run maintenance"
   return .ragcommandresult(operation,"ok",0,message,records)
 
 _taskqueue: procedure = .ragcommandresult
@@ -1639,6 +1647,10 @@ _preparemaintenance: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, snapshot_id = .string, expose plan = .ragimproveplan, expose census = .ragmaintenancecensus, expose error = .string, embedding_only = 0, source_id = "", initial_only = 0, phase = "", phase_cohort = "[]", phase_next_cursor = ""
   error = ""; budget = config.budget(); workers = config.workers(); maintenance_policy = config.maintenance()
   extractor = roleproviderconfig(config, "extractor"); embedder = roleproviderconfig(config, "embedding"); extractor_role = rolebinding(config, "extractor"); embedding_role = rolebinding(config, "embedding")
+  if budget.model_calls()=0 & budget.zero_unlimited()<>1 then do
+    error = "configuration format 3 (and earlier formats) treats budget.model_calls = 0 as no maintenance provider calls; use format 4 (format = crexx-rag.config/4) for an unlimited aggregate call allowance, then review the configuration"
+    return -1
+  end
   if snapshot_id = "" | (budget.item_limit() < 1 & budget.zero_unlimited()<>1) | budget.item_limit() > 100000 | (budget.model_calls() < 1 & budget.zero_unlimited()<>1) | (maintenance_policy.mode() = "reviewed" & budget.minutes() < 1 & budget.zero_unlimited()<>1) | extractor.provider_id() = "" | embedder.provider_id() = "" | embedder.kind() = "codex" then do; error = "maintenance requires usable item, provider-call and time policy plus extractor and embedding providers"; return -1; end
   embedding_profile_id = _embeddingprofileid(embedder, embedding_role.embedding_dimensions())
   missing = 0

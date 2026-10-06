@@ -275,7 +275,11 @@ execute_process(COMMAND ${cli} --format json --access read library report --narr
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE closure_out ERROR_VARIABLE closure_err RESULT_VARIABLE closure_rc TIMEOUT 30)
 if(NOT closure_rc EQUAL 0 OR NOT closure_out MATCHES "\"kind\":\"convergence-census\"" OR
    NOT closure_out MATCHES "\"current_chunks\":${current_chunks}" OR
-   NOT closure_out MATCHES "\"incomplete_first_pass_chunks\":${current_chunks}")
+   NOT closure_out MATCHES "\"incomplete_first_pass_chunks\":${current_chunks}" OR
+   NOT closure_out MATCHES "\"new_logical_questions_meaning\":\"Census of distinct recorded question identities" OR
+   NOT closure_out MATCHES "\"reconciliation_delta_meaning\":\"Signed ledger residual" OR
+   NOT closure_out MATCHES "\"unreconciled_logical_questions_meaning\":\"Question identities with an unbalanced" OR
+   NOT closure_out MATCHES "\"accounting_history_note\":\"Retained unlinked task histories")
     message(FATAL_ERROR "Read-only convergence census omitted current first-pass debt: ${closure_out}${closure_err}")
 endif()
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/debt-report")

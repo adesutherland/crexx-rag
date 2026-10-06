@@ -489,8 +489,10 @@ whole backlog. CLI equivalents are `maintain reset TASK` and `maintain reset
 obsolete reviews and scheduling holds and binds current evidence/policy. Normal
 resolution can close a justified no-change decision without an old maintenance
 window. Completed tasks stay closed, sources/accepted knowledge/usage remain,
-and no provider is called. Drain running work and repeat when instructed;
-`--all` skips running tasks while resetting the others. Do not hand-edit SQL,
+and no provider is called. `--all` commits eligible resets and returns a
+nonzero partial result when running or evidence-limited tasks remain. Parse the
+`blocked_tasks` JSON string for every task ID, reason and supported next action;
+drain running work before retrying it. Do not hand-edit SQL,
 reconstruct historical windows or add run-specific approvals to enduring agent
 instructions. See the [shared reset contract](architecture.md#task-reset).
 

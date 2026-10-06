@@ -25,9 +25,13 @@ remain finite. Set `maintenance.window_seconds = 0` for an automatic window
 without a deadline, or pass `--minutes 0` when selecting the finish time. A
 window with no eligible work closes; an operator can still pause or stop it.
 
-Formats 1–3 and their existing jobs keep their original zero semantics. In
-particular, a zero monetary budget in those formats does not authorize paid
-calls. Opt in through the normal reviewed configuration workflow by changing
+Thus `budget.model_calls = 0` and `budget.input_tokens = 0` in format 4 mean
+unlimited aggregate calls and input tokens, subject to per-call limits and
+other controls. Formats 1–3 and their existing jobs keep their original zero
+semantics. A format-3 zero model-call budget is rejected by maintenance
+planning; that rejection does not diagnose a format-4 configuration. A zero
+monetary budget in formats 1–3 does not authorize paid calls. Opt in through
+the normal reviewed configuration workflow by changing
 the `format` line; no existing file or job is rewritten automatically. Plans
 and job allowance status identify the new semantics, and human plans show
 `Unlimited` for opted-in zero ceilings. Each provider call still needs a
@@ -233,7 +237,9 @@ implicitly regenerates the unchanged corpus.
 bounds. Worker run/start defaults use `worker.poll_ms`, and worker leases
 accept the same 1–86,400-second range as configuration validation.
 
-New configurations should declare `format = crexx-rag.config/3`. Formats 1 and
+New configurations should declare `format = crexx-rag.config/4` when zero
+aggregate limits must mean unlimited; choose format 3 to retain its older zero
+semantics. Formats 1 and
 2 remain readable for compatibility: the loader projects their historical
 execution envelopes explicitly, and those projected values enter the same
 canonical configuration identities as format 3. New files must state provider
@@ -1547,7 +1553,8 @@ settled logical questions. It also reports historical final insufficient-evidenc
 decisions separately from current evidence waits, plus applied changes,
 pending review kinds, technical holds, unfinished
 migrations and dependent task versions. The retained task-history ledger reports
-opening actionable debt (zero at task-ledger creation), new questions, linked
+opening actionable debt (zero at task-ledger creation), a census of recorded
+question identities, linked
 reopenings, settlements, parked exceptions and closing actionable debt. The
 ledger is reconciled only when both its global delta and each logical question's
 balance are zero. A durable terminal decision remains a settlement when its
@@ -1558,7 +1565,19 @@ reviewed corrected note with no maintenance job. An accepted `defer`, evidence
 wait or capability wait keeps its question open; it is not counted as a
 settlement or as a trigger for a later reopening.
 Repeat decisions on one task version do not create extra logical
-closures. Missing or inconsistent legacy lineage, including a superseded old
+closures. `new_logical_questions` counts distinct recorded
+`(kind, subject_type, subject_id, workflow_id)` identities across retained task
+history. It is a census, not a count of opening events.
+`reconciliation_delta` is the signed residual of that census plus linked
+reopenings, less durable settlements, parked exceptions and current actionable
+debt. It is not a count of work left to process.
+`unreconciled_logical_questions` counts identities with an unbalanced or
+unprovable task-version history, including multiple roots, missing predecessor
+links and ambiguous settlements. It is not a pending-task count. Retained,
+unlinked task histories can create extra roots without a recorded reopening;
+an old accepted review without a settlement receipt can lack proof of closure.
+The census, event totals and current-state counts therefore need not add up.
+Missing or inconsistent legacy lineage, including a superseded old
 accepted review with no proof of settlement, is counted separately as
 unreconciled logical questions. Parked exceptions remain
 unresolved quality debt, and neither current-state counts nor this ledger alone
@@ -1805,7 +1824,10 @@ outstanding tasks and leaves completed decisions closed. Old pending reviews
 and retry requests are retired. Documents, accepted knowledge, provider history
 and cumulative usage remain intact. Reset makes no provider calls or budget
 changes. If work is running, drain its job and repeat reset; `--all` reports
-skipped running tasks and resets the others. Repeating reset on the original
+the IDs and reasons of skipped running or evidence-limited tasks in
+`blocked_tasks` (a JSON string) and resets the others. A partial reset returns
+a nonzero status even though the successful resets are committed. Inspect each
+blocker before retrying. Repeating reset on the original
 superseded ID returns its successor without reopening a resolved decision.
 
 MCP uses `rag_task_reset({"id":"TASK"})` or `rag_task_reset({"all":true})`.

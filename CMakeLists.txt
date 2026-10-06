@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(crexxrag
-    VERSION 0.1.0
+    VERSION 0.1.1
     DESCRIPTION "cREXX local RAG and typed-graph knowledge store"
     LANGUAGES CXX)
 
@@ -13,7 +13,30 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(CREXXRAG_BUILD_TESTS "Build crexxrag regression and provider tests" ON)
 
-find_package(CREXX CONFIG REQUIRED)
+set(CREXXRAG_CREXX_BINARY_PREFIX "" CACHE PATH
+    "Verified CREXX binary release prefix for package builds")
+if(CREXXRAG_CREXX_BINARY_PREFIX)
+    # The versioned CREXX runtime ZIP includes the native toolchain and static
+    # providers, but no CMake SDK export. Release builds use those exact bytes.
+    set(CREXX_PACKAGE_PREFIX "${CREXXRAG_CREXX_BINARY_PREFIX}")
+    set(CREXX_BIN_DIR "${CREXX_PACKAGE_PREFIX}/bin")
+    set(CREXX_BUILDINFO_FILE "${CREXX_PACKAGE_PREFIX}/BUILDINFO")
+    if(NOT EXISTS "${CREXX_BUILDINFO_FILE}")
+        message(FATAL_ERROR "CREXX binary release is missing BUILDINFO")
+    endif()
+    file(STRINGS "${CREXX_BUILDINFO_FILE}" crexxrag_version_line REGEX "^display=")
+    string(REGEX REPLACE "^display=" "" CREXX_VERSION_DISPLAY "${crexxrag_version_line}")
+    foreach(tool IN ITEMS crexx rxc rxas rxlink rxvme rxbvm)
+        set(CREXX_${tool}_EXECUTABLE "${CREXX_BIN_DIR}/${tool}${CMAKE_EXECUTABLE_SUFFIX}")
+    endforeach()
+    foreach(tool IN ITEMS crexx rxc rxas rxlink rxbvm)
+        if(NOT EXISTS "${CREXX_${tool}_EXECUTABLE}")
+            message(FATAL_ERROR "CREXX binary release is missing ${CREXX_${tool}_EXECUTABLE}")
+        endif()
+    endforeach()
+else()
+    find_package(CREXX CONFIG REQUIRED)
+endif()
 
 set(CREXX_EXECUTABLE "${CREXX_crexx_EXECUTABLE}")
 set(CREXX_RXC_EXECUTABLE "${CREXX_rxc_EXECUTABLE}")

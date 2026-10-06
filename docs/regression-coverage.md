@@ -1522,3 +1522,33 @@ for these edits. Adrian withdrew the proposed timed synthetic gate and directed
 publication and per-user installation without more local tests. Live Gemini,
 correct-corpus endurance and other-platform functional QA remain unrun.
 [Local QA record](maintenance-programme-qa-20260926.md).
+## 6 October bounded release repair
+
+`task_reset` adds a >1000-concept workflow catalogue to its isolated library,
+beside two eligible old tasks and a running task. The pre-change binary rolled
+back the entire bulk reset with the catalogue error; the positive single-task
+and drain controls remained intact. Acceptance requires the eligible tasks to
+gain fresh, zero-attempt successors, the oversized and running tasks to remain
+unchanged, a nonzero partial MCP result to identify both IDs and reasons, and
+unchanged source, graph, attempt and provider history. `durable_backlog`
+checks the shared reset signature and core transition; `regression_command_metadata`
+checks the revised public description.
+
+`regression_source_maintenance` checks that format-3 `budget.model_calls = 0`
+is rejected with explicit format-4 guidance while its existing format-4
+all-zero public plan/apply remains a positive control. `native_surfaces`
+checks the accounting definitions in the report beside its existing balanced,
+unlinked and missing-successor task-history controls. The README and method
+use the already covered read-only `library report --narrative off` command.
+
+The release build uses the versioned CREXX 1.0.0-beta.3 binary assets with
+fixed asset SHA-256 values and source identity. `actionlint`, the local macOS
+arm64 binary-prefix configure/build/native smoke, and the GitHub three-platform
+packaging run are distinct checks; hosted evidence remains pending.
+
+The final local `ctest --preset regression` returned 145/145 passing receipts.
+CTest displayed `task_reset` as skipped only because its current-input focused
+pass was reused; `tests/qa/report.py` counted all 145 as passed, with no failed
+or disabled cases. The actual beta-3 arm64 assets also passed install,
+unsigned PKG/ZIP packaging and relocated ZIP smoke. macOS x86_64 and Windows
+x64 packaging remain hosted-gate work.

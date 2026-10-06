@@ -46,10 +46,10 @@ jobs:
             cmake_args: -DCMAKE_OSX_ARCHITECTURES=arm64
           - platform: macos-x86_64
             os: macos-15-intel
-            cmake_args: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCREXX_LLAMA_METAL=OFF
+            cmake_args: -DCMAKE_OSX_ARCHITECTURES=x86_64
           - platform: windows-x64
             os: windows-2025
-            cmake_args: -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
+            cmake_args: -DCMAKE_CXX_COMPILER=cl
     defaults:
       run:
         shell: bash
@@ -73,51 +73,69 @@ jobs:
       - name: Compile the Windows installer fixture before building dependencies
         if: runner.os == 'Windows'
         run: bash tests/release/test_nsis.sh
-      - uses: actions/cache/restore@v4
-        id: sdk
-        with:
-          path: ${{ runner.temp }}/crexx-sdk
-          key: rag-sdk-v2-${{ matrix.platform }}-${{ needs.metadata.outputs.crexx }}
-      - uses: actions/checkout@v5
-        if: steps.sdk.outputs.cache-hit != 'true'
-        with:
-          repository: adesutherland/CREXX
-          ref: ${{ needs.metadata.outputs.crexx }}
-          submodules: recursive
-          path: upstream-crexx
-          persist-credentials: false
-      - name: Build the pinned installed CREXX SDK
-        if: steps.sdk.outputs.cache-hit != 'true'
+      - name: Install verified CREXX 1.0.0-beta.3 binaries
+        env:
+          CREXX_COMMIT: ${{ needs.metadata.outputs.crexx }}
+          RELEASE_PLATFORM: ${{ matrix.platform }}
         run: |
-          cmake -S upstream-crexx -B "$RUNNER_TEMP/crexx-build" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/crexx-sdk" \
-            -DCREXX_BUILD_COMMIT='${{ needs.metadata.outputs.crexx }}' \
-            -DCREXX_BUILD_CHANNEL=local -DCREXX_ALLOW_NETWORK_DOWNLOADS=ON \
-            -DENABLE_LLAMA=ON -DENABLE_PARSER_MODE=OFF ${{ matrix.cmake_args }}
-          cmake --build "$RUNNER_TEMP/crexx-build" --parallel 2 \
-            --target stage-c1-toolchain stage-product stage-optional crexx-examples \
-            sqlite sqlite_static vector vector_static \
-            llama_provider_runtime_package crexx-provider-package
-          cmake --install "$RUNNER_TEMP/crexx-build"
-          cp upstream-crexx/LICENSE "$RUNNER_TEMP/crexx-sdk/CREXX-LICENSE"
-      - name: Cache the installed SDK independently of downstream RAG checks
-        if: steps.sdk.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/crexx-sdk
-          key: ${{ steps.sdk.outputs.cache-primary-key }}
+          case "$RELEASE_PLATFORM" in
+            macos-arm64)
+              core=CREXX-v1.0.0-beta.3-macos-arm64.zip
+              core_sha=2b865862f75c07ee94b0d84b77d58c39f5f418c0b24f88a86e1a612fe195fa43
+              llama=llama.rexx-v1.0.0-beta.3-macos-arm64-metal.zip
+              llama_sha=fe4f14ed14317c8ba727a7f41d5fcc055323499ffb514b93c4110ea1b27a4133
+              backend=metal ;;
+            macos-x86_64)
+              core=CREXX-v1.0.0-beta.3-macos-x86_64.zip
+              core_sha=653f98cd24a28720ef6c7d074649afd5306dbafb25eb8ce316a176856799d974
+              llama=llama.rexx-v1.0.0-beta.3-macos-x86_64-cpu.zip
+              llama_sha=7091f57e2b5edb321cf5ad96b31f464ea4ad76678b34bd1b4fbe12bac9889d51
+              backend=cpu ;;
+            windows-x64)
+              core=CREXX-v1.0.0-beta.3-windows-x64-signed.zip
+              core_sha=bb83bda9545c7506592a1d1c71d1f1110b6da65b7431255afd64722aaebab539
+              llama=llama.rexx-v1.0.0-beta.3-windows-x64-vulkan-signed.zip
+              llama_sha=5f605f362b343c75791a72e188da481be109550ab2b718eac5a73530fc0c1994
+              backend=vulkan ;;
+            *) exit 2 ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/crexx-download" "$RUNNER_TEMP/crexx-sdk"
+          for asset in "$core" "$llama"; do
+            curl --fail --location --retry 3 --output "$RUNNER_TEMP/crexx-download/$asset" \
+              "https://github.com/adesutherland/CREXX/releases/download/v1.0.0-beta.3/$asset"
+          done
+          hash_asset() {
+            if command -v sha256sum >/dev/null; then
+              sha256sum -b < "$1" | cut -d ' ' -f1
+            else
+              shasum -a 256 < "$1" | cut -d ' ' -f1
+            fi
+          }
+          test "$(hash_asset "$RUNNER_TEMP/crexx-download/$core")" = "$core_sha"
+          test "$(hash_asset "$RUNNER_TEMP/crexx-download/$llama")" = "$llama_sha"
+          unzip -q "$RUNNER_TEMP/crexx-download/$core" -d "$RUNNER_TEMP/crexx-sdk"
+          unzip -qo "$RUNNER_TEMP/crexx-download/$llama" -d "$RUNNER_TEMP/crexx-sdk"
+          prefix="$RUNNER_TEMP/crexx-sdk/CREXX-$RELEASE_PLATFORM"
+          test "$(sed -n 's/^commit=//p' "$prefix/BUILDINFO" | tr -d '\r')" = "$CREXX_COMMIT"
+          test "$(sed -n 's/^version=//p' "$prefix/BUILDINFO" | tr -d '\r')" = 1.0.0-beta.3
+          jq -e --arg commit "$CREXX_COMMIT" --arg platform "$RELEASE_PLATFORM" --arg backend "$backend" \
+            '.commit == $commit and .platform == $platform and .backend == $backend' \
+            "$prefix/llama-package.json"
+          cp "$prefix/LICENSE" "$prefix/CREXX-LICENSE"
       - name: Select the pinned cREXX driver for release scripts
-        run: echo "$RUNNER_TEMP/crexx-sdk/bin" >> "$GITHUB_PATH"
+        run: echo "$RUNNER_TEMP/crexx-sdk/CREXX-${{ matrix.platform }}/bin" >> "$GITHUB_PATH"
       - name: Configure and build RAG against the installed SDK
         run: |
           build_jobs=4
           echo "Building RAG with $build_jobs compiler workers"
           cmake -S . -B "$RUNNER_TEMP/rag-build" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/crexx-sdk" \
-            -DCREXXRAG_BUILD_TESTS=OFF -DCREXXRAG_REXX_BUILD_JOBS="$build_jobs"
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCREXXRAG_CREXX_BINARY_PREFIX="$RUNNER_TEMP/crexx-sdk/CREXX-${{ matrix.platform }}" \
+            -DCREXXRAG_BUILD_TESTS=OFF -DCREXXRAG_REXX_BUILD_JOBS="$build_jobs" \
+            ${{ matrix.cmake_args }}
           cmake --build "$RUNNER_TEMP/rag-build" --parallel "$build_jobs"
           cmake --install "$RUNNER_TEMP/rag-build" --prefix "$RUNNER_TEMP/rag-payload"
-          cp "$RUNNER_TEMP/crexx-sdk/CREXX-LICENSE" "$RUNNER_TEMP/rag-payload/CREXX-LICENSE"
+          cp "$RUNNER_TEMP/crexx-sdk/CREXX-${{ matrix.platform }}/CREXX-LICENSE" "$RUNNER_TEMP/rag-payload/CREXX-LICENSE"
       - name: Package installers and portable ZIPs
         env:
           RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
@@ -173,7 +191,7 @@ jobs:
           path: |
             ${{ runner.temp }}/rag-build/crexxrag-native/package/native-build.txt
             ${{ runner.temp }}/rag-build/CMakeCache.txt
-            ${{ runner.temp }}/crexx-build/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ runner.temp }}/crexx-sdk/CREXX-${{ matrix.platform }}/BUILDINFO
           if-no-files-found: ignore
 
   publish:

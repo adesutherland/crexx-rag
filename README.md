@@ -136,7 +136,7 @@ ScottishHistory setup.
 
 Start with `read,plan` access. Use library status and source inventory for
 routine setup, then `query inspect` for read-only lexical evidence with no
-provider calls or vector-index preparation. Use `library overview` for an
+provider calls or vector-index preparation. Use `library report --narrative off` for an
 explicit coverage or health question; its full verification is unnecessary
 setup work for ordinary Q&A. The supplied passage default is **12**, with an
 optional maximum of **200** for a broader search that the agent filters.
@@ -169,8 +169,10 @@ MCP configuration, skill discovery, bounds and review controls.
 
 ## Build
 
-An installed CREXX package containing the supported `rxsqlite`, `llama` and
-`rxvector` components is required. The vector provider must expose `.vectorindex`
+For local development, an installed CREXX package containing the supported
+`rxsqlite`, `llama` and `rxvector` components is required. The release workflow
+uses SHA-256-pinned CREXX 1.0.0-beta.3 core and llama binary ZIPs for each
+platform and does not rebuild CREXX. The vector provider must expose `.vectorindex`
 and `openindex` (introduced in CREXX `5949ef27efd8`); the complete package baseline
 is recorded in [publication acceptance](docs/baseline-publication-20260919.md). CREXX supplies their implementations, native archives
 and packaging metadata; no separate SQLite or llama.cpp SDK is needed here.
