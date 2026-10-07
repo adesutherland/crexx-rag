@@ -48,5 +48,18 @@ compiled, `actionlint` passed, and `git diff --check` passed before commit.
 per-user prefix; its SHA-256 matches the build artifact
 `e9292f5a9fe17d531279037b3079dcd9247a3c299f5fba7e3bd6c854dc21d9d8`.
 The installed executable verified the recovered private library at zero
-repository issues and an aligned manifest. Hosted three-platform packaging
-and final release-asset inspection remain to be recorded after publication.
+repository issues and an aligned manifest. The
+[tag-triggered hosted run](https://github.com/adesutherland/crexx-rag/actions/runs/37641634792)
+passed metadata, Windows x64, macOS x86_64, macOS arm64 and publication jobs.
+The Windows job verified the portable ZIP and executed the installer and
+uninstaller; both macOS jobs verified their ZIP and installer. The
+[v0.1.2 release](https://github.com/adesutherland/crexx-rag/releases/tag/v0.1.2)
+is public and contains 12 assets: four signed macOS payloads with checksums,
+and two unsigned Windows payloads with checksums. The Windows ZIP's published
+SHA-256 is `b772387fa223fe56b8853a9446b3b1b94fdc4ddc5269e4c8eae577f461018b29`,
+matching the hosted artifact downloaded and checked locally; its embedded
+`release.json` identifies source `2d36ec804e4b0b56919d09f6e09b313528dc1ccb`.
+An attempted local Windows signing run failed at the first file with PKCS#11
+`CKR_FUNCTION_FAILED`; macOS reported no smartcards. Signed Windows assets
+therefore await token availability. The verified unsigned downloads remain
+published in the meantime.
