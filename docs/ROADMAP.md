@@ -64,7 +64,7 @@ prompt/quotation, checkpoint/restart and advanced-call repairs remain included.
 
 7 October WAL-close repair: **145/145 required local cases qualified,
 per-user installed, and v0.1.2 published after a passing three-platform hosted gate;
-Windows code signing pending token availability**. The affected
+signed Windows assets verified and published**. The affected
 private library was recovered and verified; its original file set is retained
 outside this repository.
 `ragstore` now inspects checkpoint and actual journal-mode results, permits

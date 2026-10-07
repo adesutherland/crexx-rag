@@ -55,11 +55,19 @@ The Windows job verified the portable ZIP and executed the installer and
 uninstaller; both macOS jobs verified their ZIP and installer. The
 [v0.1.2 release](https://github.com/adesutherland/crexx-rag/releases/tag/v0.1.2)
 is public and contains 12 assets: four signed macOS payloads with checksums,
-and two unsigned Windows payloads with checksums. The Windows ZIP's published
-SHA-256 is `b772387fa223fe56b8853a9446b3b1b94fdc4ddc5269e4c8eae577f461018b29`,
-matching the hosted artifact downloaded and checked locally; its embedded
-`release.json` identifies source `2d36ec804e4b0b56919d09f6e09b313528dc1ccb`.
-An attempted local Windows signing run failed at the first file with PKCS#11
-`CKR_FUNCTION_FAILED`; macOS reported no smartcards. Signed Windows assets
-therefore await token availability. The verified unsigned downloads remain
-published in the meantime.
+and a signed Windows ZIP and installer with checksums. The original unsigned
+Windows ZIP's SHA-256 was
+`b772387fa223fe56b8853a9446b3b1b94fdc4ddc5269e4c8eae577f461018b29`,
+matching the hosted artifact downloaded and checked locally. Signing first
+failed with PKCS#11 `CKR_FUNCTION_FAILED` while the token was unavailable.
+After the maintainer logged in, `scripts/sign-windows-release.sh --upload`
+completed against the exact tag and source
+`2d36ec804e4b0b56919d09f6e09b313528dc1ccb`. The signed ZIP and installer
+passed their local SHA-256 checks; the installer passed `osslsigncode verify`
+with a valid Certum signature. The published signed ZIP SHA-256 is
+`326ccdb36590be074e5763c2c554f790c5a510901aaff81ea321cf4f5606a00a`;
+the installer is
+`687c0df13a5d0b8a2a56ca312c0f0271570d2e2a7353d6e7c158966c34523405`.
+Their local hashes match GitHub's asset digests. The script removed only the
+four unsigned Windows assets after verifying the signed uploads; the macOS
+assets remain.
