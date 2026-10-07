@@ -525,3 +525,15 @@ set, scan retained decisions, seek `attempts_provider_run`,
 use temporary B-trees for grouping. This is all-history report work, including
 the task-local candidate comparison; it is not run in worker dispatch. No
 index or writer change was added. Corpus-scale report latency is unqualified.
+# 7 October 2026 close-path SQL follow-up
+
+The WAL close repair changes no repository query, index, schema or transaction
+body. `ragstore` now checks the generic provider's truncating checkpoint and
+the returned `PRAGMA journal_mode=DELETE` value before declaring a staged
+backup or new library a stable closed bundle. A concurrent reader can defer
+ordinary worker close cleanup; it does not trigger a query retry or a repeated
+write. Stable close uses four attempts with a 200 ms SQLite busy timeout and
+short bounded waits. `publication` reproduced an incomplete checkpoint before
+the repair and verifies both concurrent and quiescent close paths. The full
+local gate accounts for 145/145 passing cases; hosted platform qualification
+is tracked separately in [the release record](release-repair-20261007.md).

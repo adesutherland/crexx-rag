@@ -367,7 +367,7 @@ writeragbackupmanifest: procedure = .int
     if error = "" then error = "assembled backup validation failed: " || verification.summary()
     return -4
   end
-  if closeragstore(store, error) \= 0 then return -3
+  if closeragstore(store, error, 1) \= 0 then return -3
   call session.markstate("manifest")
   return 0
 
@@ -393,12 +393,14 @@ abortragbackup: procedure = .int
     error = "published backup cannot be aborted"
     return -5
   end
-  if session.read_view().open() = 1 then do
-    ignored = ""
-    call closereadsnapshot session.read_view(), ignored
-  end
+  close_error = ""
+  if session.read_view().open() = 1 then ignored = closereadsnapshot(session.read_view(), close_error)
   call _cleanfolder session.staging_path()
   call session.markstate("aborted")
+  if close_error \= "" then do
+    error = close_error
+    return -3
+  end
   return 0
 
 backupragstore: procedure = .int
@@ -432,8 +434,8 @@ restoreragstore: procedure = .int
 _backupfailure: procedure = .int
   arg session = .ragbackupsession, expose error = .string
   preserved = error
-  ignored = ""
-  call abortragbackup session, ignored
+  cleanup_error = ""
+  if abortragbackup(session, cleanup_error) \= 0 then preserved = preserved || "; backup cleanup: " || cleanup_error
   error = preserved
   return -3
 

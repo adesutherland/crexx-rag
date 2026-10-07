@@ -60,8 +60,8 @@ flowchart TD
    builds retain workflow artifacts for 14 days. Only a pushed `v*` tag creates
    a GitHub release, after all three platform jobs pass. A version containing
    `-` becomes a prerelease. Tags must match the CMake product version (currently
-   `0.1.1`) with an optional prerelease/build suffix; development artifacts use
-   `0.1.1-dev.<run-number>`.
+   `0.1.2`) with an optional prerelease/build suffix; development artifacts use
+   `0.1.2-dev.<run-number>`.
 
 These are build/installer gates. They do not replace the required local
 functional regression gate or qualify hosted providers on every platform.

@@ -311,7 +311,12 @@ initragstore: procedure = .int
     return -3
   end
   store = .ragstorehandle(database, path, "readwrite")
-  if publishmanifest(store, error) \= 0 then return -7
+  if publishmanifest(store, error) \= 0 then do
+    publication_error = error; close_error = ""
+    if closeragstore(store, close_error) \= 0 then publication_error = publication_error || "; " || close_error
+    error = publication_error
+    return -7
+  end
   return 0
 
 openragstore: procedure = .int
@@ -357,20 +362,67 @@ openragstore: procedure = .int
   return 0
 
 closeragstore: procedure = .int
-  arg store = .ragstorehandle, expose error = .string
+  arg store = .ragstorehandle, expose error = .string, require_stable = 0
   error = ""
   if store.open() \= 1 then do
     error = "store is already closed"
     return -5
   end
-  if store.writable() = 1 then do
-    /* A stable closed bundle uses rollback-journal mode, so later read-only
-     * opens need no WAL coordination files. Busy conversion is best-effort. */
-    call sqliteexec store.database(), "PRAGMA wal_checkpoint(TRUNCATE)"
-    call sqliteexec store.database(), "PRAGMA journal_mode=DELETE"
-  end
+  journal_error = ""
+  if store.writable() = 1 then ignored = _closewritablejournal(store.database(), require_stable, journal_error)
   if sqliteclose(store.database()) \= 0 then return _sqlitefailure("close library database", error)
   call store.markclosed()
+  if journal_error \= "" then do
+    if require_stable = 0 & (sqlitebusyerror(journal_error) = 1 | pos("journal mode remained wal", journal_error) > 0) then do
+      call writeoperatorline "crexxrag close deferred WAL cleanup: " || journal_error
+      return 0
+    end
+    error = journal_error
+    return -3
+  end
+  return 0
+
+/* A busy checkpoint can leave a valid WAL behind while another reader is open.
+ * Ordinary concurrent handles defer conversion; a published closed bundle
+ * requires bounded retries and the actual DELETE journal-mode result. */
+_closewritablejournal: procedure = .int
+  arg database = .binary, require_stable = .int, expose error = .string
+  error = ""
+  if sqlitebusytimeout(database, 200) \= 0 then return _sqlitefailure("set close busy timeout", error)
+  maximum_attempts = 1
+  if require_stable = 1 then maximum_attempts = 4
+  do attempt = 1 to maximum_attempts
+    log_frames = -1; checkpointed_frames = -1
+    if sqlitecheckpoint(database, "truncate", log_frames, checkpointed_frames) = 0 then do
+      if _setdeletejournal(database, error) = 0 then return 0
+    end
+    else ignored = _sqlitefailure("checkpoint library WAL", error)
+    if sqlitebusyerror(error) = 0 & pos("journal mode remained", error) = 0 then return -3
+    if attempt = maximum_attempts then return -3
+    call writeoperatorline "crexxrag close retry=" || attempt || "/3: " || error
+    call rxplatform..sleep (100 * attempt)
+  end
+  return -3
+
+_setdeletejournal: procedure = .int
+  arg database = .binary, expose error = .string
+  error = ""; statement = .binary; mode = ""
+  if sqliteprepare(database, "PRAGMA journal_mode=DELETE", statement) \= 0 then return _sqlitefailure("prepare library journal conversion", error)
+  if sqlitestep(statement) \= 100 then do
+    ignored = _sqlitefailure("convert library journal mode", error)
+    call sqlitefinalize statement
+    return -3
+  end
+  if sqlitecolumntext(statement, 0, mode) \= 0 then do
+    ignored = _sqlitefailure("read library journal mode", error)
+    call sqlitefinalize statement
+    return -3
+  end
+  if sqlitefinalize(statement) \= 0 then return _sqlitefailure("finish library journal conversion", error)
+  if mode \= "delete" then do
+    error = "library journal mode remained " || mode || " after checkpoint"
+    return -3
+  end
   return 0
 
 storagestatus: procedure = .int
@@ -435,9 +487,15 @@ closereadsnapshot: procedure = .int
     return -5
   end
   rollback_status = sqliteexec(read_snapshot.database(), "ROLLBACK")
+  rollback_error = ""
+  if rollback_status \= 0 then ignored = _sqlitefailure("rollback read snapshot", rollback_error)
   close_status = sqliteclose(read_snapshot.database())
+  if close_status \= 0 then return _sqlitefailure("close read snapshot", error)
   call read_snapshot.markclosed()
-  if rollback_status \= 0 | close_status \= 0 then return _sqlitefailure("close read snapshot", error)
+  if rollback_status \= 0 then do
+    error = rollback_error
+    return -3
+  end
   return 0
 
 begingeneration: procedure = .int

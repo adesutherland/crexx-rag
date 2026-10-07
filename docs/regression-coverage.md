@@ -1,5 +1,25 @@
 # Regression coverage baseline — REG-01
 
+## 7 October WAL close and backup repair
+
+Before implementation, `publication` and `native_publication` passed on the
+clean v0.1.1 baseline. The new `publication` storage-close case then failed on
+that implementation: a reader pinned before a later write prevented checkpoint,
+but the writer close reported success. Its positive control releases the reader,
+reopens the writer and requires a WAL-free closed bundle. The case also checks
+ordinary concurrent close, aborted backup cleanup and a self-contained
+published backup without a copied WAL. `ragstore` remains the close/journal
+owner; `ragbackup` requires stable completion only for its published destination.
+Focused `publication` and `native_publication` passed after the concurrent-close
+correction. The final local `ctest --preset regression` and required QA report
+account for 145/145 passing cases, with no failed, disabled, interrupted or
+missing case. The fast tier passed 11/11; 13 current-input targeted/fast passes
+were reused by the full CTest selection. Hosted three-platform packaging is a
+separate release gate. [Change record](release-repair-20261007.md).
+
+The installed native binary hash matches the qualified build; its read-only
+verification of the recovered private library returned zero repository issues.
+
 ## Actionable corrections and honest closure — 25 September 2026
 
 The new `durable_backlog_actionability` case failed first on the reviewed Item 3

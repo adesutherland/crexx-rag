@@ -1741,3 +1741,18 @@ the existing configuration/admission owners. The CLI/MCP reset description
 remains in `ragcommandcatalog`. Regression names, baseline reproduction and
 qualification are recorded in [the bounded change record](release-repair-20261006.md)
 and [coverage matrix](regression-coverage.md#6-october-bounded-release-repair).
+
+## 7 October SQLite close ownership
+
+`ragstore.closeragstore` remains the single product owner for writable
+connection close and journal conversion. It checks the provider checkpoint
+result and SQLite's returned journal mode. Ordinary concurrent readers can
+defer WAL cleanup while the writer handle closes; `ragbackup` requests bounded
+stable completion before publishing a self-contained destination, and
+`ragfoundation` does so for a newly initialized library. `ragbackup` also
+reports read-snapshot cleanup failure during abort. No SQL schema, product
+provider or SQLite implementation changed. `publication` supplies the
+fail-first pinned-reader case, concurrent positive control and WAL-free backup
+assertion; `native_publication` remains the process-level control. Detailed
+results are in [the change record](release-repair-20261007.md) and
+[coverage matrix](regression-coverage.md#7-october-wal-close-and-backup-repair).

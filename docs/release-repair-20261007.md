@@ -1,0 +1,52 @@
+# 7 October 2026 WAL close repair and v0.1.2
+
+Scope: recover the affected private library to the newest verified state,
+check and bound writable close cleanup, and publish/install the next product
+patch release. No schema, provider implementation, hosted model call or corpus
+maintenance job is part of this repair.
+
+## Corpus recovery
+
+The private recovery record and original files are retained outside this
+public repository. A WAL-free candidate passed full SQLite integrity and
+cREXX-RAG repository verification with zero issues before and after
+replacement of the active path. The origin of the mismatched file pair is
+not established.
+
+## Product ownership and behavior
+
+`ragstore` checks `sqlitecheckpoint(truncate)`, the actual response to
+`PRAGMA journal_mode=DELETE`, and the provider close call. Lock contention is
+retried for a bounded stable-bundle close; ordinary concurrent workers close
+their handle and report deferred WAL cleanup when another reader prevents
+conversion. Initialization and staged backup publication require stable close.
+Backup abort now propagates read-snapshot close errors, while a manifest error
+during initialization closes its writable handle. The source backup continues
+to use SQLite's online backup API; a published backup contains its committed
+snapshot in `library.sqlite` and has no source WAL copy.
+
+## Baseline and regression
+
+The starting checkout was clean `main` at v0.1.1 (`dce7583`). Before editing,
+`publication` and `native_publication` passed. The new pinned-reader close
+case failed on the old close code because it returned success despite an
+incomplete checkpoint. A first strict-on-every-worker patch then failed native
+two-worker supervision: legitimate concurrent connections blocked journal-mode
+conversion. The revised bounded stable-bundle contract passed focused
+`publication` and `native_publication`. The final exact-input focused selection
+passed 2/2; the fast tier passed 11/11. The native build passed library init
+and two-worker supervision. The full regression selection completed in 662.47
+seconds and the required QA report accounts for 145/145 passing cases, with
+no failed, disabled, interrupted or missing case. CTest reused 13 earlier
+current-input passes, including the focused publication cases.
+
+## Qualification and publication
+
+The release packaging contract passed 22 controls, the local NSIS fixture
+compiled, `actionlint` passed, and `git diff --check` passed before commit.
+`install-local` installed the exact qualified native executable into the
+per-user prefix; its SHA-256 matches the build artifact
+`e9292f5a9fe17d531279037b3079dcd9247a3c299f5fba7e3bd6c854dc21d9d8`.
+The installed executable verified the recovered private library at zero
+repository issues and an aligned manifest. Hosted three-platform packaging
+and final release-asset inspection remain to be recorded after publication.

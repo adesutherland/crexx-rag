@@ -103,7 +103,7 @@ _libraryinit: procedure = .ragcommandresult
     ignored = ""; call closeragstore store, ignored
     return _failure("library.init", 7, error)
   end
-  if closeragstore(store, error) \= 0 then return _failure("library.init", 7, error)
+  if closeragstore(store, error, 1) \= 0 then return _failure("library.init", 7, error)
   records = .ragresultrecord[]
   records[1] = _storagerecord(status, 0, "initialized")
   fields = .ragresultfield[]

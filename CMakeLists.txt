@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(crexxrag
-    VERSION 0.1.1
+    VERSION 0.1.2
     DESCRIPTION "cREXX local RAG and typed-graph knowledge store"
     LANGUAGES CXX)
 

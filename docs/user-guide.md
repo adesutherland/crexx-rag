@@ -1708,6 +1708,12 @@ is wall-clock maintenance time, not an ordinary ingestion time-budget edit.
 Backups include the SQLite authority, manifest and every published vector
 sidecar needed by that pinned publication:
 
+The backup command reads a pinned SQLite snapshot through the online backup
+API. It writes a self-contained destination database; it does not copy the
+source `library.sqlite-wal` as a separate file. Do not use a raw copy of a live
+`library.sqlite` as a substitute: SQLite requires its matching WAL until a
+successful checkpoint or a consistent online backup has incorporated it.
+
 ```sh
 crexxrag --library ./library --access admin library backup \
   --output ./library-backup

@@ -10,6 +10,19 @@ maps these dependencies and qualification limits to the product backlog.
 These are current boundaries, accepted limitations and recorded repairs. Any
 source-level containment used by the product is stated explicitly.
 
+## SQLite provider close-result boundary — 7 October 2026
+
+The installed CREXX `rxsqlite` reference says `sqliteclose` closes the owned
+database handle and finalizes its statements. Inspection of the provider's
+`rxsqlite.c` shows `close_database_resource` calls `sqlite3_close_v2` without
+returning that C result; the public `sqliteclose` reports only handle lookup
+status. RAG therefore cannot prove SQLite close completion from that return
+alone. The product now checks checkpoint and actual journal-mode conversion
+before closing when it needs a stable published bundle. A generic provider
+close-result contract change belongs in CREXX; this repair does not modify the
+sibling checkout. A retained WAL after a concurrent reader close is not by
+itself a disconnected or corrupt WAL.
+
 ## Snapshot SDK packaging — 20 September 2026
 
 RAG-REL-001 currently builds and caches an installed SDK from the pinned CREXX

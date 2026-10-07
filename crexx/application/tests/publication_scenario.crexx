@@ -227,6 +227,25 @@ legacyfoldercase: procedure = .int
   ignored = closeragstore(store,error)
   return errors
 
+storageclosecase: procedure = .int
+  arg path = .string
+  errors = 0; error = ""; store = .ragstorehandle; reader = .ragreadsnapshot
+  errors = errors + check(initragstore(path,"library-close","snapshot-close","close","1","generic-profile","profile-hash","config-hash","{}",store,error) = 0,"initialize close fixture " || error)
+  if errors > 0 then return errors
+  errors = errors + check(beginreadsnapshot(path,reader,error) = 0,"pin close fixture reader " || error)
+  errors = errors + check(sqliteexec(store.database(),"CREATE TABLE close_probe(value INTEGER)") = 0,"commit after reader snapshot")
+  error = ""
+  close_status = closeragstore(store,error,1)
+  errors = errors + check(close_status \= 0 & pos("checkpoint",error) > 0 & store.open() = 0,"incomplete checkpoint is reported after releasing writer " || error)
+  concurrent = .ragstorehandle
+  errors = errors + check(openragstore(path,"readwrite",concurrent,error) = 0,"reopen writer while reader is pinned " || error)
+  if concurrent.open() = 1 then errors = errors + check(closeragstore(concurrent,error) = 0 & concurrent.open() = 0,"ordinary concurrent close releases handle with deferred WAL cleanup " || error)
+  errors = errors + check(closereadsnapshot(reader,error) = 0,"release close fixture reader " || error)
+  reopened = .ragstorehandle
+  errors = errors + check(openragstore(path,"readwrite",reopened,error) = 0,"reopen close fixture after reader release " || error)
+  if reopened.open() = 1 then errors = errors + check(closeragstore(reopened,error) = 0 & rxfs..isfile(path || "/library.sqlite-wal") = 0,"quiescent close checkpoints and removes WAL " || error)
+  return errors
+
 main: procedure = .int
   arg args = .string[]
   if args.0 = 2 then if args[2] = "heartbeat" then return heartbeatprobe(args[1])
@@ -250,6 +269,7 @@ main: procedure = .int
   errors = errors + check(scalar(reader.database(),"SELECT count(*) FROM concepts") = 0,"reader cannot see uncommitted writer prefix")
   backup = .ragbackupreport
   errors = errors + check(backupragstore(args[1],args[1] || "-during-writer",backup,error) = 0,"backup while writer owns mutation " || error)
+  errors = errors + check(rxfs..isfile(args[1] || "-during-writer/library.sqlite-wal") = 0,"published backup is a self-contained database")
   restored = .ragbackupreport
   errors = errors + check(restoreragstore(args[1] || "-during-writer",args[1] || "-restored",restored,error) = 0,"restore reader snapshot while writer remains active " || error)
   restored_view = .ragreadsnapshot
@@ -360,6 +380,7 @@ main: procedure = .int
   errors = errors + windowpublication(store,policy)
   errors = errors + check(closeragstore(store,error) = 0,"close fixture")
   errors = errors + legacyfoldercase(args[1] || "-legacy-folder")
+  errors = errors + storageclosecase(args[1] || "-storage-close")
   if errors > 0 then return 1
   say "PUBLICATION_OK ownership batch_atomicity paid_accounting rollback_failure cancellation"
   return 0

@@ -62,6 +62,17 @@ prompt/quotation, checkpoint/restart and advanced-call repairs remain included.
 
 ## Recent defects and delivery status
 
+7 October WAL-close repair: **145/145 required local cases qualified and
+per-user installed; hosted platform packaging pending**. The affected
+private library was recovered and verified; its original file set is retained
+outside this repository.
+`ragstore` now inspects checkpoint and actual journal-mode results, permits
+ordinary concurrent closes to defer WAL cleanup, and requires bounded stable
+conversion for published backup bundles and library initialization. The
+fail-first and positive close controls are in `publication`; the hosted release
+gate remains separate. [Change record](release-repair-20261007.md),
+[coverage](regression-coverage.md#7-october-wal-close-and-backup-repair).
+
 6 October bounded release repair: **145/145 local regression receipts passed;
 hosted platform packaging is a separate release gate; no corpus reset was
 requested**. Bulk task reset
